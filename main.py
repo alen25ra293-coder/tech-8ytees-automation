@@ -1,8 +1,8 @@
 import os, requests
 from datetime import date
-import anthropic
+import google.generativeai as genai
 from elevenlabs.client import ElevenLabs
-from elevenlabs import VoiceSettings
+from gtts import gTTS
 from moviepy.editor import *
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -11,8 +11,7 @@ from google.oauth2.credentials import Credentials
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-ANTHROPIC_KEY  = os.environ["ANTHROPIC_API_KEY"]
-ELEVENLABS_KEY = os.environ["ELEVENLABS_API_KEY"]
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 PEXELS_KEY     = os.environ["PEXELS_API_KEY"]
 
 GADGET_TOPICS = [
@@ -183,17 +182,14 @@ def get_todays_topic():
     return topic
 
 # ─────────────────────────────────────────────
-# STEP 2 — Generate script with Claude AI
+# STEP 2 — Generate script with Gemini AI
 # ─────────────────────────────────────────────
 def generate_script(topic):
-    print("🤖 Generating script with Claude...")
-    client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-    msg = client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=800,
-        messages=[{
-            "role": "user",
-            "content": f"""
+    print("🤖 Generating script with Gemini...")
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    
+    response = model.generate_content(f"""
 You are a viral YouTube Shorts scriptwriter for a tech channel called "Tech 8ytees".
 
 Write a punchy 60-second script about: "{topic}"
@@ -209,10 +205,8 @@ Rules:
 - Simple words, fast pace, energetic tone
 - End with "Link in bio to grab it!"
 - Sound like a real human reviewer
-"""
-        }]
-    )
-    return msg.content[0].text
+""")
+    return response.text
 
 # ─────────────────────────────────────────────
 # STEP 3 — Parse Claude's response
@@ -242,26 +236,29 @@ def parse_script(raw):
     return data
 
 # ─────────────────────────────────────────────
-# STEP 4 — Generate voiceover with ElevenLabs
+# STEP 4 — Generate voiceover (ElevenLabs + gTTS fallback)
 # ─────────────────────────────────────────────
 def generate_voiceover(script_text):
-    print("🎙️ Generating voiceover...")
-    client = ElevenLabs(api_key=ELEVENLABS_KEY)
-    audio_gen = client.generate(
-        text=script_text,
-        voice="Josh",
-        model="eleven_monolingual_v1",
-        voice_settings=VoiceSettings(
-            stability=0.4,
-            similarity_boost=0.8,
-            style=0.6,
-            use_speaker_boost=True
+    # Try ElevenLabs first (better quality)
+    try:
+        print("🎙️ Trying ElevenLabs...")
+        client = ElevenLabs(api_key=os.environ["ELEVENLABS_API_KEY"])
+        audio_gen = client.generate(
+            text=script_text,
+            voice="Josh",
+            model="eleven_monolingual_v1"
         )
-    )
-    with open("voiceover.mp3", "wb") as f:
-        for chunk in audio_gen:
-            f.write(chunk)
-    print("✅ Voiceover saved")
+        with open("voiceover.mp3", "wb") as f:
+            for chunk in audio_gen:
+                f.write(chunk)
+        print("✅ ElevenLabs voiceover done")
+
+    # If ElevenLabs fails or runs out, use gTTS for free
+    except Exception as e:
+        print(f"⚠️ ElevenLabs failed ({e}), using free gTTS...")
+        tts = gTTS(text=script_text, lang='en', slow=False)
+        tts.save("voiceover.mp3")
+        print("✅ gTTS voiceover done")
 
 # ─────────────────────────────────────────────
 # STEP 5 — Fetch background footage (Pexels)
