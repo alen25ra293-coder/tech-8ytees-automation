@@ -187,7 +187,7 @@ def get_todays_topic():
 def generate_script(topic):
     print("🤖 Generating script with Gemini...")
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-3.1-pro-preview")
     
     response = model.generate_content(f"""
 You are a viral YouTube Shorts scriptwriter for a tech channel called "Tech 8ytees".
