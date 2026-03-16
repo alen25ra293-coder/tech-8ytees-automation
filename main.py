@@ -2,20 +2,22 @@ import os, requests
 from datetime import date
 import google.generativeai as genai
 from elevenlabs.client import ElevenLabs
-from gtts import gTTS
+from elevenlabs import VoiceSettings
 from moviepy.editor import *
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
+import io, textwrap
 
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+GEMINI_KEY     = os.environ["GEMINI_API_KEY"]
+ELEVENLABS_KEY = os.environ["ELEVENLABS_API_KEY"]
 PEXELS_KEY     = os.environ["PEXELS_API_KEY"]
 
 GADGET_TOPICS = [
-
     # ── GADGET REVIEWS & COMPARISONS ──────────────────
     "budget smartphone vs flagship 2026",
     "best wireless earbuds under $50 2026",
@@ -51,7 +53,6 @@ GADGET_TOPICS = [
     "best portable SSD comparison 2026",
     "best drawing tablet for beginners 2026",
     "best smart speaker Amazon Echo vs Google Nest 2026",
-    "best electric toothbrush tech comparison 2026",
     "best budget 4K monitor 2026",
     "best mesh wifi router 2026",
     "best action camera GoPro vs DJI 2026",
@@ -93,7 +94,6 @@ GADGET_TOPICS = [
     "AI tools for social media automation 2026",
     "how to build AI apps with no code 2026",
     "best AI note taking apps 2026",
-    "AI detector tools do they actually work 2026",
     "top AI search engines replacing Google 2026",
     "best AI video editing tools 2026",
     "how to use AI to build a website for free 2026",
@@ -102,22 +102,13 @@ GADGET_TOPICS = [
     "best AI chatbots comparison 2026",
     "AI tools for freelancers to earn more 2026",
     "best AI translation tools 2026",
-    "how to use AI for SEO 2026",
     "best AI tools for video thumbnails 2026",
-    "AI tools for teachers and educators 2026",
     "best AI resume builders 2026",
     "how to automate your business with AI 2026",
-    "best AI interior design tools 2026",
-    "AI tools for podcast creation 2026",
+    "best AI meeting summarizers 2026",
     "best AI logo makers 2026",
     "how to use Copilot AI in Windows 2026",
     "best AI email writers 2026",
-    "AI tools for data analysis 2026",
-    "best AI meeting summarizers 2026",
-    "AI tools for Instagram content creation 2026",
-    "best AI code review tools 2026",
-    "how to use AI to learn any skill faster 2026",
-    "best AI customer support tools 2026",
     "AI tools every entrepreneur should use 2026",
 
     # ── TECH TIPS & TRICKS ────────────────────────────
@@ -141,11 +132,6 @@ GADGET_TOPICS = [
     "best Linux distro for beginners 2026",
     "how to remove bloatware from Windows 2026",
     "best free video editing software 2026",
-    "how to set up a home server 2026",
-    "best free photo editing software 2026",
-    "how to recover deleted files for free 2026",
-    "best screen recording software 2026",
-    "how to use Google Drive like a pro 2026",
 
     # ── SMARTPHONE TIPS ───────────────────────────────
     "hidden Android features you never knew existed 2026",
@@ -154,7 +140,6 @@ GADGET_TOPICS = [
     "best Android apps you should install 2026",
     "best iPhone apps you are missing out on 2026",
     "how to transfer data to new phone 2026",
-    "best phone cases that actually protect 2026",
     "how to fix a slow Android phone 2026",
     "best Google Pixel tips and tricks 2026",
     "Samsung Galaxy hidden features 2026",
@@ -164,16 +149,14 @@ GADGET_TOPICS = [
     "best gaming laptop under $1000 2026",
     "PC gaming vs console gaming 2026",
     "best budget gaming PC build 2026",
-    "Nintendo Switch best accessories 2026",
     "best cloud gaming services 2026",
     "how to improve FPS in any PC game 2026",
-    "best gaming router for low latency 2026",
     "Steam Deck worth buying 2026",
     "best free PC games you should play 2026",
 ]
 
 # ─────────────────────────────────────────────
-# STEP 1 — Pick today's topic (rotates daily)
+# STEP 1 — Pick today's topic
 # ─────────────────────────────────────────────
 def get_todays_topic():
     index = date.today().toordinal() % len(GADGET_TOPICS)
@@ -182,26 +165,27 @@ def get_todays_topic():
     return topic
 
 # ─────────────────────────────────────────────
-# STEP 2 — Generate script with Gemini AI
+# STEP 2 — Generate script with Gemini
 # ─────────────────────────────────────────────
 def generate_script(topic):
     print("🤖 Generating script with Gemini...")
-    genai.configure(api_key=GEMINI_API_KEY)
+    genai.configure(api_key=GEMINI_KEY)
     model = genai.GenerativeModel("gemini-2.5-flash")
-    
+
     response = model.generate_content(f"""
 You are a viral YouTube Shorts scriptwriter for a tech channel called "Tech 8ytees".
 
 Write a punchy 60-second script about: "{topic}"
 
 Format EXACTLY like this (no extra text):
-TITLE: [Catchy title under 60 chars]
+TITLE: [Catchy title under 60 chars, SEO optimized]
 SCRIPT: [Full 60-second spoken script only, no stage directions]
 TAGS: [10 tags separated by commas]
 DESCRIPTION: [2 sentences with call to action]
+THUMBNAIL_TEXT: [3-5 words max, big bold text for thumbnail, eye catching]
 
 Rules:
-- Hook in first 3 seconds (shocking or surprising opener)
+- Hook in first 3 seconds
 - Simple words, fast pace, energetic tone
 - End with "Link in bio to grab it!"
 - Sound like a real human reviewer
@@ -209,10 +193,16 @@ Rules:
     return response.text
 
 # ─────────────────────────────────────────────
-# STEP 3 — Parse Claude's response
+# STEP 3 — Parse Gemini's response
 # ─────────────────────────────────────────────
 def parse_script(raw):
-    data = {"title": "", "script": "", "tags": "", "description": ""}
+    data = {
+        "title": "",
+        "script": "",
+        "tags": "",
+        "description": "",
+        "thumbnail_text": ""
+    }
     current_key = None
     buffer = []
 
@@ -232,36 +222,47 @@ def parse_script(raw):
     if current_key:
         data[current_key] = " ".join(buffer).strip()
 
+    # Fallback thumbnail text
+    if not data["thumbnail_text"]:
+        data["thumbnail_text"] = data["title"][:30]
+
     print(f"✅ Script parsed — Title: {data['title']}")
     return data
 
 # ─────────────────────────────────────────────
-# STEP 4 — Generate voiceover (ElevenLabs + gTTS fallback)
+# STEP 4 — Generate voiceover
 # ─────────────────────────────────────────────
 def generate_voiceover(script_text):
     # Try ElevenLabs first (better quality)
     try:
         print("🎙️ Trying ElevenLabs...")
-        client = ElevenLabs(api_key=os.environ["ELEVENLABS_API_KEY"])
+        client = ElevenLabs(api_key=ELEVENLABS_KEY)
         audio_gen = client.generate(
             text=script_text,
             voice="Josh",
-            model="eleven_monolingual_v1"
+            model="eleven_monolingual_v1",
+            voice_settings=VoiceSettings(
+                stability=0.4,
+                similarity_boost=0.8,
+                style=0.6,
+                use_speaker_boost=True
+            )
         )
         with open("voiceover.mp3", "wb") as f:
             for chunk in audio_gen:
                 f.write(chunk)
         print("✅ ElevenLabs voiceover done")
 
-    # If ElevenLabs fails or runs out, use gTTS for free
+    # Fallback to gTTS (free, unlimited)
     except Exception as e:
-        print(f"⚠️ ElevenLabs failed ({e}), using free gTTS...")
+        print(f"⚠️ ElevenLabs failed ({e}), using gTTS...")
+        from gtts import gTTS
         tts = gTTS(text=script_text, lang='en', slow=False)
         tts.save("voiceover.mp3")
         print("✅ gTTS voiceover done")
 
 # ─────────────────────────────────────────────
-# STEP 5 — Fetch background footage (Pexels)
+# STEP 5 — Fetch background footage
 # ─────────────────────────────────────────────
 def fetch_background(topic):
     print("🎬 Fetching background footage...")
@@ -280,14 +281,111 @@ def fetch_background(topic):
                 print("✅ Background video downloaded")
                 return True
 
-    print("⚠️  No footage found, using dark background")
+    print("⚠️ No footage found, using dark background")
     return False
 
 # ─────────────────────────────────────────────
-# STEP 6 — Assemble the Short video
+# STEP 6 — Fetch thumbnail image from Pexels
+# ─────────────────────────────────────────────
+def fetch_thumbnail_image(topic):
+    print("🖼️ Fetching thumbnail image...")
+    query = topic.split("vs")[0].strip()
+    headers = {"Authorization": PEXELS_KEY}
+    params  = {"query": query, "per_page": 3, "orientation": "landscape"}
+    r = requests.get("https://api.pexels.com/v1/search",
+                     headers=headers, params=params)
+
+    photos = r.json().get("photos", [])
+    if photos:
+        img_url = photos[0]["src"]["large"]
+        img_data = requests.get(img_url).content
+        img = Image.open(io.BytesIO(img_data)).convert("RGBA")
+        print("✅ Thumbnail image fetched")
+        return img
+
+    print("⚠️ No image found, using solid background")
+    return None
+
+# ─────────────────────────────────────────────
+# STEP 7 — Generate thumbnail (1280x720)
+# ─────────────────────────────────────────────
+def create_thumbnail(title, thumbnail_text, topic):
+    print("🎨 Creating thumbnail...")
+
+    W, H = 1280, 720
+    thumb = Image.new("RGBA", (W, H), (10, 10, 20, 255))
+
+    # ── Background image ──
+    bg_img = fetch_thumbnail_image(topic)
+    if bg_img:
+        bg_img = bg_img.resize((W, H))
+        # Darken it so text pops
+        dark = Image.new("RGBA", (W, H), (0, 0, 0, 160))
+        thumb = Image.alpha_composite(bg_img.convert("RGBA"), dark)
+
+    draw = ImageDraw.Draw(thumb)
+
+    # ── Gradient overlay on left side ──
+    for x in range(W // 2):
+        alpha = int(180 * (1 - x / (W // 2)))
+        draw.line([(x, 0), (x, H)], fill=(10, 10, 20, alpha))
+
+    # ── Channel name badge (top left) ──
+    badge_x, badge_y = 40, 40
+    draw.rounded_rectangle(
+        [badge_x, badge_y, badge_x + 260, badge_y + 52],
+        radius=26,
+        fill=(255, 200, 0, 255)
+    )
+    try:
+        badge_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 26)
+    except:
+        badge_font = ImageFont.load_default()
+    draw.text((badge_x + 20, badge_y + 12), "⚡ Tech 8ytees", font=badge_font, fill=(10, 10, 20))
+
+    # ── Big thumbnail text (center left) ──
+    try:
+        big_font   = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 96)
+        small_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 38)
+        tiny_font  = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 28)
+    except:
+        big_font = small_font = tiny_font = ImageFont.load_default()
+
+    # Main big text (2 lines max)
+    words   = thumbnail_text.upper().split()
+    line1   = " ".join(words[:len(words)//2]) if len(words) > 2 else thumbnail_text.upper()
+    line2   = " ".join(words[len(words)//2:]) if len(words) > 2 else ""
+
+    # Shadow effect
+    shadow_offset = 4
+    draw.text((84, 254), line1, font=big_font, fill=(0, 0, 0, 180))
+    draw.text((80, 250), line1, font=big_font, fill=(255, 220, 0))
+    if line2:
+        draw.text((84, 354), line2, font=big_font, fill=(0, 0, 0, 180))
+        draw.text((80, 350), line2, font=big_font, fill=(255, 255, 255))
+
+    # ── Subtitle (title) ──
+    wrapped = textwrap.fill(title, width=35)
+    lines   = wrapped.split("\n")[:2]
+    y_start = 490 if line2 else 390
+    for i, line in enumerate(lines):
+        draw.text((82, y_start + 2 + i * 46), line, font=small_font, fill=(0, 0, 0, 160))
+        draw.text((80, y_start + i * 46),      line, font=small_font, fill=(220, 220, 220))
+
+    # ── Bottom bar ──
+    draw.rectangle([(0, H - 60), (W, H)], fill=(255, 200, 0, 220))
+    draw.text((40, H - 46), "WATCH NOW  →  Tech 8ytees", font=tiny_font, fill=(10, 10, 20))
+
+    # ── Save ──
+    thumb_rgb = thumb.convert("RGB")
+    thumb_rgb.save("thumbnail.jpg", "JPEG", quality=95)
+    print("✅ Thumbnail saved: thumbnail.jpg")
+
+# ─────────────────────────────────────────────
+# STEP 8 — Assemble the Short video
 # ─────────────────────────────────────────────
 def create_video(title, has_video):
-    print("🎞️  Assembling video...")
+    print("🎞️ Assembling video...")
     audio    = AudioFileClip("voiceover.mp3")
     duration = audio.duration
 
@@ -296,22 +394,19 @@ def create_video(title, has_video):
     else:
         bg = ColorClip(size=(1080, 1920), color=(10, 10, 25), duration=duration)
 
-    # Dark overlay so text is readable
     overlay = (ColorClip(size=(1080, 1920), color=(0, 0, 0), duration=duration)
                .set_opacity(0.5))
 
-    # Channel watermark
-    watermark = (TextClip("Tech 8ytees ⚡", fontsize=34, color="white", font="Arial-Bold")
+    watermark = (TextClip("Tech 8ytees ⚡", fontsize=34, color="white", font="Liberation-Sans-Bold")
                  .set_position(("center", 80))
                  .set_duration(duration)
-                 .set_opacity(0.85))
+                 .set_opacity(0.9))
 
-    # Title at bottom
     short_title = title[:55] + "..." if len(title) > 55 else title
-    title_clip = (TextClip(short_title, fontsize=46, color="white",
-                           font="Arial-Bold", size=(980, None), method="caption")
-                  .set_position(("center", 1600))
-                  .set_duration(duration))
+    title_clip  = (TextClip(short_title, fontsize=46, color="white",
+                            font="Liberation-Sans-Bold", size=(980, None), method="caption")
+                   .set_position(("center", 1600))
+                   .set_duration(duration))
 
     final = CompositeVideoClip([bg, overlay, watermark, title_clip])
     final = final.set_audio(audio)
@@ -320,7 +415,7 @@ def create_video(title, has_video):
     print("✅ Video ready: output.mp4")
 
 # ─────────────────────────────────────────────
-# STEP 7 — Upload to YouTube
+# STEP 9 — Upload to YouTube with thumbnail
 # ─────────────────────────────────────────────
 def upload_to_youtube(title, description, tags):
     print("📤 Uploading to YouTube...")
@@ -340,6 +435,7 @@ def upload_to_youtube(title, description, tags):
         }
     }
 
+    # Upload video
     req = youtube.videos().insert(
         part="snippet,status",
         body=body,
@@ -353,10 +449,25 @@ def upload_to_youtube(title, description, tags):
         if status:
             print(f"   Upload: {int(status.progress() * 100)}%")
 
-    print(f"✅ Live at: https://youtube.com/shorts/{response['id']}")
+    video_id = response["id"]
+    print(f"✅ Video uploaded: https://youtube.com/shorts/{video_id}")
+
+    # Upload custom thumbnail
+    try:
+        print("🖼️ Uploading thumbnail...")
+        youtube.thumbnails().set(
+            videoId=video_id,
+            media_body=MediaFileUpload("thumbnail.jpg", mimetype="image/jpeg")
+        ).execute()
+        print("✅ Thumbnail uploaded!")
+    except Exception as e:
+        print(f"⚠️ Thumbnail upload failed: {e}")
+        print("   (Enable thumbnail uploads in YouTube Studio settings)")
+
+    return video_id
 
 # ─────────────────────────────────────────────
-# MAIN — Runs everything in order
+# MAIN
 # ─────────────────────────────────────────────
 if __name__ == "__main__":
     print(f"\n🚀 Tech 8ytees Automation — {date.today()}\n{'─'*45}")
@@ -364,10 +475,45 @@ if __name__ == "__main__":
     topic     = get_todays_topic()
     raw       = generate_script(topic)
     parsed    = parse_script(raw)
-    
+
     generate_voiceover(parsed["script"])
     has_video = fetch_background(topic)
+    create_thumbnail(parsed["title"], parsed["thumbnail_text"], topic)
     create_video(parsed["title"], has_video)
     upload_to_youtube(parsed["title"], parsed["description"], parsed["tags"])
 
-    print(f"\n{'─'*45}\n🎉 Done! Video posted to Tech 8ytees!\n")
+    print(f"\n{'─'*45}\n🎉 Done! Video + Thumbnail posted to Tech 8ytees!\n")
+```
+
+---
+
+Also update `requirements.txt` to add gTTS:
+```
+google-generativeai==0.8.3
+httpx==0.27.2
+elevenlabs==1.0.3
+gTTS==2.5.1
+moviepy==1.0.3
+google-api-python-client==2.118.0
+google-auth-httplib2==0.2.0
+google-auth-oauthlib==1.2.0
+requests==2.31.0
+python-dotenv==1.0.1
+Pillow==10.2.0
+```
+
+---
+
+## What the Thumbnail Looks Like
+```
+┌─────────────────────────────────┐
+│ ⚡ Tech 8ytees  [yellow badge]  │
+│                                 │
+│  BEST                           │
+│  EARBUDS     [gadget photo bg]  │
+│                                 │
+│  Best Wireless Earbuds          │
+│  Under $50 2026                 │
+│                                 │
+│ WATCH NOW → Tech 8ytees         │
+└─────────────────────────────────┘
