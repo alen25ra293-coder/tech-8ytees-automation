@@ -16,20 +16,20 @@ ELEVENLABS_KEY = os.environ["ELEVENLABS_API_KEY"]
 PEXELS_KEY     = os.environ["PEXELS_API_KEY"]
 
 GADGET_TOPICS = [
-    "budget smartphone vs flagship 2025",
+    "budget smartphone vs flagship 2026",
     "best wireless earbuds under $50",
-    "smartwatch Apple vs Samsung 2025",
+    "smartwatch Apple vs Samsung 2026",
     "best budget laptop 2025",
     "USB-C hub you didn't know you needed",
-    "robot vacuum comparison 2025",
+    "robot vacuum comparison 2026",
     "best mechanical keyboard under $100",
     "portable charger power bank comparison",
-    "smart home gadget worth buying 2025",
-    "gaming mouse comparison 2025",
-    "best webcam for streaming 2025",
+    "smart home gadget worth buying 2026",
+    "gaming mouse comparison 2026",
+    "best webcam for streaming 2026",
     "noise cancelling headphones budget vs premium",
     "hidden iPhone features nobody talks about",
-    "best standing desk gadgets 2025",
+    "best standing desk gadgets 2026",
     "coolest tech gadgets under $30",
 ]
 
