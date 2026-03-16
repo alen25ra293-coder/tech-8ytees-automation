@@ -256,7 +256,6 @@ def generate_voiceover(script_text):
     # Fallback to gTTS (free, unlimited)
     except Exception as e:
         print(f"⚠️ ElevenLabs failed ({e}), using gTTS...")
-        from gtts import gTTS
         tts = gTTS(text=script_text, lang='en', slow=False)
         tts.save("voiceover.mp3")
         print("✅ gTTS voiceover done")
@@ -345,11 +344,19 @@ def create_thumbnail(title, thumbnail_text, topic):
 
     # ── Big thumbnail text (center left) ──
     try:
-        big_font   = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 96)
-        small_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 38)
-        tiny_font  = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 28)
+        # Try system fonts first
+        big_font   = ImageFont.truetype("LiberationSans-Bold.ttf", 96)
+        small_font = ImageFont.truetype("LiberationSans-Bold.ttf", 38)
+        tiny_font  = ImageFont.truetype("LiberationSans-Regular.ttf", 28)
     except:
-        big_font = small_font = tiny_font = ImageFont.load_default()
+        try:
+            # Fallback to Arial
+            big_font   = ImageFont.truetype("arial.ttf", 96)
+            small_font = ImageFont.truetype("arial.ttf", 38)
+            tiny_font  = ImageFont.truetype("arial.ttf", 28)
+        except:
+            # Ultimate fallback
+            big_font = small_font = tiny_font = ImageFont.load_default()
 
     # Main big text (2 lines max)
     words   = thumbnail_text.upper().split()
@@ -388,55 +395,71 @@ def create_video(title, has_video):
     print("🎞️ Assembling video with FFmpeg...")
     import subprocess
 
-    # Get audio duration
-    result = subprocess.run([
-        "ffprobe", "-v", "error",
-        "-show_entries", "format=duration",
-        "-of", "default=noprint_wrappers=1:nokey=1",
-        "voiceover.mp3"
-    ], capture_output=True, text=True)
-    duration = float(result.stdout.strip())
+    try:
+        # Get audio duration
+        result = subprocess.run([
+            "ffprobe", "-v", "error",
+            "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1",
+            "voiceover.mp3"
+        ], capture_output=True, text=True, timeout=10)
+        
+        if result.returncode != 0:
+            print(f"⚠️ ffprobe error: {result.stderr}")
+            return
+            
+        duration = float(result.stdout.strip())
 
-    if has_video:
-        # Use background video + audio + text overlay
-        cmd = [
-            "ffmpeg", "-y",
-            "-i", "bg_video.mp4",
-            "-i", "voiceover.mp3",
-            "-filter_complex",
-            f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,"
-            f"crop=1080:1920,setsar=1,"
-            f"drawtext=text='Tech 8ytees':fontsize=34:fontcolor=white:x=(w-text_w)/2:y=80:alpha=0.9,"
-            f"drawtext=text='{title[:50].replace(chr(39), '')}':fontsize=42:fontcolor=white:"
-            f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10[v]",
-            "-map", "[v]",
-            "-map", "1:a",
-            "-t", str(duration),
-            "-c:v", "libx264",
-            "-c:a", "aac",
-            "-shortest",
-            "output.mp4"
-        ]
-    else:
-        # Dark background + audio + text overlay
-        cmd = [
-            "ffmpeg", "-y",
-            "-f", "lavfi", "-i", f"color=c=0x0A0A19:size=1080x1920:duration={duration}",
-            "-i", "voiceover.mp3",
-            "-filter_complex",
-            f"[0:v]drawtext=text='Tech 8ytees':fontsize=34:fontcolor=white:x=(w-text_w)/2:y=80:alpha=0.9,"
-            f"drawtext=text='{title[:50].replace(chr(39), '')}':fontsize=42:fontcolor=white:"
-            f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10[v]",
-            "-map", "[v]",
-            "-map", "1:a",
-            "-c:v", "libx264",
-            "-c:a", "aac",
-            "-shortest",
-            "output.mp4"
-        ]
+        if has_video:
+            # Use background video + audio + text overlay
+            cmd = [
+                "ffmpeg", "-y",
+                "-i", "bg_video.mp4",
+                "-i", "voiceover.mp3",
+                "-filter_complex",
+                f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,"
+                f"crop=1080:1920,setsar=1,"
+                f"drawtext=text='Tech 8ytees':fontsize=34:fontcolor=white:x=(w-text_w)/2:y=80:alpha=0.9,"
+                f"drawtext=text='{title[:50].replace(chr(39), '')}':fontsize=42:fontcolor=white:"
+                f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10[v]",
+                "-map", "[v]",
+                "-map", "1:a",
+                "-t", str(duration),
+                "-c:v", "libx264",
+                "-c:a", "aac",
+                "-shortest",
+                "output.mp4"
+            ]
+        else:
+            # Dark background + audio + text overlay
+            cmd = [
+                "ffmpeg", "-y",
+                "-f", "lavfi", "-i", f"color=c=0x0A0A19:size=1080x1920:duration={duration}",
+                "-i", "voiceover.mp3",
+                "-filter_complex",
+                f"[0:v]drawtext=text='Tech 8ytees':fontsize=34:fontcolor=white:x=(w-text_w)/2:y=80:alpha=0.9,"
+                f"drawtext=text='{title[:50].replace(chr(39), '')}':fontsize=42:fontcolor=white:"
+                f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10[v]",
+                "-map", "[v]",
+                "-map", "1:a",
+                "-c:v", "libx264",
+                "-c:a", "aac",
+                "-shortest",
+                "output.mp4"
+            ]
 
-    subprocess.run(cmd, check=True)
-    print("✅ Video ready: output.mp4")
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        
+        if result.returncode != 0:
+            print(f"⚠️ FFmpeg error: {result.stderr}")
+            return
+            
+        print("✅ Video ready: output.mp4")
+        
+    except subprocess.TimeoutExpired:
+        print("❌ Video assembly timed out")
+    except Exception as e:
+        print(f"❌ Video assembly failed: {e}")
 
 # ─────────────────────────────────────────────
 # STEP 9 — Upload to YouTube with thumbnail
