@@ -483,37 +483,3 @@ if __name__ == "__main__":
     upload_to_youtube(parsed["title"], parsed["description"], parsed["tags"])
 
     print(f"\n{'─'*45}\n🎉 Done! Video + Thumbnail posted to Tech 8ytees!\n")
-```
-
----
-
-Also update `requirements.txt` to add gTTS:
-```
-google-generativeai==0.8.3
-httpx==0.27.2
-elevenlabs==1.0.3
-gTTS==2.5.1
-moviepy==1.0.3
-google-api-python-client==2.118.0
-google-auth-httplib2==0.2.0
-google-auth-oauthlib==1.2.0
-requests==2.31.0
-python-dotenv==1.0.1
-Pillow==10.2.0
-```
-
----
-
-## What the Thumbnail Looks Like
-```
-┌─────────────────────────────────┐
-│ ⚡ Tech 8ytees  [yellow badge]  │
-│                                 │
-│  BEST                           │
-│  EARBUDS     [gadget photo bg]  │
-│                                 │
-│  Best Wireless Earbuds          │
-│  Under $50 2026                 │
-│                                 │
-│ WATCH NOW → Tech 8ytees         │
-└─────────────────────────────────┘
