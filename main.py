@@ -3,6 +3,7 @@ from datetime import date
 import google.generativeai as genai
 from elevenlabs.client import ElevenLabs
 from elevenlabs import VoiceSettings
+from gtts import gTTS
 from moviepy.editor import *
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -338,7 +339,7 @@ def create_thumbnail(title, thumbnail_text, topic):
         fill=(255, 200, 0, 255)
     )
     try:
-        badge_font = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 26)
+        badge_font = ImageFont.truetype("arial.ttf", 26)
     except:
         badge_font = ImageFont.load_default()
     draw.text((badge_x + 20, badge_y + 12), "⚡ Tech 8ytees", font=badge_font, fill=(10, 10, 20))
