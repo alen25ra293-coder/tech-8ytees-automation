@@ -1,3 +1,7 @@
+import PIL
+if not hasattr(PIL.Image, 'ANTIALIAS'):
+    PIL.Image.ANTIALIAS = PIL.Image.LANCZOS
+
 import os, requests
 from datetime import date
 import google.generativeai as genai
