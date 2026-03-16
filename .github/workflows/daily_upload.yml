@@ -1,0 +1,43 @@
+name: Tech 8ytees Daily Upload
+
+on:
+  schedule:
+    - cron: '0 9 * * *'   # Every day at 9:00 AM UTC (2:30 PM IST)
+  workflow_dispatch:        # Manual trigger button in GitHub
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🐍 Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 📦 Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg fonts-liberation imagemagick
+
+      - name: 📦 Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: 🔑 Write YouTube token
+        run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
+
+      - name: 🚀 Run automation
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
+        run: python main.py
+
+      - name: 🧹 Clean up video files
+        if: always()
+        run: rm -f output.mp4 voiceover.mp3 bg_video.mp4 token.json

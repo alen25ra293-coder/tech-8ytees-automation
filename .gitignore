@@ -1,0 +1,14 @@
+# Secret files - NEVER upload these
+.env
+token.json
+client_secret.json
+*.mp4
+*.mp3
+voiceover.mp3
+bg_video.mp4
+temp_audio.m4a
+
+# Python
+__pycache__/
+*.pyc
+.venv/
