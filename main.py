@@ -420,9 +420,11 @@ def create_video(title, has_video):
             return
             
         duration = float(result.stdout.strip())
+        # Add 4 seconds for subscribe CTA at the end
+        video_duration = duration + 4
 
         if has_video:
-            # Use background video + audio + text overlay
+            # Use background video + audio + text overlay + animated subscribe CTA
             cmd = [
                 "ffmpeg", "-y",
                 "-i", "bg_video.mp4",
@@ -432,25 +434,29 @@ def create_video(title, has_video):
                 f"crop=1080:1920,setsar=1,"
                 f"drawtext=text='Tech 8ytees':fontsize=34:fontcolor=white:x=(w-text_w)/2:y=80:alpha=0.9,"
                 f"drawtext=text='{title[:50].replace(chr(39), '')}':fontsize=42:fontcolor=white:"
-                f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10[v]",
+                f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10,"
+                f"drawtext=text='SUBSCRIBE NOW →':fontsize=72:fontcolor=yellow:x=(w-text_w)/2:y=(h-300):"
+                f"start_time={duration}:end_time={video_duration}:box=1:boxcolor=red@0.8:boxborderw=20[v]",
                 "-map", "[v]",
                 "-map", "1:a",
-                "-t", str(duration),
+                "-t", str(video_duration),
                 "-c:v", "libx264",
                 "-c:a", "aac",
                 "-shortest",
                 "output.mp4"
             ]
         else:
-            # Dark background + audio + text overlay
+            # Dark background + audio + text overlay + animated subscribe CTA
             cmd = [
                 "ffmpeg", "-y",
-                "-f", "lavfi", "-i", f"color=c=0x0A0A19:size=1080x1920:duration={duration}",
+                "-f", "lavfi", "-i", f"color=c=0x0A0A19:size=1080x1920:duration={video_duration}",
                 "-i", "voiceover.mp3",
                 "-filter_complex",
                 f"[0:v]drawtext=text='Tech 8ytees':fontsize=34:fontcolor=white:x=(w-text_w)/2:y=80:alpha=0.9,"
                 f"drawtext=text='{title[:50].replace(chr(39), '')}':fontsize=42:fontcolor=white:"
-                f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10[v]",
+                f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10,"
+                f"drawtext=text='SUBSCRIBE NOW →':fontsize=72:fontcolor=yellow:x=(w-text_w)/2:y=(h-300):"
+                f"start_time={duration}:end_time={video_duration}:box=1:boxcolor=red@0.8:boxborderw=20[v]",
                 "-map", "[v]",
                 "-map", "1:a",
                 "-c:v", "libx264",
@@ -465,7 +471,7 @@ def create_video(title, has_video):
             print(f"⚠️ FFmpeg error: {result.stderr}")
             return
             
-        print("✅ Video ready: output.mp4")
+        print("✅ Video ready: output.mp4 (with subscribe CTA)")
         
     except subprocess.TimeoutExpired:
         print("❌ Video assembly timed out")
