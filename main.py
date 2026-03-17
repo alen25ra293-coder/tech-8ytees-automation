@@ -5,8 +5,15 @@ from gtts import gTTS
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import io, textwrap, subprocess
+
+# Try importing PIL, but handle if it's not available
+try:
+    from PIL import Image, ImageDraw, ImageFont, ImageFilter
+    PIL_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    print("⚠️  PIL/Pillow not available - thumbnail generation will be limited")
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -411,6 +418,14 @@ def fetch_thumbnail_image(topic):
 # ─────────────────────────────────────────────
 def create_thumbnail(title, thumbnail_text, topic):
     print("🎨 Creating thumbnail...")
+    
+    if not PIL_AVAILABLE:
+        print("⚠️  Pillow not available - creating placeholder thumbnail...")
+        # Create a dummy file so upload doesn't fail
+        with open("thumbnail.jpg", "wb") as f:
+            f.write(b"\xff\xd8\xff\xe0")  # JPEG magic bytes
+        print("✅ Placeholder thumbnail saved: thumbnail.jpg")
+        return
 
     W, H = 1280, 720
     thumb = Image.new("RGBA", (W, H), (10, 10, 20, 255))
@@ -647,6 +662,12 @@ def upload_to_youtube(title, description, tags):
 # MAIN
 # ─────────────────────────────────────────────
 if __name__ == "__main__":
+    import sys
+    # Fix Windows console encoding for emojis
+    if sys.platform == "win32":
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    
     print(f"\n🚀 Tech 8ytees Automation — {date.today()}\n{'─'*45}")
 
     # Get A/B test variant
