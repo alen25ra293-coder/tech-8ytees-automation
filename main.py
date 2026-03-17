@@ -19,8 +19,16 @@ except ImportError:
 # CONFIG
 # ─────────────────────────────────────────────
 # Support multiple Gemini API keys (comma-separated)
-GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_API_KEY", "").split(",") if k.strip()]
+# Try both GEMINI_API_KEYS (new) and GEMINI_API_KEY (old) for backward compatibility
+gemini_keys_env = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY", "")
+GEMINI_KEYS = [k.strip() for k in gemini_keys_env.split(",") if k.strip()]
 CURRENT_KEY_INDEX = 0  # Track which key we're using
+
+if GEMINI_KEYS:
+    print(f"✅ Loaded {len(GEMINI_KEYS)} Gemini API key(s)")
+else:
+    print("⚠️  WARNING: No Gemini API keys found in environment variables")
+    print("   Set GEMINI_API_KEYS or GEMINI_API_KEY environment variable")
 
 ELEVENLABS_KEY = os.environ.get("ELEVENLABS_API_KEY")
 PEXELS_KEY     = os.environ.get("PEXELS_API_KEY")
@@ -33,7 +41,6 @@ def get_next_gemini_key():
     """Rotate through available Gemini API keys"""
     global CURRENT_KEY_INDEX
     if not GEMINI_KEYS:
-        print("❌ No Gemini API keys configured")
         return None
     
     key = GEMINI_KEYS[CURRENT_KEY_INDEX]
@@ -236,8 +243,14 @@ def generate_script(topic, attempt=1):
     # Get the next API key to use
     api_key = get_next_gemini_key()
     if not api_key:
-        print("❌ No Gemini API keys available")
-        return ""
+        print("❌ No Gemini API keys available - using fallback template")
+        fallback_script = f"""TITLE: {topic[:40]}
+SCRIPT: Hey everyone! Today we're talking about {topic}. This is something everyone needs to know about in 2026. Whether you're a tech enthusiast or just looking for something new, you need to hear this. Let me break down everything. First, here's the thing - {topic} has evolved dramatically. The technology has gotten better, the options are more varied, and the prices are more competitive than ever before. Now here's the crazy part - most people don't realize how much has changed. The market used to be dominated by just a few players, but now there are dozens of solid options. Honestly, this is the best time to look at {topic}. You've got more choices than ever. The quality across the board has improved significantly. Whether you're on a budget or ready to spend premium prices, there's something for everyone. Get this - even the budget options now come with features that used to only be available in expensive products. So if you're thinking about getting into {topic}, now is the perfect time. There's never been a better selection. Check the link in bio for the full breakdown!
+
+TAGS: tech, gadgets, review, 2026, shorts, youtube, techy, comparison, buying guide, recommendations
+DESCRIPTION: Check out our latest tech review on {topic}. Which option are you leaning towards? Let us know in the comments and don't forget to subscribe!
+THUMBNAIL_TEXT: {topic[:25]}"""
+        return fallback_script
     
     try:
         genai.configure(api_key=api_key)
@@ -290,7 +303,7 @@ THUMBNAIL_TEXT: [3-5 words max]
             
             if word_count < 300:
                 print(f"⚠️ Script too short ({word_count} words), regenerating...")
-                return generate_script(topic)  # Regenerate if too short
+                return generate_script(topic, attempt + 1)
         
         return script_text
         
@@ -298,24 +311,16 @@ THUMBNAIL_TEXT: [3-5 words max]
         error_msg = str(e)
         # Check for quota error
         if "quota" in error_msg.lower() or "resource_exhausted" in error_msg.lower():
-            print(f"⚠️  Key {CURRENT_KEY_INDEX} quota exceeded, trying next key...")
+            print(f"⚠️  Key quota exceeded, trying next key...")
             if attempt < len(GEMINI_KEYS):
                 return generate_script(topic, attempt + 1)
             else:
                 print(f"❌ All {len(GEMINI_KEYS)} Gemini API keys exhausted")
-                print(f"⚠️  Waiting 15 seconds before retry...")
-                import time
-                time.sleep(15)
-                return generate_script(topic, 1)
+                print(f"⚠️  Using fallback template")
+                return fallback_script
         else:
             print(f"❌ Gemini API error: {error_msg[:100]}")
-            # Use a fallback script from examples if API fails
-            fallback_script = f"""TITLE: Amazing Tech Review: {topic[:40]}
-SCRIPT: Hey everyone! Today we're diving deep into {topic}. This is something everyone needs to know about in 2026. Let me break down everything you need to know about this topic...
-
-TAGS: tech, gadgets, review, 2026, shorts, youtube, techy, comparison, buying guide, unboxing
-DESCRIPTION: Check out our latest tech review on {topic}. Don't forget to subscribe!
-THUMBNAIL_TEXT: {topic[:20]}"""
+            # Use fallback script
             return fallback_script
 
 # ─────────────────────────────────────────────
@@ -387,6 +392,11 @@ def fetch_background_music(music_type="energetic"):
 # STEP 5 — Generate voiceover (ElevenLabs + gTTS fallback)
 # ─────────────────────────────────────────────
 def generate_voiceover(script_text, ab_variant=None):
+    # Validate script text first
+    if not script_text or len(script_text.strip()) < 10:
+        print("❌ No script text available, cannot generate voiceover")
+        return False
+    
     # Try ElevenLabs REST API (direct HTTP, more stable)
     if ELEVENLABS_KEY:
         try:
@@ -415,7 +425,7 @@ def generate_voiceover(script_text, ab_variant=None):
                 with open("voiceover.mp3", "wb") as f:
                     f.write(response.content)
                 print("✅ ElevenLabs voiceover done")
-                return
+                return True
             else:
                 print(f"⚠️ ElevenLabs API error ({response.status_code}), using gTTS...")
         except Exception as e:
@@ -427,8 +437,10 @@ def generate_voiceover(script_text, ab_variant=None):
         tts = gTTS(text=script_text, lang='en', slow=True)
         tts.save("voiceover.mp3")
         print("✅ gTTS voiceover done")
+        return True
     except Exception as e:
         print(f"❌ All TTS failed: {e}")
+        return False
 
 # ─────────────────────────────────────────────
 # STEP 5 — Fetch background footage (Pexels)
@@ -615,6 +627,11 @@ def create_subtitles(script_text, duration):
 def create_video(title, has_video):
     print("🎞️ Assembling video with FFmpeg...")
 
+    # Check if voiceover exists first
+    if not os.path.exists("voiceover.mp3"):
+        print("❌ Voiceover file not found - cannot create video")
+        return False
+
     try:
         # Get audio duration
         result = subprocess.run([
@@ -625,10 +642,15 @@ def create_video(title, has_video):
         ], capture_output=True, text=True, timeout=10)
         
         if result.returncode != 0:
-            print(f"⚠️ ffprobe error")
+            print(f"❌ ffprobe error: could not read audio file")
+            return False
+        
+        try:
+            duration = float(result.stdout.strip())
+        except ValueError:
+            print(f"❌ Could not parse audio duration: {result.stdout}")
             return False
             
-        duration = float(result.stdout.strip())
         video_duration = duration + 4  # +4s for subscribe CTA
 
         # Create subtitles
@@ -747,30 +769,44 @@ if __name__ == "__main__":
     
     print(f"\n🚀 Tech 8ytees Automation — {date.today()}\n{'─'*45}")
 
-    # Get A/B test variant
-    variant_key, ab_variant = get_ab_variant()
-    
-    topic     = get_todays_topic()
-    raw       = generate_script(topic)
-    parsed    = parse_script(raw)
-
-    generate_voiceover(parsed["script"], ab_variant)
-    has_video = fetch_background(topic)
-    fetch_background_music(ab_variant.get("music", "energetic"))
-    create_thumbnail(parsed["title"], parsed["thumbnail_text"], topic)
-    
-    # Create video and check if successful
-    video_created = create_video(parsed["title"], has_video)
-    
-    if video_created:
-        video_id = upload_to_youtube(parsed["title"], parsed["description"], parsed["tags"])
+    try:
+        # Get A/B test variant
+        variant_key, ab_variant = get_ab_variant()
         
-        # Log A/B test results
-        if video_id:
-            log_ab_test(video_id, variant_key, parsed["title"])
-    else:
-        video_id = None
-        print("❌ Video creation failed, skipping upload")
+        topic     = get_todays_topic()
+        raw       = generate_script(topic)
+        parsed    = parse_script(raw)
+
+        # Generate voiceover and check success
+        voiceover_ok = generate_voiceover(parsed["script"], ab_variant)
+        if not voiceover_ok:
+            print("❌ Voiceover generation failed, cannot continue")
+            print(f"\n{'─'*45}\n🎉 Done! Video + Thumbnail + Subtitles posted to Tech 8ytees!\n")
+            sys.exit(1)
+        
+        has_video = fetch_background(topic)
+        fetch_background_music(ab_variant.get("music", "energetic"))
+        create_thumbnail(parsed["title"], parsed["thumbnail_text"], topic)
+        
+        # Create video and check if successful
+        video_created = create_video(parsed["title"], has_video)
+        
+        if video_created:
+            video_id = upload_to_youtube(parsed["title"], parsed["description"], parsed["tags"])
+            
+            # Log A/B test results
+            if video_id:
+                log_ab_test(video_id, variant_key, parsed["title"])
+        else:
+            video_id = None
+            print("❌ Video creation failed, skipping upload")
     
-    print(f"\n{'─'*45}\n🎉 Done! Video + Thumbnail + Subtitles posted to Tech 8ytees!\n")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
+        video_id = None
+    
+    finally:
+        print(f"\n{'─'*45}\n🎉 Done! Video + Thumbnail + Subtitles posted to Tech 8ytees!\n")
     print(f"📊 A/B Test: {ab_variant['name']} | Video ID: {video_id}")
