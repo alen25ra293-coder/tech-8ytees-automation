@@ -2,8 +2,11 @@ name: Tech 8ytees Daily Upload
 
 on:
   schedule:
-    - cron: '0 9 * * *'   # Every day at 9:00 AM UTC (2:30 PM IST)
-    - cron: '0 15 * * *'  # Every day at 3:00 PM UTC (8:30 PM IST) - 2nd post
+    - cron: '0 0 * * *'   # Every day at 12:00 AM UTC (5:30 AM IST)
+    - cron: '0 6 * * *'   # Every day at 6:00 AM UTC (11:30 AM IST)
+    - cron: '0 12 * * *'  # Every day at 12:00 PM UTC (5:30 PM IST)
+    - cron: '0 18 * * *'  # Every day at 6:00 PM UTC (11:30 PM IST)
+    - cron: '0 22 * * *'  # Every day at 10:00 PM UTC (3:30 AM next day IST)
   workflow_dispatch:        # Manual trigger button in GitHub
 
 jobs:
@@ -13,7 +16,7 @@ jobs:
 
     steps:
       - name: ⬇️ Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: 🐍 Set up Python 3.11
         uses: actions/setup-python@v4
