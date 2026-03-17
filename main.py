@@ -33,6 +33,11 @@ else:
 ELEVENLABS_KEY = os.environ.get("ELEVENLABS_API_KEY")
 PEXELS_KEY     = os.environ.get("PEXELS_API_KEY")
 
+if ELEVENLABS_KEY:
+    print("✅ ElevenLabs API key configured")
+else:
+    print("⚠️  ElevenLabs API key not configured (will use gTTS fallback)")
+
 # Reddit API (no authentication needed for public data)
 REDDIT_CLIENT_ID = os.environ.get("REDDIT_CLIENT_ID", "")
 REDDIT_CLIENT_SECRET = os.environ.get("REDDIT_CLIENT_SECRET", "")
@@ -400,7 +405,7 @@ def generate_voiceover(script_text, ab_variant=None):
     # Try ElevenLabs REST API (direct HTTP, more stable)
     if ELEVENLABS_KEY:
         try:
-            print("🎙️ Trying ElevenLabs...")
+            print("🎙️ Trying ElevenLabs with male voice...")
             # Use REST API directly to avoid SDK validation errors
             headers = {
                 "xi-api-key": ELEVENLABS_KEY,
@@ -410,13 +415,13 @@ def generate_voiceover(script_text, ab_variant=None):
                 "text": script_text,
                 "model_id": "eleven_monolingual_v1",
                 "voice_settings": {
-                    "stability": 0.4,
-                    "similarity_boost": 0.8
+                    "stability": 0.5,
+                    "similarity_boost": 0.75
                 }
             }
-            # Use a numeric voice ID that's more reliable
-            # "Adam" is a common male voice (ID: pNInz6obpgDQGcFmaJgB)
-            voice_id = "pNInz6obpgDQGcFmaJgB"
+            # Male voice: "Chris" is a professional male voice (ID: iP3nJ0z0nHcGsiuNUniW)
+            # Other options: Adam (pNInz6obpgDQGcFmaJgB), Marcus (EXAVITQu4vr4xnSDxMaL)
+            voice_id = "iP3nJ0z0nHcGsiuNUniW"  # Chris - professional male voice
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             
             response = requests.post(url, json=payload, headers=headers, timeout=30)
@@ -424,19 +429,22 @@ def generate_voiceover(script_text, ab_variant=None):
             if response.status_code == 200:
                 with open("voiceover.mp3", "wb") as f:
                     f.write(response.content)
-                print("✅ ElevenLabs voiceover done")
+                print("✅ ElevenLabs voiceover done (male voice)")
                 return True
+            elif response.status_code == 401:
+                print(f"⚠️ ElevenLabs invalid API key, using gTTS...")
             else:
                 print(f"⚠️ ElevenLabs API error ({response.status_code}), using gTTS...")
         except Exception as e:
             print(f"⚠️ ElevenLabs failed ({str(e)[:60]}), using gTTS...")
 
-    # Fallback to gTTS (free, unlimited)
+    # Fallback to gTTS (free, unlimited) - FASTER speed
     try:
-        print("🎙️ Using gTTS (free)...")
-        tts = gTTS(text=script_text, lang='en', slow=True)
+        print("🎙️ Using gTTS (free, faster speed)...")
+        # slow=False makes it faster; slow=True was making it slow
+        tts = gTTS(text=script_text, lang='en', slow=False)
         tts.save("voiceover.mp3")
-        print("✅ gTTS voiceover done")
+        print("✅ gTTS voiceover done (faster speed)")
         return True
     except Exception as e:
         print(f"❌ All TTS failed: {e}")
