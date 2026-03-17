@@ -18,13 +18,27 @@ except ImportError:
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-GEMINI_KEY     = os.environ.get("GEMINI_API_KEY")
+# Support multiple Gemini API keys (comma-separated)
+GEMINI_KEYS = [k.strip() for k in os.environ.get("GEMINI_API_KEY", "").split(",") if k.strip()]
+CURRENT_KEY_INDEX = 0  # Track which key we're using
+
 ELEVENLABS_KEY = os.environ.get("ELEVENLABS_API_KEY")
 PEXELS_KEY     = os.environ.get("PEXELS_API_KEY")
 
 # Reddit API (no authentication needed for public data)
 REDDIT_CLIENT_ID = os.environ.get("REDDIT_CLIENT_ID", "")
 REDDIT_CLIENT_SECRET = os.environ.get("REDDIT_CLIENT_SECRET", "")
+
+def get_next_gemini_key():
+    """Rotate through available Gemini API keys"""
+    global CURRENT_KEY_INDEX
+    if not GEMINI_KEYS:
+        print("❌ No Gemini API keys configured")
+        return None
+    
+    key = GEMINI_KEYS[CURRENT_KEY_INDEX]
+    CURRENT_KEY_INDEX = (CURRENT_KEY_INDEX + 1) % len(GEMINI_KEYS)
+    return key
 
 # A/B Testing variants
 AB_TEST_VARIANTS = {
@@ -216,11 +230,17 @@ EXAMPLE_SCRIPTS = [
     }
 ]
 
-def generate_script(topic):
+def generate_script(topic, attempt=1):
     print("🤖 Generating script with Gemini (with few-shot examples)...")
     
+    # Get the next API key to use
+    api_key = get_next_gemini_key()
+    if not api_key:
+        print("❌ No Gemini API keys available")
+        return ""
+    
     try:
-        genai.configure(api_key=GEMINI_KEY)
+        genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-2.5-flash")
 
         # Build few-shot examples into the prompt
@@ -278,12 +298,15 @@ THUMBNAIL_TEXT: [3-5 words max]
         error_msg = str(e)
         # Check for quota error
         if "quota" in error_msg.lower() or "resource_exhausted" in error_msg.lower():
-            print(f"❌ Gemini quota exceeded - Free tier limit reached")
-            print(f"⚠️  Waiting 15 seconds before retry...")
-            import time
-            time.sleep(15)
-            print("Retrying...")
-            return generate_script(topic)
+            print(f"⚠️  Key {CURRENT_KEY_INDEX} quota exceeded, trying next key...")
+            if attempt < len(GEMINI_KEYS):
+                return generate_script(topic, attempt + 1)
+            else:
+                print(f"❌ All {len(GEMINI_KEYS)} Gemini API keys exhausted")
+                print(f"⚠️  Waiting 15 seconds before retry...")
+                import time
+                time.sleep(15)
+                return generate_script(topic, 1)
         else:
             print(f"❌ Gemini API error: {error_msg[:100]}")
             # Use a fallback script from examples if API fails
