@@ -1,8 +1,6 @@
 import os, requests, json, random
 from datetime import date
 import google.generativeai as genai
-from elevenlabs.client import ElevenLabs
-from elevenlabs import VoiceSettings
 from gtts import gTTS
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -310,28 +308,39 @@ def fetch_background_music(music_type="energetic"):
 # STEP 5 — Generate voiceover (ElevenLabs + gTTS fallback)
 # ─────────────────────────────────────────────
 def generate_voiceover(script_text, ab_variant=None):
-    # Try ElevenLabs (better quality)
-    try:
-        print("🎙️ Trying ElevenLabs...")
-        client = ElevenLabs(api_key=ELEVENLABS_KEY)
-        audio_gen = client.generate(
-            text=script_text,
-            voice="Josh",
-            model="eleven_monolingual_v1",
-            voice_settings=VoiceSettings(
-                stability=0.4,
-                similarity_boost=0.8,
-                style=0.6,
-                use_speaker_boost=True
-            )
-        )
-        with open("voiceover.mp3", "wb") as f:
-            for chunk in audio_gen:
-                f.write(chunk)
-        print("✅ ElevenLabs voiceover done")
-        return
-    except Exception as e:
-        print(f"⚠️ ElevenLabs failed, using gTTS...")
+    # Try ElevenLabs REST API (direct HTTP, more stable)
+    if ELEVENLABS_KEY:
+        try:
+            print("🎙️ Trying ElevenLabs...")
+            # Use REST API directly to avoid SDK validation errors
+            headers = {
+                "xi-api-key": ELEVENLABS_KEY,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "text": script_text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": {
+                    "stability": 0.4,
+                    "similarity_boost": 0.8,
+                    "style": 0.6,
+                    "use_speaker_boost": True
+                }
+            }
+            # Josh voice ID
+            url = "https://api.elevenlabs.io/v1/text-to-speech/Josh"
+            
+            response = requests.post(url, json=payload, headers=headers, timeout=30)
+            
+            if response.status_code == 200:
+                with open("voiceover.mp3", "wb") as f:
+                    f.write(response.content)
+                print("✅ ElevenLabs voiceover done")
+                return
+            else:
+                print(f"⚠️ ElevenLabs API error ({response.status_code}), using gTTS...")
+        except Exception as e:
+            print(f"⚠️ ElevenLabs failed ({str(e)[:60]}), using gTTS...")
 
     # Fallback to gTTS (free, unlimited)
     try:
@@ -567,10 +576,13 @@ def create_video(title, has_video):
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
         if result.returncode != 0:
-            print(f"⚠️ FFmpeg error")
-            return
+            print(f"⚠️ FFmpeg error: {result.stderr[:500]}")
+            if result.stdout:
+                print(f"   stdout: {result.stdout[:300]}")
+            return False
             
         print("✅ Video ready: output.mp4")
+        return True
         
     except subprocess.TimeoutExpired:
         print("❌ Video assembly timed out")
@@ -648,12 +660,19 @@ if __name__ == "__main__":
     has_video = fetch_background(topic)
     fetch_background_music(ab_variant.get("music", "energetic"))
     create_thumbnail(parsed["title"], parsed["thumbnail_text"], topic)
-    create_video(parsed["title"], has_video)
-    video_id = upload_to_youtube(parsed["title"], parsed["description"], parsed["tags"])
     
-    # Log A/B test results
-    if video_id:
-        log_ab_test(video_id, variant_key, parsed["title"])
-
+    # Create video and check if successful
+    video_created = create_video(parsed["title"], has_video)
+    
+    if video_created:
+        video_id = upload_to_youtube(parsed["title"], parsed["description"], parsed["tags"])
+        
+        # Log A/B test results
+        if video_id:
+            log_ab_test(video_id, variant_key, parsed["title"])
+    else:
+        video_id = None
+        print("❌ Video creation failed, skipping upload")
+    
     print(f"\n{'─'*45}\n🎉 Done! Video + Thumbnail + Subtitles posted to Tech 8ytees!\n")
     print(f"📊 A/B Test: {ab_variant['name']} | Video ID: {video_id}")
