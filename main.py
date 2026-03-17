@@ -139,38 +139,45 @@ GADGET_TOPICS = [
 def get_trending_topics_reddit():
     try:
         print("📱 Fetching trending topics from Reddit...")
-        # Use a more realistic user agent
+        # Use a very realistic user agent and headers
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9'
         }
         
-        # Fetch from r/technology hot posts with better timeout handling
-        url = 'https://www.reddit.com/r/technology/hot.json?limit=25'
-        r = requests.get(url, headers=headers, timeout=15)
+        # Try multiple subreddits for redundancy
+        subreddits = ['technology', 'gadgets', 'tech']
+        trending = []
         
-        # Check if response is valid JSON
-        if r.status_code != 200:
-            print(f"⚠️ Reddit API returned {r.status_code}")
-            return []
-            
-        data = r.json()
-        posts = data.get('data', {}).get('children', [])
+        for subreddit in subreddits:
+            try:
+                url = f'https://www.reddit.com/r/{subreddit}/hot.json?limit=25'
+                r = requests.get(url, headers=headers, timeout=10)
+                
+                if r.status_code == 200:
+                    data = r.json()
+                    posts = data.get('data', {}).get('children', [])
+                    
+                    for post in posts:
+                        title = post.get('data', {}).get('title', '').strip()
+                        # Filter quality titles
+                        if title and 20 < len(title) < 150 and 'thread' not in title.lower():
+                            trending.append(title)
+                    
+                    if len(trending) >= 10:
+                        break
+            except Exception:
+                continue
         
-        if posts:
-            # Filter out stickied/pinned posts, get clean titles
-            trending = []
-            for post in posts[:20]:
-                title = post.get('data', {}).get('title', '').strip()
-                if title and len(title) > 20 and len(title) < 150:
-                    trending.append(title)
-                if len(trending) >= 10:
-                    break
+        if trending:
+            print(f"✅ Found {len(trending)} trending topics from Reddit")
+            return trending[:15]
+        else:
+            print(f"⚠️ Reddit fetch returned no posts")
             
-            if trending:
-                print(f"✅ Found {len(trending)} trending topics from Reddit")
-                return trending
     except Exception as e:
-        print(f"⚠️ Reddit fetch failed ({type(e).__name__}: {str(e)[:40]})")
+        print(f"⚠️ Reddit fetch failed ({type(e).__name__})")
     
     return []
 
@@ -211,16 +218,18 @@ EXAMPLE_SCRIPTS = [
 
 def generate_script(topic):
     print("🤖 Generating script with Gemini (with few-shot examples)...")
-    genai.configure(api_key=GEMINI_KEY)
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    
+    try:
+        genai.configure(api_key=GEMINI_KEY)
+        model = genai.GenerativeModel("gemini-2.5-flash")
 
-    # Build few-shot examples into the prompt
-    examples_text = "\n\n".join([
-        f"Example {i+1}:\nTopic: {ex['topic']}\nTitle: {ex['title']}\nScript: {ex['script']}"
-        for i, ex in enumerate(EXAMPLE_SCRIPTS)
-    ])
+        # Build few-shot examples into the prompt
+        examples_text = "\n\n".join([
+            f"Example {i+1}:\nTopic: {ex['topic']}\nTitle: {ex['title']}\nScript: {ex['script']}"
+            for i, ex in enumerate(EXAMPLE_SCRIPTS)
+        ])
 
-    response = model.generate_content(f"""
+        response = model.generate_content(f"""
 You are an expert YouTube Shorts scriptwriter for a viral tech channel called "Tech 8ytees".
 Your scripts are engaging, detailed, and sound like a REAL HUMAN REVIEWER, not AI.
 
@@ -250,20 +259,41 @@ TAGS: [10 tags]
 DESCRIPTION: [2-3 sentences]
 THUMBNAIL_TEXT: [3-5 words max]
 """)
-    
-    script_text = response.text
-    
-    # Validate script length
-    if "SCRIPT:" in script_text:
-        script_content = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
-        word_count = len(script_content.split())
-        print(f"📝 Script word count: {word_count} words")
         
-        if word_count < 300:
-            print(f"⚠️ Script too short ({word_count} words), regenerating...")
-            return generate_script(topic)  # Regenerate if too short
-    
-    return script_text
+        script_text = response.text
+        
+        # Validate script length
+        if "SCRIPT:" in script_text:
+            script_content = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
+            word_count = len(script_content.split())
+            print(f"📝 Script word count: {word_count} words")
+            
+            if word_count < 300:
+                print(f"⚠️ Script too short ({word_count} words), regenerating...")
+                return generate_script(topic)  # Regenerate if too short
+        
+        return script_text
+        
+    except Exception as e:
+        error_msg = str(e)
+        # Check for quota error
+        if "quota" in error_msg.lower() or "resource_exhausted" in error_msg.lower():
+            print(f"❌ Gemini quota exceeded - Free tier limit reached")
+            print(f"⚠️  Waiting 15 seconds before retry...")
+            import time
+            time.sleep(15)
+            print("Retrying...")
+            return generate_script(topic)
+        else:
+            print(f"❌ Gemini API error: {error_msg[:100]}")
+            # Use a fallback script from examples if API fails
+            fallback_script = f"""TITLE: Amazing Tech Review: {topic[:40]}
+SCRIPT: Hey everyone! Today we're diving deep into {topic}. This is something everyone needs to know about in 2026. Let me break down everything you need to know about this topic...
+
+TAGS: tech, gadgets, review, 2026, shorts, youtube, techy, comparison, buying guide, unboxing
+DESCRIPTION: Check out our latest tech review on {topic}. Don't forget to subscribe!
+THUMBNAIL_TEXT: {topic[:20]}"""
+            return fallback_script
 
 # ─────────────────────────────────────────────
 # STEP 3 — Parse script response + validate length
