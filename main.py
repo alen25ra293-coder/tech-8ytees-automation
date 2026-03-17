@@ -139,19 +139,38 @@ GADGET_TOPICS = [
 def get_trending_topics_reddit():
     try:
         print("📱 Fetching trending topics from Reddit...")
-        headers = {'User-Agent': 'Tech8ytees/1.0'}
+        # Use a more realistic user agent
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
         
-        # Fetch from r/technology hot posts
-        r = requests.get('https://www.reddit.com/r/technology/hot.json?limit=20', 
-                        headers=headers, timeout=15)
-        posts = r.json().get('data', {}).get('children', [])
+        # Fetch from r/technology hot posts with better timeout handling
+        url = 'https://www.reddit.com/r/technology/hot.json?limit=25'
+        r = requests.get(url, headers=headers, timeout=15)
+        
+        # Check if response is valid JSON
+        if r.status_code != 200:
+            print(f"⚠️ Reddit API returned {r.status_code}")
+            return []
+            
+        data = r.json()
+        posts = data.get('data', {}).get('children', [])
         
         if posts:
-            trending = [post['data']['title'] for post in posts[:15]]
-            print(f"✅ Found {len(trending)} trending topics from Reddit")
-            return trending
+            # Filter out stickied/pinned posts, get clean titles
+            trending = []
+            for post in posts[:20]:
+                title = post.get('data', {}).get('title', '').strip()
+                if title and len(title) > 20 and len(title) < 150:
+                    trending.append(title)
+                if len(trending) >= 10:
+                    break
+            
+            if trending:
+                print(f"✅ Found {len(trending)} trending topics from Reddit")
+                return trending
     except Exception as e:
-        print(f"⚠️ Reddit fetch failed ({e}), using default topics")
+        print(f"⚠️ Reddit fetch failed ({type(e).__name__}: {str(e)[:40]})")
     
     return []
 
@@ -329,13 +348,13 @@ def generate_voiceover(script_text, ab_variant=None):
                 "model_id": "eleven_monolingual_v1",
                 "voice_settings": {
                     "stability": 0.4,
-                    "similarity_boost": 0.8,
-                    "style": 0.6,
-                    "use_speaker_boost": True
+                    "similarity_boost": 0.8
                 }
             }
-            # Josh voice ID
-            url = "https://api.elevenlabs.io/v1/text-to-speech/Josh"
+            # Use a numeric voice ID that's more reliable
+            # "Adam" is a common male voice (ID: pNInz6obpgDQGcFmaJgB)
+            voice_id = "pNInz6obpgDQGcFmaJgB"
+            url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             
             response = requests.post(url, json=payload, headers=headers, timeout=30)
             
