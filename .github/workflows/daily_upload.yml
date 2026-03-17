@@ -15,11 +15,22 @@ env:
 jobs:
   upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     steps:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
+
+      - name: 🌐 Setup Mullvad VPN (Optional - for IP rotation)
+        uses: mullvad/github-actions@v1.1.0
+        continue-on-error: true
+        with:
+          dns-enabled: true
+          region: us
+
+      - name: 🔍 Verify IP (if VPN enabled)
+        run: curl -s https://api.mullvad.net/ip | jq '.ip' || echo "VPN not available"
+        continue-on-error: true
 
       - name: 🐍 Set up Python 3.11
         uses: actions/setup-python@v5
@@ -43,6 +54,10 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
+          # Method 1: Instagram Graph API (Recommended)
+          IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
+          IG_GRAPH_ACCESS_TOKEN: ${{ secrets.IG_GRAPH_ACCESS_TOKEN }}
+          # Method 2: Instagrapi (Backup)
           IG_USERNAME: ${{ secrets.IG_USERNAME }}
           IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
         run: python main.py
