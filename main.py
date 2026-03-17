@@ -419,9 +419,11 @@ def generate_voiceover(script_text, ab_variant=None):
                     "similarity_boost": 0.75
                 }
             }
-            # Male voice: "Chris" is a professional male voice (ID: iP3nJ0z0nHcGsiuNUniW)
-            # Other options: Adam (pNInz6obpgDQGcFmaJgB), Marcus (EXAVITQu4vr4xnSDxMaL)
-            voice_id = "iP3nJ0z0nHcGsiuNUniW"  # Chris - professional male voice
+            # Male voices that work on all ElevenLabs tiers:
+            # - Marcus (deep male): EXAVITQu4vr4xnSDxMaL
+            # - Adam (standard male): pNInz6obpgDQGcFmaJgB
+            # - Will (young male): nPczCjzI2devNBz1zQrb
+            voice_id = "EXAVITQu4vr4xnSDxMaL"  # Marcus - deep male voice (professional)
             url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
             
             response = requests.post(url, json=payload, headers=headers, timeout=30)
@@ -429,10 +431,12 @@ def generate_voiceover(script_text, ab_variant=None):
             if response.status_code == 200:
                 with open("voiceover.mp3", "wb") as f:
                     f.write(response.content)
-                print("✅ ElevenLabs voiceover done (male voice)")
+                print("✅ ElevenLabs voiceover done (Marcus - deep male voice)")
                 return True
             elif response.status_code == 401:
                 print(f"⚠️ ElevenLabs invalid API key, using gTTS...")
+            elif response.status_code == 404:
+                print(f"⚠️ ElevenLabs voice not found, using gTTS...")
             else:
                 print(f"⚠️ ElevenLabs API error ({response.status_code}), using gTTS...")
         except Exception as e:
