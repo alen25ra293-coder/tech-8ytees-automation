@@ -468,50 +468,48 @@ def fetch_thumbnail_image(topic):
 def create_thumbnail(title, thumbnail_text, topic):
     print("🎨 Creating thumbnail...")
     
-    if not PIL_AVAILABLE:
-        print("⚠️  Pillow not available - creating placeholder thumbnail...")
-        # Create a dummy file so upload doesn't fail
-        with open("thumbnail.jpg", "wb") as f:
-            f.write(b"\xff\xd8\xff\xe0")  # JPEG magic bytes
-        print("✅ Placeholder thumbnail saved: thumbnail.jpg")
-        return
-
-    W, H = 1280, 720
-    thumb = Image.new("RGBA", (W, H), (10, 10, 20, 255))
-
-    # ── Background image ──
-    bg_img = fetch_thumbnail_image(topic)
-    if bg_img:
-        bg_img = bg_img.resize((W, H))
-        dark = Image.new("RGBA", (W, H), (0, 0, 0, 160))
-        thumb = Image.alpha_composite(bg_img.convert("RGBA"), dark)
-
-    draw = ImageDraw.Draw(thumb)
-
-    # ── Gradient overlay on left side ──
-    for x in range(W // 2):
-        alpha = int(180 * (1 - x / (W // 2)))
-        draw.line([(x, 0), (x, H)], fill=(10, 10, 20, alpha))
-
-    # ── Channel name badge (top left) ──
-    badge_x, badge_y = 40, 40
-    draw.rounded_rectangle(
-        [badge_x, badge_y, badge_x + 260, badge_y + 52],
-        radius=26,
-        fill=(255, 200, 0, 255)
-    )
     try:
-        badge_font = ImageFont.truetype("arial.ttf", 26)
-    except:
-        badge_font = ImageFont.load_default()
-    draw.text((badge_x + 20, badge_y + 12), "⚡ Tech 8ytees", font=badge_font, fill=(10, 10, 20))
+        if not PIL_AVAILABLE:
+            print("⚠️  Pillow not available - creating placeholder thumbnail...")
+            # Create a dummy file so upload doesn't fail
+            with open("thumbnail.jpg", "wb") as f:
+                f.write(b"\xff\xd8\xff\xe0")  # JPEG magic bytes
+            print("✅ Placeholder thumbnail saved: thumbnail.jpg")
+            return
 
-    # ── Big thumbnail text (center left) ──
-    try:
-        big_font   = ImageFont.truetype("LiberationSans-Bold.ttf", 96)
-        small_font = ImageFont.truetype("LiberationSans-Bold.ttf", 38)
-        tiny_font  = ImageFont.truetype("LiberationSans-Regular.ttf", 28)
-    except:
+        W, H = 1280, 720
+        thumb = Image.new("RGBA", (W, H), (10, 10, 20, 255))
+
+        # ── Background image ──
+        bg_img = fetch_thumbnail_image(topic)
+        if bg_img:
+            bg_img = bg_img.resize((W, H))
+            dark = Image.new("RGBA", (W, H), (0, 0, 0, 160))
+            thumb = Image.alpha_composite(bg_img.convert("RGBA"), dark)
+
+        draw = ImageDraw.Draw(thumb)
+
+        # ── Gradient overlay on left side ──
+        for x in range(W // 2):
+            alpha = int(180 * (1 - x / (W // 2)))
+            draw.line([(x, 0), (x, H)], fill=(10, 10, 20, alpha))
+
+        # ── Channel name badge (top left) — SIMPLIFIED ──
+        badge_x, badge_y = 40, 40
+        draw.rounded_rectangle(
+            [badge_x, badge_y, badge_x + 260, badge_y + 52],
+            radius=26,
+            fill=(255, 200, 0, 255)
+        )
+        try:
+            badge_font = ImageFont.truetype("arial.ttf", 26)
+        except:
+            badge_font = ImageFont.load_default()
+        
+        # Remove emoji from badge text
+        draw.text((badge_x + 20, badge_y + 12), "Tech 8ytees", font=badge_font, fill=(10, 10, 20))
+
+        # ── Big thumbnail text (center left) ──
         try:
             big_font   = ImageFont.truetype("arial.ttf", 96)
             small_font = ImageFont.truetype("arial.ttf", 38)
@@ -519,29 +517,45 @@ def create_thumbnail(title, thumbnail_text, topic):
         except:
             big_font = small_font = tiny_font = ImageFont.load_default()
 
-    words   = thumbnail_text.upper().split()
-    line1   = " ".join(words[:len(words)//2]) if len(words) > 2 else thumbnail_text.upper()
-    line2   = " ".join(words[len(words)//2:]) if len(words) > 2 else ""
+        # Clean text - remove emoji and special chars
+        safe_text = ''.join(c if ord(c) < 128 else '' for c in thumbnail_text.upper()).strip()
+        if not safe_text:
+            safe_text = "TECH"
+            
+        words   = safe_text.split()
+        line1   = " ".join(words[:len(words)//2]) if len(words) > 2 else safe_text
+        line2   = " ".join(words[len(words)//2:]) if len(words) > 2 else ""
 
-    draw.text((84, 254), line1, font=big_font, fill=(0, 0, 0, 180))
-    draw.text((80, 250), line1, font=big_font, fill=(255, 220, 0))
-    if line2:
-        draw.text((84, 354), line2, font=big_font, fill=(0, 0, 0, 180))
-        draw.text((80, 350), line2, font=big_font, fill=(255, 255, 255))
+        draw.text((84, 254), line1, font=big_font, fill=(0, 0, 0, 180))
+        draw.text((80, 250), line1, font=big_font, fill=(255, 220, 0))
+        if line2:
+            draw.text((84, 354), line2, font=big_font, fill=(0, 0, 0, 180))
+            draw.text((80, 350), line2, font=big_font, fill=(255, 255, 255))
 
-    wrapped = textwrap.fill(title, width=35)
-    lines   = wrapped.split("\n")[:2]
-    y_start = 490 if line2 else 390
-    for i, line in enumerate(lines):
-        draw.text((82, y_start + 2 + i * 46), line, font=small_font, fill=(0, 0, 0, 160))
-        draw.text((80, y_start + i * 46),      line, font=small_font, fill=(220, 220, 220))
+        # Clean title text
+        safe_title = ''.join(c if ord(c) < 128 else '' for c in title).strip()[:50]
+        wrapped = textwrap.fill(safe_title, width=35)
+        lines   = wrapped.split("\n")[:2]
+        y_start = 490 if line2 else 390
+        for i, line in enumerate(lines):
+            draw.text((82, y_start + 2 + i * 46), line, font=small_font, fill=(0, 0, 0, 160))
+            draw.text((80, y_start + i * 46),      line, font=small_font, fill=(220, 220, 220))
 
-    draw.rectangle([(0, H - 60), (W, H)], fill=(255, 200, 0, 220))
-    draw.text((40, H - 46), "WATCH NOW  →  Tech 8ytees", font=tiny_font, fill=(10, 10, 20))
+        draw.rectangle([(0, H - 60), (W, H)], fill=(255, 200, 0, 220))
+        draw.text((40, H - 46), "WATCH NOW - Tech 8ytees", font=tiny_font, fill=(10, 10, 20))
 
-    thumb_rgb = thumb.convert("RGB")
-    thumb_rgb.save("thumbnail.jpg", "JPEG", quality=95)
-    print("✅ Thumbnail saved: thumbnail.jpg")
+        thumb_rgb = thumb.convert("RGB")
+        thumb_rgb.save("thumbnail.jpg", "JPEG", quality=95)
+        print("✅ Thumbnail saved: thumbnail.jpg")
+        
+    except Exception as e:
+        print(f"⚠️  Thumbnail creation failed ({type(e).__name__}), using placeholder...")
+        try:
+            with open("thumbnail.jpg", "wb") as f:
+                f.write(b"\xff\xd8\xff\xe0")  # JPEG magic bytes
+            print("✅ Placeholder thumbnail saved: thumbnail.jpg")
+        except:
+            pass
 
 # ─────────────────────────────────────────────
 # STEP 8 — Create subtitles SRT file
