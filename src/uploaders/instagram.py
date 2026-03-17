@@ -44,6 +44,11 @@ def upload_to_instagram(video_path, caption):
         cl.login(username, password)
         
         print("   Uploading Reel...")
+        
+        # Ensure we have Instagram Reels tags
+        if "#reels" not in caption.lower():
+            caption = f"{caption}\n\n#Reels #InstagramReels #TechReels"
+            
         media = cl.clip_upload(
             video_path,
             caption

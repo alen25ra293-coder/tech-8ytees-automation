@@ -3,20 +3,19 @@ import random
 from datetime import date
 
 GADGET_TOPICS = [
-    "budget smartphone vs flagship 2026",
-    "best wireless earbuds under $50 2026",
-    "smartwatch Apple Watch vs Samsung Galaxy 2026",
-    "best budget laptop under $500 2026",
-    "USB-C hub you didn't know you needed 2026",
-    "robot vacuum comparison Roomba vs Roborock 2026",
-    "best mechanical keyboard under $100 2026",
-    "portable charger power bank comparison 2026",
-    "smart home gadgets worth buying 2026",
-    "gaming mouse comparison 2026",
-    "best webcam for streaming 2026",
-    "noise cancelling headphones budget vs premium 2026",
-    "hidden iPhone features nobody talks about 2026",
-    "best AI gadgets of 2026",
+    "The 2026 Smartphone Apple doesn't want you to see",
+    "Stop buying expensive wireless earbuds",
+    "Hidden iPhone features that feel illegal to know",
+    "This $50 gadget is better than your laptop",
+    "The USB-C hub that changes everything",
+    "Roomba is lying to you in 2026",
+    "Mechanical keyboards are a luxury scam",
+    "The smartphone battery lie you believe",
+    "AI home gadgets that actually spy on you",
+    "The secret gaming mouse pros hide",
+    "Don't buy a webcam until you watch this",
+    "Noise cancellation is rotting your brain?",
+    "The craziest AI gadgets of 2026",
 ]
 
 def get_trending_topics_reddit():
@@ -65,12 +64,10 @@ def get_todays_topic():
     trending = get_trending_topics_reddit()
     
     if trending:
-        random.seed(date.today().toordinal())
         topic = random.choice(trending)
         print(f"📌 Today's trending topic: {topic}")
         return topic
     else:
-        random.seed(date.today().toordinal())
         topic = random.choice(GADGET_TOPICS)
         print(f"📌 Today's fallback topic: {topic}")
         return topic

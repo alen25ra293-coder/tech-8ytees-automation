@@ -72,9 +72,9 @@ def create_video(title, video_clips):
             background_input = "bg_looped.mp4"
             
         # 3. Final Render: Audio + Subtitles + Trimming
-        # Adding a cool yellow drop-shadow style for the subtitles
-        print("🎬 Burning subtitles & rendering ultimate video...")
-        subtitle_style = "Fontname=Arial,Fontsize=24,PrimaryColour=&H00FFFF,OutlineColour=&H000000,BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV=300"
+        # Adding a massive 'MrBeast' style yellow drop-shadow style for the subtitles in the center
+        print("🎬 Burning viral subtitles & rendering ultimate video...")
+        subtitle_style = "Fontname=Impact,Fontsize=110,PrimaryColour=&H00FFFF,OutlineColour=&H000000,BorderStyle=1,Outline=4,Shadow=2,Alignment=2,MarginV=900"
         
         has_subs = os.path.exists("subtitles.vtt")
         

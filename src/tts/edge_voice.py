@@ -12,9 +12,9 @@ def generate_voiceover(script_text):
     with open("temp_script.txt", "w", encoding="utf-8") as f:
         f.write(script_text)
     
-    # Select an energetic, male voice and increase the speed by 15% for a faster, engaging pace
+    # Select an energetic, male voice and increase the speed by 20% for a highly retaining viral pace
     voice = "en-US-ChristopherNeural"
-    rate = "+15%"
+    rate = "+20%"
     
     cmd = [
         "edge-tts",

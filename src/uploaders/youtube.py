@@ -27,6 +27,13 @@ def upload_to_youtube(title, description, tags, video_file="output.mp4"):
         creds = Credentials.from_authorized_user_file("token.json")
         youtube = build("youtube", "v3", credentials=creds)
         
+        # Ensure #Shorts is in the title and description
+        if "#shorts" not in title.lower():
+            title = f"{title} #Shorts"
+            
+        if "#shorts" not in description.lower():
+            description = f"{description}\n\n#Shorts"
+            
         # Create tags string
         tags_str = ", ".join(tags) if isinstance(tags, list) else tags
         
