@@ -9,6 +9,9 @@ on:
     - cron: '0 22 * * *'  # Every day at 10:00 PM UTC (3:30 AM next day IST)
   workflow_dispatch:        # Manual trigger button in GitHub
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   upload:
     runs-on: ubuntu-latest
