@@ -134,16 +134,16 @@ GADGET_TOPICS = [
 def get_trending_topics_reddit():
     try:
         print("📱 Fetching trending topics from Reddit...")
-        # Use public API without authentication
         headers = {'User-Agent': 'Tech8ytees/1.0'}
         
-        # Fetch from r/technology
-        r = requests.get('https://www.reddit.com/r/technology/hot.json', headers=headers, timeout=10)
+        # Fetch from r/technology hot posts
+        r = requests.get('https://www.reddit.com/r/technology/hot.json?limit=20', 
+                        headers=headers, timeout=15)
         posts = r.json().get('data', {}).get('children', [])
         
         if posts:
-            trending = [post['data']['title'] for post in posts[:5]]
-            print(f"✅ Found {len(trending)} trending topics")
+            trending = [post['data']['title'] for post in posts[:15]]
+            print(f"✅ Found {len(trending)} trending topics from Reddit")
             return trending
     except Exception as e:
         print(f"⚠️ Reddit fetch failed ({e}), using default topics")
@@ -151,21 +151,23 @@ def get_trending_topics_reddit():
     return []
 
 # ─────────────────────────────────────────────
-# STEP 1 — Pick today's topic (rotates daily, or use trending)
+# STEP 1 — Pick today's topic (use random + trending)
 # ─────────────────────────────────────────────
 def get_todays_topic():
     trending = get_trending_topics_reddit()
     
     if trending:
-        index = date.today().toordinal() % len(trending)
-        topic = trending[index]
+        # Use date-based random seed for consistency (same topic per day)
+        random.seed(date.today().toordinal())
+        topic = random.choice(trending)
         print(f"📌 Today's trending topic: {topic}")
+        return topic
     else:
-        index = date.today().toordinal() % len(GADGET_TOPICS)
-        topic = GADGET_TOPICS[index]
+        # Fallback to local topics with RANDOM selection (not index-based)
+        random.seed(date.today().toordinal())
+        topic = random.choice(GADGET_TOPICS)
         print(f"📌 Today's topic: {topic}")
-    
-    return topic
+        return topic
 
 # ─────────────────────────────────────────────
 # STEP 2 — Generate script with Gemini (improved prompting)
@@ -198,34 +200,49 @@ def generate_script(topic):
 You are an expert YouTube Shorts scriptwriter for a viral tech channel called "Tech 8ytees".
 Your scripts are engaging, detailed, and sound like a REAL HUMAN REVIEWER, not AI.
 
-Learn from these examples of excellent scripts:
+Learn from these examples of excellent scripts (each is 60+ seconds when read naturally):
 
 {examples_text}
 
 ---
 
-Now write a detailed 50-70 second script about: "{topic}"
+CRITICAL: Write a LONG detailed script about: "{topic}"
 
-CRITICAL REQUIREMENTS:
-- Write 300-400 words minimum (so it actually fills the full duration)
-- Sound EXACTLY like the example scripts above (conversational, natural, with personality)
-- Include specific examples, product names, prices when possible
-- Use natural pauses and transitions ("Here's the thing...", "Now here's why...", "Honestly...")
-- Include a personal opinion or surprising insight
-- Use simple language that real people use
-- End with "Check the link in bio for the full breakdown!" or similar
+ABSOLUTE REQUIREMENTS (DO NOT SKIP):
+- Write 500+ WORDS MINIMUM (this is CRITICAL for video length)
+- The script MUST be readable for 60-90 seconds at natural speaking pace
+- Include specific product names, prices, and comparisons
+- Add personal experiences and surprising insights
+- Use transitions: "Here's the thing...", "Now here's the crazy part...", "Honestly...", "Get this..."
+- Include at least 3 specific examples or products
+- End with "Check the link in bio for the full breakdown!"
+- Use short sentences and conversational language
+- Add natural pauses and emphasis
 
 Format EXACTLY like this (no extra text):
-TITLE: [Catchy title under 60 chars, SEO optimized]
-SCRIPT: [Your detailed 50-70 second script here]
-TAGS: [10 tags separated by commas]
-DESCRIPTION: [2-3 sentences with call to action]
-THUMBNAIL_TEXT: [3-5 words max, eye catching]
+TITLE: [Catchy title under 60 chars]
+SCRIPT: [LONG 500+ word script for 60-90 seconds reading]
+TAGS: [10 tags]
+DESCRIPTION: [2-3 sentences]
+THUMBNAIL_TEXT: [3-5 words max]
 """)
-    return response.text
+    
+    script_text = response.text
+    
+    # Validate script length
+    if "SCRIPT:" in script_text:
+        script_content = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
+        word_count = len(script_content.split())
+        print(f"📝 Script word count: {word_count} words")
+        
+        if word_count < 300:
+            print(f"⚠️ Script too short ({word_count} words), regenerating...")
+            return generate_script(topic)  # Regenerate if too short
+    
+    return script_text
 
 # ─────────────────────────────────────────────
-# STEP 3 — Parse script response
+# STEP 3 — Parse script response + validate length
 # ─────────────────────────────────────────────
 def parse_script(raw):
     data = {
@@ -257,7 +274,13 @@ def parse_script(raw):
     if not data["thumbnail_text"]:
         data["thumbnail_text"] = data["title"][:30]
 
-    print(f"✅ Script parsed — Title: {data['title']}")
+    # Validate script length
+    script_words = len(data["script"].split())
+    print(f"✅ Script parsed — Title: {data['title']} ({script_words} words)")
+    
+    if script_words < 300:
+        print(f"⚠️ WARNING: Script is only {script_words} words (need 300+). Video may be short.")
+    
     return data
 
 # ─────────────────────────────────────────────
