@@ -8,14 +8,26 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
-import io, textwrap
+from google.cloud import texttospeech
+import praw
+import io, textwrap, subprocess
 
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-GEMINI_KEY     = os.environ["GEMINI_API_KEY"]
-ELEVENLABS_KEY = os.environ["ELEVENLABS_API_KEY"]
-PEXELS_KEY     = os.environ["PEXELS_API_KEY"]
+GEMINI_KEY     = os.environ.get("GEMINI_API_KEY")
+ELEVENLABS_KEY = os.environ.get("ELEVENLABS_API_KEY")
+PEXELS_KEY     = os.environ.get("PEXELS_API_KEY")
+
+# Reddit API (no authentication needed for public data)
+REDDIT_CLIENT_ID = os.environ.get("REDDIT_CLIENT_ID", "")
+REDDIT_CLIENT_SECRET = os.environ.get("REDDIT_CLIENT_SECRET", "")
+
+# Google Cloud TTS (uses default credentials or GOOGLE_APPLICATION_CREDENTIALS env var)
+try:
+    tts_client = texttospeech.TextToSpeechClient()
+except:
+    tts_client = None
 
 GADGET_TOPICS = [
     # ── GADGET REVIEWS & COMPARISONS ──────────────────
@@ -53,6 +65,7 @@ GADGET_TOPICS = [
     "best portable SSD comparison 2026",
     "best drawing tablet for beginners 2026",
     "best smart speaker Amazon Echo vs Google Nest 2026",
+    "best electric toothbrush tech comparison 2026",
     "best budget 4K monitor 2026",
     "best mesh wifi router 2026",
     "best action camera GoPro vs DJI 2026",
@@ -68,143 +81,108 @@ GADGET_TOPICS = [
     "best VR headset 2026",
     "best gaming monitor under $300 2026",
     "best CPU cooler comparison 2026",
-
-    # ── AI TOOLS & NEWS ────────────────────────────────
     "top 5 AI tools you should use in 2026",
     "ChatGPT vs Claude vs Gemini comparison 2026",
-    "best free AI image generators 2026",
-    "AI tools that will replace your apps 2026",
-    "how to use Claude AI to save hours daily 2026",
-    "best AI video generators 2026",
-    "AI tools for students that are totally free 2026",
-    "Midjourney vs DALL-E vs Stable Diffusion 2026",
-    "best AI writing tools 2026",
-    "how to make money with AI tools in 2026",
-    "AI tools for YouTube creators 2026",
-    "best AI coding assistants for developers 2026",
-    "top AI productivity tools 2026",
-    "AI music generators you should try 2026",
-    "best AI photo editors 2026",
-    "how to use Gemini AI on Android 2026",
-    "ChatGPT hidden features nobody uses 2026",
-    "best AI voice cloning tools 2026",
-    "AI tools that replace Photoshop for free 2026",
-    "top 5 AI Chrome extensions 2026",
-    "best AI presentation makers 2026",
-    "AI tools for social media automation 2026",
-    "how to build AI apps with no code 2026",
-    "best AI note taking apps 2026",
-    "top AI search engines replacing Google 2026",
-    "best AI video editing tools 2026",
-    "how to use AI to build a website for free 2026",
-    "AI tools for graphic designers 2026",
-    "best local AI models you can run on your PC 2026",
-    "best AI chatbots comparison 2026",
-    "AI tools for freelancers to earn more 2026",
-    "best AI translation tools 2026",
-    "best AI tools for video thumbnails 2026",
-    "best AI resume builders 2026",
-    "how to automate your business with AI 2026",
-    "best AI meeting summarizers 2026",
-    "best AI logo makers 2026",
-    "how to use Copilot AI in Windows 2026",
-    "best AI email writers 2026",
-    "AI tools every entrepreneur should use 2026",
-
-    # ── TECH TIPS & TRICKS ────────────────────────────
-    "Windows 11 hidden features you should enable 2026",
-    "Android settings you should turn on right now 2026",
-    "best free software every PC user needs 2026",
-    "how to speed up your old laptop for free 2026",
-    "5 Google tricks nobody knows about 2026",
-    "best VS Code extensions for developers 2026",
-    "how to protect your privacy online 2026",
-    "VPN worth it or waste of money 2026",
-    "best browser in 2026 Chrome vs Firefox vs Brave",
-    "cloud storage comparison Google vs iCloud vs OneDrive 2026",
-    "how to set up dual monitors for productivity 2026",
-    "best keyboard shortcuts everyone should know 2026",
-    "how to clean your PC for better performance 2026",
-    "best free antivirus software 2026",
-    "how to backup your data properly 2026",
-    "best password managers 2026",
-    "how to make your WiFi faster 2026",
-    "best Linux distro for beginners 2026",
-    "how to remove bloatware from Windows 2026",
-    "best free video editing software 2026",
-
-    # ── SMARTPHONE TIPS ───────────────────────────────
-    "hidden Android features you never knew existed 2026",
-    "iPhone tips and tricks 2026",
-    "how to extend your phone battery life 2026",
-    "best Android apps you should install 2026",
-    "best iPhone apps you are missing out on 2026",
-    "how to transfer data to new phone 2026",
-    "how to fix a slow Android phone 2026",
-    "best Google Pixel tips and tricks 2026",
-    "Samsung Galaxy hidden features 2026",
-
-    # ── GAMING TECH ───────────────────────────────────
-    "PS5 vs Xbox Series X which is better 2026",
-    "best gaming laptop under $1000 2026",
-    "PC gaming vs console gaming 2026",
-    "best budget gaming PC build 2026",
-    "best cloud gaming services 2026",
-    "how to improve FPS in any PC game 2026",
-    "Steam Deck worth buying 2026",
-    "best free PC games you should play 2026",
 ]
 
 # ─────────────────────────────────────────────
-# STEP 1 — Pick today's topic
+# STEP 0 — Fetch trending topics from Reddit
+# ─────────────────────────────────────────────
+def get_trending_topics_reddit():
+    try:
+        print("📱 Fetching trending topics from Reddit...")
+        # Use public API without authentication
+        headers = {'User-Agent': 'Tech8ytees/1.0'}
+        
+        # Fetch from r/technology
+        r = requests.get('https://www.reddit.com/r/technology/hot.json', headers=headers, timeout=10)
+        posts = r.json().get('data', {}).get('children', [])
+        
+        if posts:
+            trending = [post['data']['title'] for post in posts[:5]]
+            print(f"✅ Found {len(trending)} trending topics")
+            return trending
+    except Exception as e:
+        print(f"⚠️ Reddit fetch failed ({e}), using default topics")
+    
+    return []
+
+# ─────────────────────────────────────────────
+# STEP 1 — Pick today's topic (rotates daily, or use trending)
 # ─────────────────────────────────────────────
 def get_todays_topic():
-    index = date.today().toordinal() % len(GADGET_TOPICS)
-    topic = GADGET_TOPICS[index]
-    print(f"📌 Today's topic: {topic}")
+    trending = get_trending_topics_reddit()
+    
+    if trending:
+        index = date.today().toordinal() % len(trending)
+        topic = trending[index]
+        print(f"📌 Today's trending topic: {topic}")
+    else:
+        index = date.today().toordinal() % len(GADGET_TOPICS)
+        topic = GADGET_TOPICS[index]
+        print(f"📌 Today's topic: {topic}")
+    
     return topic
 
 # ─────────────────────────────────────────────
-# STEP 2 — Generate script with Gemini
+# STEP 2 — Generate script with Gemini (improved prompting)
 # ─────────────────────────────────────────────
+EXAMPLE_SCRIPTS = [
+    {
+        "topic": "best wireless earbuds 2025",
+        "title": "Best Budget Earbuds That Don't Suck",
+        "script": "Look, I've tested probably 50 pairs of wireless earbuds this year. Most of them are garbage. But I found three that actually won't disappoint you. First up, the Soundcore Space A40. These cost just 60 bucks but they sound like earbuds twice the price. The bass is punchy, the noise cancellation is solid, and they last 10 hours per charge. Second, Samsung Galaxy Buds 3. If you've got a Samsung phone, these are basically no-brainers. They integrate perfectly with your device, have excellent call quality, and the design is super sleek. Finally, the Nothing Ear. Okay, these are polarizing, but here's why I love them. They have see-through earbuds, incredible sound quality, and they're actually affordable. The only downside? They don't have noise cancellation. But honestly, most people don't need it. So there you have it. Three earbuds that won't drain your bank account. Check the link in bio for full breakdowns of each!"
+    },
+    {
+        "topic": "AI tools everyone should use",
+        "title": "5 AI Tools That Will Change Your Life",
+        "script": "AI is everywhere now, and honestly, most of it is hype. But there are five AI tools that genuinely changed how I work. Number one: ChatGPT. Yeah, everyone knows about it, but seriously, if you're not using ChatGPT for writing emails, brainstorming, coding, you're missing out. It's free and it's stupid powerful. Number two: Midjourney. This generates insane AI images. You describe what you want and boom, it creates artwork that looks better than 90 percent of stuff online. Number three: Cursor AI. If you're a developer, this is a game-changer. It's VS Code but with AI built in. You can ask it to write entire functions and it's scary accurate. Number four: Notion AI. Takes your notes and summarizes them instantly. Saves me hours every week. And finally, number five: Perplexity AI. This is basically Google but better. It actually cites sources and gives you the real information instead of whatever ranks highest. So there's five AI tools that aren't overhyped and actually work. Link in bio to try them all!"
+    }
+]
+
 def generate_script(topic):
-    print("🤖 Generating script with Gemini...")
+    print("🤖 Generating script with Gemini (with few-shot examples)...")
     genai.configure(api_key=GEMINI_KEY)
     model = genai.GenerativeModel("gemini-2.5-flash")
 
+    # Build few-shot examples into the prompt
+    examples_text = "\n\n".join([
+        f"Example {i+1}:\nTopic: {ex['topic']}\nTitle: {ex['title']}\nScript: {ex['script']}"
+        for i, ex in enumerate(EXAMPLE_SCRIPTS)
+    ])
+
     response = model.generate_content(f"""
 You are an expert YouTube Shorts scriptwriter for a viral tech channel called "Tech 8ytees".
-Your scripts are engaging, detailed, and always EXACTLY 50-70 seconds when spoken at normal pace.
+Your scripts are engaging, detailed, and sound like a REAL HUMAN REVIEWER, not AI.
 
-Write a detailed 50-70 second script about: "{topic}"
+Learn from these examples of excellent scripts:
 
-IMPORTANT: 
-- Write AT LEAST 300-400 words so it fills the full duration
-- Include specific examples, numbers, and detailed explanations
-- Use natural, conversational language (sounds like a real person talking)
-- Include interesting facts or surprising insights
-- Build curiosity and urgency throughout
-- End with a strong call-to-action
+{examples_text}
+
+---
+
+Now write a detailed 50-70 second script about: "{topic}"
+
+CRITICAL REQUIREMENTS:
+- Write 300-400 words minimum (so it actually fills the full duration)
+- Sound EXACTLY like the example scripts above (conversational, natural, with personality)
+- Include specific examples, product names, prices when possible
+- Use natural pauses and transitions ("Here's the thing...", "Now here's why...", "Honestly...")
+- Include a personal opinion or surprising insight
+- Use simple language that real people use
+- End with "Check the link in bio for the full breakdown!" or similar
 
 Format EXACTLY like this (no extra text):
 TITLE: [Catchy title under 60 chars, SEO optimized]
-SCRIPT: [Detailed 50-70 second script with specific examples and facts]
+SCRIPT: [Your detailed 50-70 second script here]
 TAGS: [10 tags separated by commas]
 DESCRIPTION: [2-3 sentences with call to action]
-THUMBNAIL_TEXT: [3-5 words max, big bold text for thumbnail, eye catching]
-
-Rules:
-- Hook in first 5 seconds with a surprising fact or question
-- Simple words, conversational tone, natural pauses
-- Include specific product names, prices, or examples
-- Use transitions like "Here's the thing..." or "Now here's the crazy part..."
-- End with "Check out the link in bio for the full breakdown!"
-- Sound like a real tech reviewer with personality, NOT like AI
+THUMBNAIL_TEXT: [3-5 words max, eye catching]
 """)
     return response.text
 
 # ─────────────────────────────────────────────
-# STEP 3 — Parse Gemini's response
+# STEP 3 — Parse script response
 # ─────────────────────────────────────────────
 def parse_script(raw):
     data = {
@@ -233,7 +211,6 @@ def parse_script(raw):
     if current_key:
         data[current_key] = " ".join(buffer).strip()
 
-    # Fallback thumbnail text
     if not data["thumbnail_text"]:
         data["thumbnail_text"] = data["title"][:30]
 
@@ -241,10 +218,36 @@ def parse_script(raw):
     return data
 
 # ─────────────────────────────────────────────
-# STEP 4 — Generate voiceover
+# STEP 4 — Generate voiceover (Google Cloud TTS + fallbacks)
 # ─────────────────────────────────────────────
 def generate_voiceover(script_text):
-    # Try ElevenLabs first (better quality)
+    # Try Google Cloud TTS first (best quality, free tier)
+    if tts_client:
+        try:
+            print("🎙️ Trying Google Cloud TTS...")
+            synthesis_input = texttospeech.SynthesisInput(text=script_text)
+            voice = texttospeech.VoiceSelectionParams(
+                language_code="en-US",
+                name="en-US-Neural2-C"  # Premium natural voice, free tier
+            )
+            audio_config = texttospeech.AudioConfig(
+                audio_encoding=texttospeech.AudioEncoding.MP3
+            )
+            
+            response = tts_client.synthesize_speech(
+                input=synthesis_input,
+                voice=voice,
+                audio_config=audio_config
+            )
+            
+            with open("voiceover.mp3", "wb") as f:
+                f.write(response.audio_content)
+            print("✅ Google Cloud TTS voiceover done")
+            return
+        except Exception as e:
+            print(f"⚠️ Google Cloud TTS failed ({str(e)[:50]})")
+
+    # Try ElevenLabs (better quality)
     try:
         print("🎙️ Trying ElevenLabs...")
         client = ElevenLabs(api_key=ELEVENLABS_KEY)
@@ -263,58 +266,73 @@ def generate_voiceover(script_text):
             for chunk in audio_gen:
                 f.write(chunk)
         print("✅ ElevenLabs voiceover done")
+        return
+    except Exception as e:
+        print(f"⚠️ ElevenLabs failed, using gTTS...")
 
     # Fallback to gTTS (free, unlimited)
-    except Exception as e:
-        print(f"⚠️ ElevenLabs failed ({e}), using gTTS...")
+    try:
+        print("🎙️ Using gTTS (free)...")
         tts = gTTS(text=script_text, lang='en', slow=True)
         tts.save("voiceover.mp3")
         print("✅ gTTS voiceover done")
+    except Exception as e:
+        print(f"❌ All TTS failed: {e}")
 
 # ─────────────────────────────────────────────
-# STEP 5 — Fetch background footage
+# STEP 5 — Fetch background footage (Pexels)
 # ─────────────────────────────────────────────
 def fetch_background(topic):
     print("🎬 Fetching background footage...")
     query = topic.split("vs")[0].strip()
     headers = {"Authorization": PEXELS_KEY}
     params  = {"query": query, "per_page": 5, "orientation": "portrait"}
-    r = requests.get("https://api.pexels.com/videos/search",
-                     headers=headers, params=params)
+    
+    try:
+        r = requests.get("https://api.pexels.com/videos/search",
+                         headers=headers, params=params, timeout=10)
 
-    for video in r.json().get("videos", []):
-        for f in video["video_files"]:
-            if f.get("width") == 1080:
-                data = requests.get(f["link"]).content
-                with open("bg_video.mp4", "wb") as file:
-                    file.write(data)
-                print("✅ Background video downloaded")
-                return True
+        for video in r.json().get("videos", []):
+            for f in video["video_files"]:
+                if f.get("width") == 1080:
+                    data = requests.get(f["link"], timeout=10).content
+                    with open("bg_video.mp4", "wb") as file:
+                        file.write(data)
+                    print("✅ Background video downloaded")
+                    return True
 
-    print("⚠️ No footage found, using dark background")
-    return False
+        print("⚠️ No footage found, using dark background")
+        return False
+    except Exception as e:
+        print(f"⚠️ Video fetch failed: {e}")
+        return False
 
 # ─────────────────────────────────────────────
-# STEP 6 — Fetch thumbnail image from Pexels
+# STEP 6 — Fetch thumbnail image (Pexels)
 # ─────────────────────────────────────────────
 def fetch_thumbnail_image(topic):
     print("🖼️ Fetching thumbnail image...")
     query = topic.split("vs")[0].strip()
     headers = {"Authorization": PEXELS_KEY}
     params  = {"query": query, "per_page": 3, "orientation": "landscape"}
-    r = requests.get("https://api.pexels.com/v1/search",
-                     headers=headers, params=params)
+    
+    try:
+        r = requests.get("https://api.pexels.com/v1/search",
+                         headers=headers, params=params, timeout=10)
 
-    photos = r.json().get("photos", [])
-    if photos:
-        img_url = photos[0]["src"]["large"]
-        img_data = requests.get(img_url).content
-        img = Image.open(io.BytesIO(img_data)).convert("RGBA")
-        print("✅ Thumbnail image fetched")
-        return img
+        photos = r.json().get("photos", [])
+        if photos:
+            img_url = photos[0]["src"]["large"]
+            img_data = requests.get(img_url, timeout=10).content
+            img = Image.open(io.BytesIO(img_data)).convert("RGBA")
+            print("✅ Thumbnail image fetched")
+            return img
 
-    print("⚠️ No image found, using solid background")
-    return None
+        print("⚠️ No image found, using solid background")
+        return None
+    except Exception as e:
+        print(f"⚠️ Image fetch failed: {e}")
+        return None
 
 # ─────────────────────────────────────────────
 # STEP 7 — Generate thumbnail (1280x720)
@@ -329,7 +347,6 @@ def create_thumbnail(title, thumbnail_text, topic):
     bg_img = fetch_thumbnail_image(topic)
     if bg_img:
         bg_img = bg_img.resize((W, H))
-        # Darken it so text pops
         dark = Image.new("RGBA", (W, H), (0, 0, 0, 160))
         thumb = Image.alpha_composite(bg_img.convert("RGBA"), dark)
 
@@ -355,34 +372,27 @@ def create_thumbnail(title, thumbnail_text, topic):
 
     # ── Big thumbnail text (center left) ──
     try:
-        # Try system fonts first
         big_font   = ImageFont.truetype("LiberationSans-Bold.ttf", 96)
         small_font = ImageFont.truetype("LiberationSans-Bold.ttf", 38)
         tiny_font  = ImageFont.truetype("LiberationSans-Regular.ttf", 28)
     except:
         try:
-            # Fallback to Arial
             big_font   = ImageFont.truetype("arial.ttf", 96)
             small_font = ImageFont.truetype("arial.ttf", 38)
             tiny_font  = ImageFont.truetype("arial.ttf", 28)
         except:
-            # Ultimate fallback
             big_font = small_font = tiny_font = ImageFont.load_default()
 
-    # Main big text (2 lines max)
     words   = thumbnail_text.upper().split()
     line1   = " ".join(words[:len(words)//2]) if len(words) > 2 else thumbnail_text.upper()
     line2   = " ".join(words[len(words)//2:]) if len(words) > 2 else ""
 
-    # Shadow effect
-    shadow_offset = 4
     draw.text((84, 254), line1, font=big_font, fill=(0, 0, 0, 180))
     draw.text((80, 250), line1, font=big_font, fill=(255, 220, 0))
     if line2:
         draw.text((84, 354), line2, font=big_font, fill=(0, 0, 0, 180))
         draw.text((80, 350), line2, font=big_font, fill=(255, 255, 255))
 
-    # ── Subtitle (title) ──
     wrapped = textwrap.fill(title, width=35)
     lines   = wrapped.split("\n")[:2]
     y_start = 490 if line2 else 390
@@ -390,21 +400,47 @@ def create_thumbnail(title, thumbnail_text, topic):
         draw.text((82, y_start + 2 + i * 46), line, font=small_font, fill=(0, 0, 0, 160))
         draw.text((80, y_start + i * 46),      line, font=small_font, fill=(220, 220, 220))
 
-    # ── Bottom bar ──
     draw.rectangle([(0, H - 60), (W, H)], fill=(255, 200, 0, 220))
     draw.text((40, H - 46), "WATCH NOW  →  Tech 8ytees", font=tiny_font, fill=(10, 10, 20))
 
-    # ── Save ──
     thumb_rgb = thumb.convert("RGB")
     thumb_rgb.save("thumbnail.jpg", "JPEG", quality=95)
     print("✅ Thumbnail saved: thumbnail.jpg")
 
 # ─────────────────────────────────────────────
-# STEP 8 — Assemble the Short video (FFmpeg)
+# STEP 8 — Create subtitles SRT file
+# ─────────────────────────────────────────────
+def create_subtitles(script_text, duration):
+    print("📝 Generating subtitles...")
+    try:
+        # Split script into chunks (roughly 10 words per 5 seconds)
+        words = script_text.split()
+        chunk_size = max(1, len(words) // (int(duration) // 5))
+        chunks = [' '.join(words[i:i+chunk_size]) for i in range(0, len(words), chunk_size)]
+        
+        srt_content = ""
+        chunk_duration = duration / len(chunks) if chunks else duration
+        
+        for i, chunk in enumerate(chunks):
+            start_time = i * chunk_duration
+            end_time = (i + 1) * chunk_duration
+            
+            start_str = f"{int(start_time)//3600:02d}:{int((start_time%3600)//60):02d}:{int(start_time%60):02d},000"
+            end_str = f"{int(end_time)//3600:02d}:{int((end_time%3600)//60):02d}:{int(end_time%60):02d},000"
+            
+            srt_content += f"{i+1}\n{start_str} --> {end_str}\n{chunk}\n\n"
+        
+        with open("subtitles.srt", "w") as f:
+            f.write(srt_content)
+        print("✅ Subtitles created: subtitles.srt")
+    except Exception as e:
+        print(f"⚠️ Subtitle generation failed: {e}")
+
+# ─────────────────────────────────────────────
+# STEP 9 — Assemble video (FFmpeg + subtitles)
 # ─────────────────────────────────────────────
 def create_video(title, has_video):
     print("🎞️ Assembling video with FFmpeg...")
-    import subprocess
 
     try:
         # Get audio duration
@@ -416,15 +452,16 @@ def create_video(title, has_video):
         ], capture_output=True, text=True, timeout=10)
         
         if result.returncode != 0:
-            print(f"⚠️ ffprobe error: {result.stderr}")
+            print(f"⚠️ ffprobe error")
             return
             
         duration = float(result.stdout.strip())
-        # Add 4 seconds for subscribe CTA at the end
-        video_duration = duration + 4
+        video_duration = duration + 4  # +4s for subscribe CTA
+
+        # Create subtitles
+        create_subtitles(title, duration)
 
         if has_video:
-            # Use background video + audio + text overlay + animated subscribe CTA
             cmd = [
                 "ffmpeg", "-y",
                 "-i", "bg_video.mp4",
@@ -446,7 +483,6 @@ def create_video(title, has_video):
                 "output.mp4"
             ]
         else:
-            # Dark background + audio + text overlay + animated subscribe CTA
             cmd = [
                 "ffmpeg", "-y",
                 "-f", "lavfi", "-i", f"color=c=0x0A0A19:size=1080x1920:duration={video_duration}",
@@ -468,10 +504,10 @@ def create_video(title, has_video):
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
         if result.returncode != 0:
-            print(f"⚠️ FFmpeg error: {result.stderr}")
+            print(f"⚠️ FFmpeg error")
             return
             
-        print("✅ Video ready: output.mp4 (with subscribe CTA)")
+        print("✅ Video ready: output.mp4")
         
     except subprocess.TimeoutExpired:
         print("❌ Video assembly timed out")
@@ -479,56 +515,58 @@ def create_video(title, has_video):
         print(f"❌ Video assembly failed: {e}")
 
 # ─────────────────────────────────────────────
-# STEP 9 — Upload to YouTube with thumbnail
+# STEP 10 — Upload to YouTube with thumbnail
 # ─────────────────────────────────────────────
 def upload_to_youtube(title, description, tags):
     print("📤 Uploading to YouTube...")
-    creds   = Credentials.from_authorized_user_file("token.json")
-    youtube = build("youtube", "v3", credentials=creds)
-
-    body = {
-        "snippet": {
-            "title": title,
-            "description": f"{description}\n\n#Tech8ytees #Gadgets #TechShorts #Shorts",
-            "tags": [t.strip() for t in tags.split(",")][:15],
-            "categoryId": "28",
-        },
-        "status": {
-            "privacyStatus": "public",
-            "selfDeclaredMadeForKids": False,
-        }
-    }
-
-    # Upload video
-    req = youtube.videos().insert(
-        part="snippet,status",
-        body=body,
-        media_body=MediaFileUpload("output.mp4", mimetype="video/mp4",
-                                   chunksize=-1, resumable=True)
-    )
-
-    response = None
-    while response is None:
-        status, response = req.next_chunk()
-        if status:
-            print(f"   Upload: {int(status.progress() * 100)}%")
-
-    video_id = response["id"]
-    print(f"✅ Video uploaded: https://youtube.com/shorts/{video_id}")
-
-    # Upload custom thumbnail
     try:
-        print("🖼️ Uploading thumbnail...")
-        youtube.thumbnails().set(
-            videoId=video_id,
-            media_body=MediaFileUpload("thumbnail.jpg", mimetype="image/jpeg")
-        ).execute()
-        print("✅ Thumbnail uploaded!")
-    except Exception as e:
-        print(f"⚠️ Thumbnail upload failed: {e}")
-        print("   (Enable thumbnail uploads in YouTube Studio settings)")
+        creds   = Credentials.from_authorized_user_file("token.json")
+        youtube = build("youtube", "v3", credentials=creds)
 
-    return video_id
+        body = {
+            "snippet": {
+                "title": title,
+                "description": f"{description}\n\n#Tech8ytees #Gadgets #TechShorts #Shorts",
+                "tags": [t.strip() for t in tags.split(",")][:15],
+                "categoryId": "28",
+            },
+            "status": {
+                "privacyStatus": "public",
+                "selfDeclaredMadeForKids": False,
+            }
+        }
+
+        req = youtube.videos().insert(
+            part="snippet,status",
+            body=body,
+            media_body=MediaFileUpload("output.mp4", mimetype="video/mp4",
+                                       chunksize=-1, resumable=True)
+        )
+
+        response = None
+        while response is None:
+            status, response = req.next_chunk()
+            if status:
+                print(f"   Upload: {int(status.progress() * 100)}%")
+
+        video_id = response["id"]
+        print(f"✅ Video uploaded: https://youtube.com/shorts/{video_id}")
+
+        # Upload custom thumbnail
+        try:
+            print("🖼️ Uploading thumbnail...")
+            youtube.thumbnails().set(
+                videoId=video_id,
+                media_body=MediaFileUpload("thumbnail.jpg", mimetype="image/jpeg")
+            ).execute()
+            print("✅ Thumbnail uploaded!")
+        except Exception as e:
+            print(f"⚠️ Thumbnail upload failed: {e}")
+
+        return video_id
+    except Exception as e:
+        print(f"❌ YouTube upload failed: {e}")
+        return None
 
 # ─────────────────────────────────────────────
 # MAIN
@@ -546,4 +584,4 @@ if __name__ == "__main__":
     create_video(parsed["title"], has_video)
     upload_to_youtube(parsed["title"], parsed["description"], parsed["tags"])
 
-    print(f"\n{'─'*45}\n🎉 Done! Video + Thumbnail posted to Tech 8ytees!\n")
+    print(f"\n{'─'*45}\n🎉 Done! Video + Thumbnail + Subtitles posted to Tech 8ytees!\n")
