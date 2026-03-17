@@ -8,18 +8,30 @@ except ImportError:
 def upload_to_instagram(video_path, caption):
     """
     Uploads the generated video to Instagram Reels.
-    Requires IG_USERNAME and IG_PASSWORD environment variables.
+    Reads credentials from:
+    1. Environment variables (IG_USERNAME, IG_PASSWORD)
+    2. .env file if available
     """
     print("📤 Uploading to Instagram Reels...")
     
-    username = os.environ.get("IG_USERNAME")
-    password = os.environ.get("IG_PASSWORD")
+    # Try to load from .env file first
+    if os.path.exists(".env"):
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass
+    
+    username = os.environ.get("IG_USERNAME") or os.environ.get("INSTAGRAM_USERNAME")
+    password = os.environ.get("IG_PASSWORD") or os.environ.get("INSTAGRAM_PASSWORD")
     
     if not username or not password:
-        print("❌ IG_USERNAME or IG_PASSWORD not set. Cannot upload to Instagram.")
+        print("❌ IG_USERNAME and IG_PASSWORD not set in environment or .env file.")
+        print("   Set these in GitHub Secrets or .env file to enable Instagram uploads.")
         return False
         
     if not Client:
+        print("❌ instagrapi not installed. Run: pip install instagrapi")
         return False
         
     if not os.path.exists(video_path):
@@ -28,17 +40,15 @@ def upload_to_instagram(video_path, caption):
 
     try:
         cl = Client()
-        # Optional: You can load session to avoid repetitive logins, e.g. cl.load_settings("session.json")
         print(f"   Logging in as {username}...")
         cl.login(username, password)
-        # cl.dump_settings("session.json")
         
         print("   Uploading Reel...")
         media = cl.clip_upload(
             video_path,
             caption
         )
-        print(f"✅ Successfully uploaded Instagram Reel! URL: https://instagram.com/reel/{media.code}")
+        print(f"✅ Instagram Reel uploaded! URL: https://instagram.com/reel/{media.code}")
         return True
         
     except Exception as e:
