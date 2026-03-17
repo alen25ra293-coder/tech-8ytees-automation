@@ -22,7 +22,7 @@ EXAMPLE_SCRIPTS = [
 ]
 
 def generate_script(topic, attempt=1):
-    print("🤖 Generating long-form script with Gemini...")
+    print(f"🤖 Generating short viral script (attempt {attempt}/3)...")
     
     api_key = get_next_gemini_key()
     if not api_key:
@@ -39,44 +39,46 @@ def generate_script(topic, attempt=1):
         ])
 
         prompt = f"""
-You are an expert YouTube Shorts and TikTok scriptwriter for a viral tech channel called "Tech 8ytees".
-Your scripts are aggressive, highly engaging, and sound like a REAL HUMAN TECH CREATOR out to expose the truth.
+You are an expert YouTube Shorts scriptwriter for a viral tech channel "Tech 8ytees".
+Your job is to write SHORT, PUNCHY, VIRAL scripts that are 100-130 WORDS ONLY.
+This is NOT a long-form essay. This is a SHORT viral video script.
 
-Learn from this example of an excellent, perfectly-paced viral script:
+STUDY THIS EXAMPLE (notice it's SHORT, around 100 words):
 {examples_text}
 
 ---
-CRITICAL: Write a highly engaging, controversial, and punchy script about: "{topic}"
+TASK: Write a 100-130 word script about: "{topic}"
 
-ABSOLUTE REQUIREMENTS (DO NOT SKIP):
-- The script MUST be EXACTLY 100-130 words. This guarantees the 40-50 second algorithm sweet spot.
-- The FIRST sentence MUST be a controversial or massive hook (e.g., "Stop buying X", "You've been lied to about Y", "This gadget is illegal"). This is CRITICAL for the 3-second retention!
-- Keep it extremely fast-paced. Cut all boring intro fluff.
-- End with: "Check the link in bio for the full breakdown!"
-- The TITLE MUST be extremely clickbaity but accurate.
-- THUMBNAIL_TEXT MUST be 2-4 words MAX and ALL CAPS (e.g., "APPLE LIED?!", "DO NOT BUY!").
-- The output MUST follow this exact format below and contain NO OTHER TEXT.
+ABSOLUTE NON-NEGOTIABLE REQUIREMENTS:
+1. WORD COUNT MUST BE 100-130 WORDS. NOT 200. NOT 300. NOT 500. EXACTLY 100-130 WORDS.
+2. Start with a CONTROVERSIAL HOOK that grabs attention in 1 second.
+3. Get straight to the point. NO long introductions.
+4. Make 2-3 key points, each 1-2 sentences.
+5. End with "Check the link in bio for the full breakdown!"
+6. The entire script must be readable in 40-50 seconds when spoken at normal speed.
 
-Format EXACTLY like this (no extra text):
-TITLE: [Catchy title under 60 chars]
-SCRIPT: [100-130 word script]
-TAGS: [10 comma separated tags]
+OUTPUT FORMAT (NO EXTRA TEXT):
+TITLE: [Catchy, clickbaity title under 60 chars]
+SCRIPT: [EXACTLY 100-130 words - SHORT and punchy]
+TAGS: [10 comma-separated tags]
 DESCRIPTION: [2-3 sentences]
-THUMBNAIL_TEXT: [3-5 words max]
+THUMBNAIL_TEXT: [2-4 words MAX, ALL CAPS]
 """
         response = model.generate_content(prompt)
         script_text = response.text
         
-        # Validate script length
+        # Validate script length - STRICT enforcement
         if "SCRIPT:" in script_text:
             script_content = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
             word_count = len(script_content.split())
             print(f"📝 Script word count: {word_count} words")
             
             if word_count < 80 or word_count > 160:
-                print(f"⚠️ Script length is {word_count} words (target 100-130). Regenerating...")
+                print(f"⚠️ Script is {word_count} words (need 100-130). Regenerating attempt {attempt}...")
                 if attempt < 3:
                     return generate_script(topic, attempt + 1)
+                else:
+                    print(f"❌ Failed to generate correct length after {attempt} attempts. Returning anyway.")
         
         return script_text
         
