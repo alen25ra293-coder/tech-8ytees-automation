@@ -540,7 +540,7 @@ def create_video(title, has_video):
         
         if result.returncode != 0:
             print(f"⚠️ ffprobe error")
-            return
+            return False
             
         duration = float(result.stdout.strip())
         video_duration = duration + 4  # +4s for subscribe CTA
@@ -548,24 +548,22 @@ def create_video(title, has_video):
         # Create subtitles
         create_subtitles(title, duration)
 
+        # Clean title for FFmpeg (remove quotes and special chars)
+        safe_title = title[:40].replace("'", "").replace('"', '')
+        
         if has_video:
+            # Build drawtext filter safely
+            scale_filter = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+            
             cmd = [
                 "ffmpeg", "-y",
                 "-i", "bg_video.mp4",
                 "-i", "voiceover.mp3",
-                "-filter_complex",
-                f"[0:v]scale=1080:1920:force_original_aspect_ratio=increase,"
-                f"crop=1080:1920,setsar=1,"
-                f"drawtext=text='Tech 8ytees':fontsize=34:fontcolor=white:x=(w-text_w)/2:y=80:alpha=0.9,"
-                f"drawtext=text='{title[:50].replace(chr(39), '')}':fontsize=42:fontcolor=white:"
-                f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10,"
-                f"drawtext=text='SUBSCRIBE NOW →':fontsize=72:fontcolor=yellow:x=(w-text_w)/2:y=(h-300):"
-                f"start_time={duration}:end_time={video_duration}:box=1:boxcolor=red@0.8:boxborderw=20[v]",
-                "-map", "[v]",
-                "-map", "1:a",
-                "-t", str(video_duration),
+                "-vf", scale_filter,
                 "-c:v", "libx264",
+                "-preset", "fast",
                 "-c:a", "aac",
+                "-t", str(video_duration),
                 "-shortest",
                 "output.mp4"
             ]
@@ -574,15 +572,8 @@ def create_video(title, has_video):
                 "ffmpeg", "-y",
                 "-f", "lavfi", "-i", f"color=c=0x0A0A19:size=1080x1920:duration={video_duration}",
                 "-i", "voiceover.mp3",
-                "-filter_complex",
-                f"[0:v]drawtext=text='Tech 8ytees':fontsize=34:fontcolor=white:x=(w-text_w)/2:y=80:alpha=0.9,"
-                f"drawtext=text='{title[:50].replace(chr(39), '')}':fontsize=42:fontcolor=white:"
-                f"x=(w-text_w)/2:y=1620:box=1:boxcolor=black@0.5:boxborderw=10,"
-                f"drawtext=text='SUBSCRIBE NOW →':fontsize=72:fontcolor=yellow:x=(w-text_w)/2:y=(h-300):"
-                f"start_time={duration}:end_time={video_duration}:box=1:boxcolor=red@0.8:boxborderw=20[v]",
-                "-map", "[v]",
-                "-map", "1:a",
                 "-c:v", "libx264",
+                "-preset", "fast",
                 "-c:a", "aac",
                 "-shortest",
                 "output.mp4"
@@ -591,9 +582,7 @@ def create_video(title, has_video):
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
         
         if result.returncode != 0:
-            print(f"⚠️ FFmpeg error: {result.stderr[:500]}")
-            if result.stdout:
-                print(f"   stdout: {result.stdout[:300]}")
+            print(f"⚠️ FFmpeg error: {result.stderr[-800:]}")
             return False
             
         print("✅ Video ready: output.mp4")
@@ -601,8 +590,10 @@ def create_video(title, has_video):
         
     except subprocess.TimeoutExpired:
         print("❌ Video assembly timed out")
+        return False
     except Exception as e:
         print(f"❌ Video assembly failed: {e}")
+        return False
 
 # ─────────────────────────────────────────────
 # STEP 10 — Upload to YouTube with thumbnail
