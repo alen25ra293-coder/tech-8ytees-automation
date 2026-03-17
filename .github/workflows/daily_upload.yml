@@ -43,8 +43,10 @@ jobs:
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
+          IG_USERNAME: ${{ secrets.IG_USERNAME }}
+          IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
         run: python main.py
 
       - name: 🧹 Clean up video files
         if: always()
-        run: rm -f output.mp4 voiceover.mp3 bg_video.mp4 token.json
+        run: rm -f output.mp4 voiceover.mp3 bg_video.mp4 token.json subtitles.vtt temp_script.txt
