@@ -21,17 +21,6 @@ jobs:
       - name: ⬇️ Checkout code
         uses: actions/checkout@v4
 
-      - name: 🌐 Setup Mullvad VPN (Optional - for IP rotation)
-        uses: mullvad/github-actions@v1.1.0
-        continue-on-error: true
-        with:
-          dns-enabled: true
-          region: us
-
-      - name: 🔍 Verify IP (if VPN enabled)
-        run: curl -s https://api.mullvad.net/ip | jq '.ip' || echo "VPN not available"
-        continue-on-error: true
-
       - name: 🐍 Set up Python 3.11
         uses: actions/setup-python@v5
         with:
