@@ -2,8 +2,8 @@ import os
 try:
     from instagrapi import Client
 except ImportError:
-    print("⚠️ instagrapi not installed. Please pip install instagrapi")
     Client = None
+    print("[WARNING] instagrapi not installed. Run: pip install instagrapi")
 
 def upload_to_instagram(video_path, caption):
     """
@@ -31,7 +31,7 @@ def upload_to_instagram(video_path, caption):
         return False
         
     if not Client:
-        print("❌ instagrapi not installed. Run: pip install instagrapi")
+        print("[ERROR] instagrapi not installed. Run: pip install instagrapi")
         return False
         
     if not os.path.exists(video_path):
