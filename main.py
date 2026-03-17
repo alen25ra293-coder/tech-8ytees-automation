@@ -173,22 +173,33 @@ def generate_script(topic):
     model = genai.GenerativeModel("gemini-2.5-flash")
 
     response = model.generate_content(f"""
-You are a viral YouTube Shorts scriptwriter for a tech channel called "Tech 8ytees".
+You are an expert YouTube Shorts scriptwriter for a viral tech channel called "Tech 8ytees".
+Your scripts are engaging, detailed, and always EXACTLY 50-70 seconds when spoken at normal pace.
 
-Write a punchy 60-second script about: "{topic}"
+Write a detailed 50-70 second script about: "{topic}"
+
+IMPORTANT: 
+- Write AT LEAST 300-400 words so it fills the full duration
+- Include specific examples, numbers, and detailed explanations
+- Use natural, conversational language (sounds like a real person talking)
+- Include interesting facts or surprising insights
+- Build curiosity and urgency throughout
+- End with a strong call-to-action
 
 Format EXACTLY like this (no extra text):
 TITLE: [Catchy title under 60 chars, SEO optimized]
-SCRIPT: [Full 60-second spoken script only, no stage directions]
+SCRIPT: [Detailed 50-70 second script with specific examples and facts]
 TAGS: [10 tags separated by commas]
-DESCRIPTION: [2 sentences with call to action]
+DESCRIPTION: [2-3 sentences with call to action]
 THUMBNAIL_TEXT: [3-5 words max, big bold text for thumbnail, eye catching]
 
 Rules:
-- Hook in first 3 seconds
-- Simple words, fast pace, energetic tone
-- End with "Link in bio to grab it!"
-- Sound like a real human reviewer
+- Hook in first 5 seconds with a surprising fact or question
+- Simple words, conversational tone, natural pauses
+- Include specific product names, prices, or examples
+- Use transitions like "Here's the thing..." or "Now here's the crazy part..."
+- End with "Check out the link in bio for the full breakdown!"
+- Sound like a real tech reviewer with personality, NOT like AI
 """)
     return response.text
 
@@ -256,7 +267,7 @@ def generate_voiceover(script_text):
     # Fallback to gTTS (free, unlimited)
     except Exception as e:
         print(f"⚠️ ElevenLabs failed ({e}), using gTTS...")
-        tts = gTTS(text=script_text, lang='en', slow=False)
+        tts = gTTS(text=script_text, lang='en', slow=True)
         tts.save("voiceover.mp3")
         print("✅ gTTS voiceover done")
 

@@ -3,6 +3,7 @@ name: Tech 8ytees Daily Upload
 on:
   schedule:
     - cron: '0 9 * * *'   # Every day at 9:00 AM UTC (2:30 PM IST)
+    - cron: '0 15 * * *'  # Every day at 3:00 PM UTC (8:30 PM IST) - 2nd post
   workflow_dispatch:        # Manual trigger button in GitHub
 
 jobs:
