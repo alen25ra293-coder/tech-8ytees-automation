@@ -7,7 +7,7 @@ on:
     - cron: '0 12 * * *'  # Every day at 12:00 PM UTC (5:30 PM IST)
     - cron: '0 18 * * *'  # Every day at 6:00 PM UTC (11:30 PM IST)
     - cron: '0 22 * * *'  # Every day at 10:00 PM UTC (3:30 AM next day IST)
-  workflow_dispatch:        # Manual trigger button in GitHub
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -37,20 +37,19 @@ jobs:
       - name: 🔑 Write YouTube token
         run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
 
-      - name: 🚀 Run automation
+      - name: 🚀 Run Tech 8ytees automation
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEYS }}
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
-          # Method 1: Instagram Graph API (Recommended)
           IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
           IG_GRAPH_ACCESS_TOKEN: ${{ secrets.IG_GRAPH_ACCESS_TOKEN }}
-          # Method 2: Instagrapi (Backup)
           IG_USERNAME: ${{ secrets.IG_USERNAME }}
           IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
         run: python main.py
 
-      - name: 🧹 Clean up video files
+      - name: 🧹 Clean up
         if: always()
         run: rm -f output.mp4 voiceover.mp3 bg_video.mp4 token.json subtitles.vtt temp_script.txt
+
