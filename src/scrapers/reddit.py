@@ -1,73 +1,108 @@
+"""
+Reddit Topic Scraper
+Fetches today's hottest tech topic from Reddit,
+falling back to a curated local list if Reddit is unavailable.
+"""
 import requests
 import random
 from datetime import date
 
+# ---------------------------------------------------------------------------
+# Curated fallback topics — viral-style titles optimised for Shorts hooks
+# ---------------------------------------------------------------------------
 GADGET_TOPICS = [
-    "The 2026 Smartphone Apple doesn't want you to see",
-    "Stop buying expensive wireless earbuds",
+    "The $50 gadget that embarrasses your laptop",
+    "Stop buying AirPods — here's why",
     "Hidden iPhone features that feel illegal to know",
-    "This $50 gadget is better than your laptop",
-    "The USB-C hub that changes everything",
-    "Roomba is lying to you in 2026",
+    "The USB-C hub that changes your whole setup",
+    "Roborock vs Roomba — one wins, one fails",
     "Mechanical keyboards are a luxury scam",
-    "The smartphone battery lie you believe",
+    "The smartphone battery lie everyone believes",
     "AI home gadgets that actually spy on you",
-    "The secret gaming mouse pros hide",
+    "The gaming mouse pros secretly use",
     "Don't buy a webcam until you watch this",
-    "Noise cancellation is rotting your brain?",
     "The craziest AI gadgets of 2026",
+    "Best budget smartwatch that beats Apple Watch",
+    "The FREE software that replaces paid apps",
+    "This $30 gadget went viral for a reason",
+    "The gaming headset audiophiles secretly love",
+    "Budget laptop that outperforms expensive ones",
+    "The VR headset nobody is talking about",
+    "Smart home gadgets that actually save money",
+    "Best wireless charger for any phone",
+    "The mini projector that replaces your TV",
 ]
 
-def get_trending_topics_reddit():
-    try:
-        print("📱 Fetching trending topics from Reddit...")
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json',
-            'Accept-Language': 'en-US,en;q=0.9'
-        }
-        
-        subreddits = ['technology', 'gadgets', 'tech']
-        trending = []
-        
-        for subreddit in subreddits:
-            try:
-                url = f'https://www.reddit.com/r/{subreddit}/hot.json?limit=25'
-                r = requests.get(url, headers=headers, timeout=10)
-                
-                if r.status_code == 200:
-                    data = r.json()
-                    posts = data.get('data', {}).get('children', [])
-                    
-                    for post in posts:
-                        title = post.get('data', {}).get('title', '').strip()
-                        if title and 20 < len(title) < 150 and 'thread' not in title.lower():
-                            trending.append(title)
-                    
-                    if len(trending) >= 10:
-                        break
-            except Exception:
+# ---------------------------------------------------------------------------
+# Reddit scraper
+# ---------------------------------------------------------------------------
+SUBREDDITS = ["gadgets", "technology", "tech", "pcmasterrace"]
+
+
+def get_trending_topics_reddit() -> list[str]:
+    """
+    Fetch top posts from tech subreddits and return as topic strings.
+    Returns an empty list if Reddit is unreachable.
+    """
+    print("📱 Fetching trending topics from Reddit...")
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/123.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json",
+        "Accept-Language": "en-US,en;q=0.9",
+    }
+
+    trending: list[str] = []
+
+    for sub in SUBREDDITS:
+        if len(trending) >= 15:
+            break
+        try:
+            url = f"https://www.reddit.com/r/{sub}/hot.json?limit=25&t=day"
+            resp = requests.get(url, headers=headers, timeout=10)
+            if resp.status_code != 200:
                 continue
-        
-        if trending:
-            print(f"✅ Found {len(trending)} trending topics from Reddit")
-            return trending[:15]
-        else:
-            print(f"⚠️ Reddit fetch returned no posts")
-            
-    except Exception as e:
-        print(f"⚠️ Reddit fetch failed ({type(e).__name__})")
-    
+            posts = resp.json().get("data", {}).get("children", [])
+            for post in posts:
+                title = post.get("data", {}).get("title", "").strip()
+                # Filter out low-quality titles
+                if (
+                    title
+                    and 20 < len(title) < 150
+                    and "thread" not in title.lower()
+                    and "weekly" not in title.lower()
+                    and "discussion" not in title.lower()
+                ):
+                    trending.append(title)
+        except Exception:
+            continue
+
+    if trending:
+        print(f"✅ Found {len(trending)} trending topics from Reddit.")
+        return trending[:15]
+
+    print("⚠️  Reddit unavailable or returned no usable posts.")
     return []
 
-def get_todays_topic():
+
+def get_todays_topic() -> str:
+    """
+    Pick today's topic.
+    Prefers Reddit trending topics; falls back to the curated local list.
+    Uses date-seeded randomness so the same topic is picked if script is re-run today.
+    """
     trending = get_trending_topics_reddit()
-    
+
+    random.seed(date.today().toordinal())
+
     if trending:
         topic = random.choice(trending)
         print(f"📌 Today's trending topic: {topic}")
-        return topic
     else:
         topic = random.choice(GADGET_TOPICS)
         print(f"📌 Today's fallback topic: {topic}")
-        return topic
+
+    return topic

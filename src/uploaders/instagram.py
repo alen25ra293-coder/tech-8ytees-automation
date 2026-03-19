@@ -1,180 +1,320 @@
+"""
+Instagram Reels Uploader
+========================
+Uses the Official Meta Graph API (most reliable, no IP blacklisting).
+Falls back to Instagrapi if Graph API credentials aren't set.
+
+HOW THE GRAPH API WORKS (2-STEP FLOW):
+  Step 1: Create a media container → pass `video_url` (public URL of the file)
+           The API downloads it from that URL, so we need a public host.
+           We use file.io (free, no signup, auto-expires after download).
+  Step 2: Poll until container status = FINISHED, then call media_publish.
+
+GITHUB SECRETS NEEDED (add in repo Settings → Secrets):
+  IG_BUSINESS_ACCOUNT_ID   – Your Instagram Business/Creator account numeric ID
+  IG_GRAPH_ACCESS_TOKEN    – Long-lived user access token (valid ~60 days)
+  IG_USERNAME              – (Fallback only) Instagram username
+  IG_PASSWORD              – (Fallback only) Instagram password
+"""
+
 import os
 import time
-try:
-    from instagrapi import Client
-except ImportError:
-    Client = None
-    print("[WARNING] instagrapi not installed. Run: pip install instagrapi")
+import requests
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
 
 def upload_to_instagram(video_path, caption):
     """
-    Upload to Instagram with 3 methods and automatic fallback:
-    
-    1. Graph API (Official - Most Reliable)
-    2. Instagrapi with Retry Logic (Backup)
-    3. Manual Upload Instruction (Last Resort)
-    
-    Tries methods in order until one succeeds.
+    Upload a video as an Instagram Reel.
+
+    Strategy (tries in order):
+      1. Official Graph API  – no IP issues, most stable
+      2. Instagrapi          – private API, may be blocked by GitHub IPs
+      3. Manual fallback     – prints instructions
     """
-    print("📤 Uploading to Instagram Reels...\n")
-    
-    # Method 1: Try Graph API (Official, most reliable)
-    result = _try_graph_api(video_path, caption)
-    if result:
+    print("\n📤 Uploading to Instagram Reels...\n")
+
+    if _try_graph_api(video_path, caption):
         return True
-    
+
     print()
-    
-    # Method 2: Try Instagrapi with Retry Logic
-    result = _try_instagrapi(video_path, caption)
-    if result:
+    if _try_instagrapi(video_path, caption):
         return True
-    
+
     print()
-    
-    # Method 3: Fallback instructions
     print("❌ All automated methods failed.")
     print("🔄 Fallback: Manual Upload")
-    print("   Video ready at: output.mp4")
-    print("   You can manually upload to Instagram Reels")
+    print(f"   Video ready at: {video_path}")
+    print("   You can manually upload to Instagram Reels via the app.")
     return False
 
+
+# ---------------------------------------------------------------------------
+# Method 1 – Official Meta Graph API
+# ---------------------------------------------------------------------------
 
 def _try_graph_api(video_path, caption):
     """
-    Try uploading via Instagram Official Graph API
-    Most reliable but requires setup
+    Upload via the Instagram Graph API.
+
+    The API requires the video to be at a *publicly accessible URL*.
+    We upload the local file to file.io (free, ephemeral, no account needed),
+    get a short-lived public URL, then hand that URL to the Graph API.
     """
-    print("   [1/3] Trying Instagram Graph API (Official)...")
-    
-    business_account_id = os.environ.get("IG_BUSINESS_ACCOUNT_ID")
-    access_token = os.environ.get("IG_GRAPH_ACCESS_TOKEN")
-    
-    if not business_account_id or not access_token:
-        print("       ⏭️  Graph API credentials not configured")
-        print("          (Set IG_BUSINESS_ACCOUNT_ID + IG_GRAPH_ACCESS_TOKEN)")
-        return False
-    
-    try:
-        import requests
-        
-        print("       Uploading via Graph API...")
-        init_url = f"https://graph.instagram.com/v19.0/{business_account_id}/media"
-        
-        with open(video_path, 'rb') as video_file:
-            files = {'file': video_file}
-            data = {
-                'caption': caption,
-                'media_type': 'REELS',
-                'access_token': access_token
-            }
-            response = requests.post(init_url, files=files, data=data, timeout=300)
-        
-        if response.status_code == 200:
-            media_id = response.json().get('id')
-            
-            # Publish the media
-            publish_url = f"https://graph.instagram.com/v19.0/{business_account_id}/media_publish"
-            publish_data = {
-                'creation_id': media_id,
-                'access_token': access_token
-            }
-            publish_response = requests.post(publish_url, json=publish_data, timeout=60)
-            
-            if publish_response.status_code == 200:
-                post_id = publish_response.json().get('id')
-                print(f"       ✅ Graph API Success!")
-                print(f"           URL: https://instagram.com/reel/{post_id}")
-                return True
-            else:
-                error = publish_response.json().get('error', {}).get('message', '')
-                print(f"       ❌ Publish failed: {error}")
-                return False
-        else:
-            error = response.json().get('error', {}).get('message', response.text)
-            if "token" in error.lower():
-                print(f"       ❌ Invalid Graph API token")
-            else:
-                print(f"       ❌ Upload failed: {error[:80]}")
-            return False
-            
-    except ImportError:
-        print("       ❌ requests library not installed")
-        return False
-    except Exception as e:
-        print(f"       ❌ Error: {str(e)[:80]}")
+    print("   [1/2] Trying Instagram Graph API (Official)...")
+
+    account_id  = os.environ.get("IG_BUSINESS_ACCOUNT_ID", "").strip()
+    access_token = os.environ.get("IG_GRAPH_ACCESS_TOKEN", "").strip()
+
+    if not account_id or not access_token:
+        print("       ⏭️  Graph API credentials not configured.")
+        print("          → Add IG_BUSINESS_ACCOUNT_ID + IG_GRAPH_ACCESS_TOKEN to GitHub Secrets.")
         return False
 
+    if not os.path.exists(video_path):
+        print(f"       ❌ Video file not found: {video_path}")
+        return False
+
+    # --- Step A: Upload to a free public host so Graph API can fetch the file ---
+    print("       📡 Uploading video to temporary public host...")
+    public_url = _upload_to_fileio(video_path)
+    if not public_url:
+        print("       ❌ Could not obtain a public URL for the video. Trying fallback host...")
+        public_url = _upload_to_tmpfiles(video_path)
+    if not public_url:
+        print("       ❌ All public hosts failed. Cannot use Graph API without a public URL.")
+        return False
+    print(f"       ✅ Public URL obtained.")
+
+    # --- Step B: Create a media container ---
+    print("       🎬 Creating Instagram media container...")
+    clean_caption = _sanitize_caption(caption)
+
+    container_url = f"https://graph.instagram.com/v19.0/{account_id}/media"
+    container_payload = {
+        "media_type":  "REELS",
+        "video_url":   public_url,
+        "caption":     clean_caption,
+        "share_to_feed": "true",
+        "access_token": access_token,
+    }
+
+    try:
+        resp = requests.post(container_url, data=container_payload, timeout=60)
+        resp_json = resp.json()
+    except Exception as e:
+        print(f"       ❌ Container creation request failed: {e}")
+        return False
+
+    if resp.status_code != 200 or "id" not in resp_json:
+        err = resp_json.get("error", {}).get("message", resp.text)
+        print(f"       ❌ Container creation failed: {err}")
+        _print_graph_api_hints(err)
+        return False
+
+    creation_id = resp_json["id"]
+    print(f"       ✅ Container created (ID: {creation_id})")
+
+    # --- Step C: Poll until the container is FINISHED processing ---
+    print("       ⏳ Waiting for video to finish processing...")
+    if not _wait_for_container(account_id, creation_id, access_token):
+        print("       ❌ Video processing timed out or failed.")
+        return False
+
+    # --- Step D: Publish the container ---
+    print("       🚀 Publishing Reel...")
+    publish_url = f"https://graph.instagram.com/v19.0/{account_id}/media_publish"
+    publish_payload = {
+        "creation_id":  creation_id,
+        "access_token": access_token,
+    }
+
+    try:
+        pub_resp = requests.post(publish_url, data=publish_payload, timeout=60)
+        pub_json = pub_resp.json()
+    except Exception as e:
+        print(f"       ❌ Publish request failed: {e}")
+        return False
+
+    if pub_resp.status_code == 200 and "id" in pub_json:
+        post_id = pub_json["id"]
+        print(f"       ✅ Instagram Reel published!")
+        print(f"           URL: https://www.instagram.com/reel/{post_id}/")
+        return True
+    else:
+        err = pub_json.get("error", {}).get("message", pub_resp.text)
+        print(f"       ❌ Publish failed: {err}")
+        return False
+
+
+def _wait_for_container(account_id, creation_id, access_token, max_wait=300, interval=10):
+    """Poll the container status until FINISHED or timeout."""
+    status_url = f"https://graph.instagram.com/v19.0/{creation_id}"
+    params = {
+        "fields": "status,status_code",
+        "access_token": access_token,
+    }
+    waited = 0
+    while waited < max_wait:
+        try:
+            r = requests.get(status_url, params=params, timeout=30)
+            data = r.json()
+            status_code = data.get("status_code", "")
+
+            if status_code == "FINISHED":
+                return True
+            elif status_code == "ERROR":
+                print(f"       ❌ Processing error: {data.get('status', '')}")
+                return False
+            else:
+                print(f"       ... Status: {status_code or 'IN PROGRESS'} ({waited}s elapsed)")
+        except Exception as e:
+            print(f"       ⚠️  Status check error: {e}")
+
+        time.sleep(interval)
+        waited += interval
+
+    return False  # timed out
+
+
+def _upload_to_fileio(video_path):
+    """Upload file to file.io — free, no account needed, auto-deletes after one download."""
+    try:
+        with open(video_path, "rb") as f:
+            resp = requests.post(
+                "https://file.io",
+                files={"file": f},
+                data={"expires": "1d"},
+                timeout=120,
+            )
+        data = resp.json()
+        if data.get("success") and data.get("link"):
+            return data["link"]
+    except Exception as e:
+        print(f"       ⚠️  file.io upload failed: {e}")
+    return None
+
+
+def _upload_to_tmpfiles(video_path):
+    """Fallback: upload to tmpfiles.org."""
+    try:
+        with open(video_path, "rb") as f:
+            resp = requests.post(
+                "https://tmpfiles.org/api/v1/upload",
+                files={"file": f},
+                timeout=120,
+            )
+        data = resp.json()
+        if data.get("status") == "success":
+            # Convert the page URL to a direct download URL
+            page_url = data["data"]["url"]
+            # tmpfiles.org page URLs look like: https://tmpfiles.org/123/file.mp4
+            # Direct URL: https://tmpfiles.org/dl/123/file.mp4
+            return page_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+    except Exception as e:
+        print(f"       ⚠️  tmpfiles.org upload failed: {e}")
+    return None
+
+
+def _sanitize_caption(caption):
+    """Ensure caption has Reels hashtags and stays under 2200 chars."""
+    if "#reels" not in caption.lower():
+        caption = f"{caption}\n\n#Reels #InstagramReels #TechReels #Tech8ytees"
+    return caption[:2200]
+
+
+def _print_graph_api_hints(error_msg):
+    """Print helpful hints based on the error message."""
+    error_lower = error_msg.lower()
+    if "token" in error_lower or "oauth" in error_lower or "session" in error_lower:
+        print("       💡 Hint: Your access token may have expired (they last ~60 days).")
+        print("          Regenerate at: https://developers.facebook.com/tools/explorer/")
+    elif "permission" in error_lower or "scope" in error_lower:
+        print("       💡 Hint: Your token is missing required permissions.")
+        print("          Required: instagram_basic, instagram_content_publish, pages_read_engagement")
+    elif "account" in error_lower or "business" in error_lower:
+        print("       💡 Hint: IG_BUSINESS_ACCOUNT_ID must be a numeric Instagram Business/Creator ID.")
+        print("          Find it: Instagram Settings → Account → Professional Dashboard")
+
+
+# ---------------------------------------------------------------------------
+# Method 2 – Instagrapi (private API, works from residential IPs)
+# ---------------------------------------------------------------------------
 
 def _try_instagrapi(video_path, caption):
     """
-    Try uploading via Instagrapi (Backup method)
-    May fail due to IP blacklist but has retry logic
+    Try uploading via Instagrapi.
+    ⚠️  GitHub Actions IPs are often blacklisted by Instagram.
+    This method works best when running from a home/residential IP.
     """
-    print("   [2/3] Trying Instagrapi with Retry (Backup)...")
-    
-    if os.path.exists(".env"):
-        try:
-            from dotenv import load_dotenv
-            load_dotenv()
-        except ImportError:
-            pass
-    
-    username = os.environ.get("IG_USERNAME") or os.environ.get("INSTAGRAM_USERNAME")
-    password = os.environ.get("IG_PASSWORD") or os.environ.get("INSTAGRAM_PASSWORD")
-    
+    print("   [2/2] Trying Instagrapi (Backup)...")
+
+    try:
+        from instagrapi import Client
+    except ImportError:
+        print("       ❌ instagrapi not installed. Run: pip install instagrapi")
+        return False
+
+    username = (os.environ.get("IG_USERNAME") or os.environ.get("INSTAGRAM_USERNAME", "")).strip()
+    password = (os.environ.get("IG_PASSWORD") or os.environ.get("INSTAGRAM_PASSWORD", "")).strip()
+
     if not username or not password:
-        print("       ⏭️  Instagrapi credentials not configured")
-        print("          (Set IG_USERNAME + IG_PASSWORD)")
+        print("       ⏭️  Instagrapi credentials not configured.")
+        print("          → Add IG_USERNAME + IG_PASSWORD to GitHub Secrets.")
         return False
-    
-    if not Client:
-        print("       ❌ instagrapi not installed")
-        return False
-    
+
     if not os.path.exists(video_path):
-        print(f"       ❌ Video file not found")
+        print(f"       ❌ Video file not found: {video_path}")
         return False
-    
-    max_retries = 3
-    for attempt in range(max_retries):
+
+    session_file = "ig_session.json"
+    max_retries = 2
+
+    for attempt in range(1, max_retries + 1):
         try:
             cl = Client()
-            print(f"       Attempt {attempt + 1}/{max_retries}: Logging in...")
-            cl.login(username, password)
-            
-            # Ensure proper tags
-            if "#reels" not in caption.lower():
-                caption = f"{caption}\n\n#Reels #InstagramReels #TechReels"
-            
-            media = cl.clip_upload(video_path, caption)
-            print(f"       ✅ Instagrapi Success!")
-            print(f"           URL: https://instagram.com/reel/{media.code}")
+
+            # Reuse session if available (reduces login failures)
+            if os.path.exists(session_file):
+                try:
+                    cl.load_settings(session_file)
+                    cl.login(username, password)
+                except Exception:
+                    # Session stale — do fresh login
+                    cl = Client()
+                    cl.login(username, password)
+            else:
+                cl.login(username, password)
+
+            # Save session for next run
+            cl.dump_settings(session_file)
+
+            clean_caption = _sanitize_caption(caption)
+            print(f"       Uploading clip (attempt {attempt}/{max_retries})...")
+            media = cl.clip_upload(video_path, clean_caption)
+            print(f"       ✅ Instagrapi upload successful!")
+            print(f"           URL: https://www.instagram.com/reel/{media.code}/")
             return True
-            
+
         except Exception as e:
-            error_msg = str(e).lower()
-            
-            if "blacklist" in error_msg or "ip" in error_msg:
-                print(f"       ⚠️  Attempt {attempt + 1}: IP Blacklisted")
-                if attempt < max_retries - 1:
-                    wait_time = 30 * (attempt + 1)
-                    print(f"          Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
+            err = str(e).lower()
+            if "blacklist" in err or "ip" in err or "challenge" in err or "feedback" in err:
+                print(f"       ⚠️  Attempt {attempt}: IP/challenge blocked.")
+                if attempt < max_retries:
+                    wait = 30 * attempt
+                    print(f"          Retrying in {wait}s...")
+                    time.sleep(wait)
                 else:
-                    print(f"       ❌ IP blacklisted (max retries exceeded)")
-                    print(f"          Solution: Wait 24-48 hours or use Graph API")
-                continue
-                
-            elif "incorrect" in error_msg or "password" in error_msg or "unauthorized" in error_msg:
-                print(f"       ❌ Invalid username or password")
+                    print("       ❌ IP blacklisted (max retries exceeded).")
+                    print("          Solution: Use the Graph API instead (Method 1).")
+            elif "incorrect" in err or "password" in err or "unauthorized" in err:
+                print("       ❌ Invalid username or password.")
                 return False
             else:
-                print(f"       ❌ Error: {str(e)[:60]}")
-                if attempt < max_retries - 1:
-                    wait_time = 10 * (attempt + 1)
-                    print(f"          Retrying in {wait_time}s...")
-                    time.sleep(wait_time)
-    
-    return False
+                print(f"       ❌ Error (attempt {attempt}): {str(e)[:120]}")
+                if attempt < max_retries:
+                    time.sleep(15)
 
+    return False
