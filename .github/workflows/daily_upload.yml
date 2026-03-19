@@ -1,13 +1,12 @@
 name: Tech 8ytees Daily Upload
 
 on:
-  # Automation disabled - will restart on demand
-  # schedule:
-  #   - cron: '0 0 * * *'   # Every day at 12:00 AM UTC (5:30 AM IST)
-  #   - cron: '0 6 * * *'   # Every day at 6:00 AM UTC (11:30 AM IST)
-  #   - cron: '0 12 * * *'  # Every day at 12:00 PM UTC (5:30 PM IST)
-  #   - cron: '0 18 * * *'  # Every day at 6:00 PM UTC (11:30 PM IST)
-  #   - cron: '0 22 * * *'  # Every day at 10:00 PM UTC (3:30 AM next day IST)
+  schedule:
+    - cron: '0 0 * * *'   # Every day at 12:00 AM UTC (5:30 AM IST)
+    - cron: '0 6 * * *'   # Every day at 6:00 AM UTC (11:30 AM IST)
+    - cron: '0 12 * * *'  # Every day at 12:00 PM UTC (5:30 PM IST)
+    - cron: '0 18 * * *'  # Every day at 6:00 PM UTC (11:30 PM IST)
+    - cron: '0 22 * * *'  # Every day at 10:00 PM UTC (3:30 AM next day IST)
   workflow_dispatch:
 
 env:
