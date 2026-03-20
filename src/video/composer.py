@@ -30,10 +30,16 @@ def create_video(title, video_clips):
         # ── 1. Scale/crop each clip + color grade ─────────────────────────────
         scaled_clips = []
         # Punchy tech color grade: boosts contrast + saturation + subtle blue tint
-        # Using eq + hue instead of complex curves for better FFmpeg compatibility
         color_grade = (
             "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-            "setsar=1,eq=contrast=1.15:brightness=0.03:saturation=1.25:gamma=0.9"
+            "setsar=1,eq=contrast=1.2:brightness=0.04:saturation=1.3:gamma=0.92"
+        )
+        # Extra visual impact filter for the FIRST clip only
+        # Fast zoom-in from 1.05x to 1.0x over 0.5s — creates kinetic energy
+        first_clip_grade = (
+            "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,"
+            "zoompan=z='if(lt(t,0.5),1.05-0.05*t*2,1)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:fps=30,"
+            "eq=contrast=1.2:brightness=0.04:saturation=1.3:gamma=0.92"
         )
 
         if video_clips:
@@ -42,8 +48,10 @@ def create_video(title, video_clips):
                 if not os.path.exists(clip):
                     continue
                 out = f"scaled_{i}.mp4"
+                # First clip gets explosive zoom-in for instant visual impact
+                vf = first_clip_grade if i == 0 else color_grade
                 res = subprocess.run([
-                    "ffmpeg", "-y", "-i", clip, "-vf", color_grade,
+                    "ffmpeg", "-y", "-i", clip, "-vf", vf,
                     "-r", "30", "-c:v", "libx264", "-an", "-preset", "ultrafast", out
                 ], capture_output=True, text=True)
                 if res.returncode == 0 and os.path.exists(out):

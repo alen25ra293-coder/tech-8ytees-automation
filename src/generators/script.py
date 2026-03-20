@@ -154,8 +154,11 @@ STUDY THESE EXAMPLES:
 {examples_text}
 
 ================================================
-TASK: Write a viral 130-155 word script about: "{topic}"
+TASK: Write a viral 95-115 word script about: "{topic}"
 ================================================
+
+TARGET: The final video must be 38-45 SECONDS long when spoken.
+At natural speech pace (~2.5 words/sec): 100 words = ~40 seconds. DO NOT exceed 115 words.
 
 STRUCTURE (follow exactly):
 1. HOOK (first sentence): "{hook}"
@@ -179,6 +182,7 @@ FORBIDDEN (these kill retention):
 - Formal language, passive voice, essay structure
 - Long descriptions without drama or tension
 - Emojis in the script text
+- Filler words: "basically", "actually", "I wanted to", "Today I'll be showing"
 
 TITLE RULES:
 - Number OR question OR emotional trigger word
@@ -188,7 +192,7 @@ TITLE RULES:
 OUTPUT FORMAT (nothing else, no extra text):
 TITLE: [max 65 chars]
 HOOK_LINE: [just the first sentence]
-SCRIPT: [130-155 word script starting with the hook]
+SCRIPT: [95-115 word script starting with the hook]
 TAGS: [10 tags, comma-separated]
 DESCRIPTION: [2 casual human-sounding sentences]
 THUMBNAIL_TEXT: [3-5 ALL CAPS words]
@@ -203,7 +207,7 @@ CAPTION_HOOK: [Single punchy Instagram caption opener -- bold claim or curiosity
             body = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
             wc = len(body.split())
             print(f"📝 Script: {wc} words")
-            if wc < 90 or wc > 210:
+            if wc < 75 or wc > 140:
                 if attempt < 3:
                     print(f"⚠️  Out of range ({wc}w). Regenerating...")
                     return generate_script(topic, attempt + 1)

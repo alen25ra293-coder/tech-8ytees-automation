@@ -4,35 +4,53 @@ import requests
 
 PEXELS_KEY = os.environ.get("PEXELS_API_KEY")
 
+# ── High-energy FIRST CLIP queries ─────────────────────────────────────────
+# These give visually explosive opening shots: hands unboxing, tech closeups,
+# fast-moving product reveals. Always used for the VERY FIRST clip.
+HIGH_ENERGY_FIRST_CLIPS = [
+    "hands unboxing product closeup",
+    "tech product macro closeup cinematic",
+    "smartphone unboxing fast",
+    "gadget reveal closeup hands",
+    "product reveal cinematic macro",
+]
+
 # Product-focused visual aliases — avoids people/lifestyle shots
 # Values describe what we want to SEE on screen (product shots, screens, abstract tech)
 TOPIC_ALIAS_MAP = {
-    "iphone": ["iphone product shot", "smartphone screen closeup", "phone unboxing"],
-    "android": ["android phone", "smartphone product", "mobile phone closeup"],
-    "laptop": ["laptop screen closeup", "typing laptop", "computer screen workspace"],
-    "macbook": ["macbook product shot", "laptop screen", "apple computer"],
-    "airpods": ["earbuds product shot", "headphones closeup", "audio tech"],
-    "earbuds": ["earbuds white background", "headphones product", "wireless earbuds"],
-    "headphones": ["headphones product shot", "audio tech closeup", "studio headphones"],
-    "vr":      ["vr headset product", "virtual reality headset closeup", "futuristic headset"],
-    "gaming":  ["gaming setup no people", "gaming keyboard mouse", "gaming monitor screen"],
-    "ai":      ["artificial intelligence visualization", "digital code screen", "neural network abstract"],
-    "chatgpt": ["computer screen code", "ai interface screen", "tech laptop screen"],
-    "smartwatch": ["smartwatch product shot", "wearable tech closeup", "watch screen"],
-    "camera":  ["camera lens product", "photography equipment", "video camera"],
-    "projector": ["projector tech", "projection screen", "home theater setup"],
-    "smart home": ["smart home device", "home automation gadget", "modern router"],
-    "keyboard": ["keyboard product shot", "mechanical keyboard closeup", "typing keys"],
-    "mouse":   ["computer mouse product", "wireless mouse closeup", "gaming mouse"],
-    "monitor": ["computer monitor closeup", "display screen", "dual monitor setup"],
-    "usb":     ["cable technology", "usb hub product", "tech accessories table"],
-    "charger": ["wireless charger product", "charging phone", "power adapter"],
-    "drone":   ["drone product shot", "aerial drone", "drone footage sky"],
-    "robot":   ["robot technology", "robotic arm", "automation machine"],
-    "electric": ["electric vehicle tech", "battery technology", "circuit board"],
-    "budget":  ["budget gadget review", "unboxing product", "tech comparison"],
-    "apple":   ["apple product shot", "iphone display", "macbook screen"],
-    "samsung": ["samsung phone product", "galaxy screen", "android closeup"],
+    "iphone": ["iphone unboxing closeup", "smartphone screen macro", "phone reveal cinematic"],
+    "android": ["android phone unboxing", "smartphone product macro", "mobile closeup cinematic"],
+    "laptop": ["laptop unboxing reveal", "laptop screen typing closeup", "laptop product macro"],
+    "macbook": ["macbook unboxing product", "apple laptop screen close", "macbook typing fast"],
+    "airpods": ["earbuds product macro", "airpods unboxing", "earbuds white background closeup"],
+    "earbuds": ["earbuds unboxing reveal", "headphones product macro", "wireless earbuds cinematic"],
+    "headphones": ["headphones product reveal", "headphones closeup macro", "studio headphones"],
+    "vr":      ["vr headset unboxing", "virtual reality headset closeup", "vr product reveal"],
+    "gaming":  ["gaming setup reveal", "gaming keyboard rgb closeup", "gaming mouse fast"],
+    "ai":      ["artificial intelligence abstract", "digital code flowing screen", "neural network visualization"],
+    "chatgpt": ["laptop screen code closeup", "typing fast keyboard", "screen interface close"],
+    "smartwatch": ["smartwatch unboxing product", "watch screen closeup", "wearable tech cinematic"],
+    "camera":  ["camera lens reveal", "photography equipment closeup", "video camera cinematic"],
+    "drone":   ["drone unboxing product", "aerial footage", "drone product reveal"],
+    "robot":   ["robot technology closeup", "robotic arm moving", "automation machine fast"],
+    "budget":  ["product unboxing reveal", "gadget review table", "tech comparison fast"],
+    "apple":   ["apple product unboxing", "iphone display reveal", "macbook screen open"],
+    "samsung": ["samsung phone unboxing", "galaxy screen reveal", "android closeup cinematic"],
+    "keyboard": ["mechanical keyboard rgb closeup", "keyboard typing fast", "keyboard product macro"],
+    "mouse":   ["gaming mouse unboxing", "wireless mouse macro", "mouse product closeup"],
+    "monitor": ["monitor screen reveal", "display product", "dual monitor setup cinematic"],
+    "accessories": ["tech accessories closeup", "gadget unboxing hands", "cable product macro"],
+    "charger": ["wireless charger product", "charging cable macro", "power adapter closeup"],
+    "phone":   ["phone unboxing closeup", "smartphone reveal cinematic", "phone screen macro"],
+    "tablet":  ["tablet unboxing reveal", "ipad product closeup", "screen tablet cinematic"],
+    "speaker": ["speaker product reveal", "audio speaker closeup", "sound equipment macro"],
+    "cable":   ["cable product macro", "tech cables closeup", "usb product cinematic"],
+    "cheap":   ["product unboxing reveal", "gadget comparison fast", "value product macro"],
+    "expensive": ["luxury product reveal", "premium gadget unboxing", "high end tech macro"],
+    "wired":   ["wired headphones product", "cable audio macro", "jack plug closeup"],
+    "wireless": ["wireless product reveal", "bluetooth device macro", "wireless tech cinematic"],
+    "worst":   ["broken phone closeup", "tech fail product", "damaged gadget macro"],
+    "regret":  ["returning product box", "unboxing mistake reveal", "gadget comparison"],
 }
 
 # Queries that always return product/screen footage (last-resort fallbacks)
@@ -41,18 +59,23 @@ SAFE_FALLBACK_QUERIES = [
     "gadget unboxing table",
     "smartphone screen white background",
     "circuit board technology",
-    "digital screen abstract",
-    "tech desk setup",
 ]
 
 
-def _build_search_queries(topic: str) -> list:
+def _build_search_queries(topic: str, first_clip_high_energy: bool = True) -> list:
     """
     Generate product-focused, no-people search queries from a topic.
     All queries are designed to return product shots, screens, and abstract tech visuals.
+    If first_clip_high_energy=True, a random high-energy unboxing clip query is prepended
+    to ensure the very first clip has visual impact.
     """
+    import random
     topic_lower = topic.lower()
     queries = []
+
+    # 0. First clip: always start with a visually explosive unboxing/reveal shot
+    if first_clip_high_energy:
+        queries.append(random.choice(HIGH_ENERGY_FIRST_CLIPS))
 
     # 1. Alias-based queries (product-focused visuals for known topics)
     for key, aliases in TOPIC_ALIAS_MAP.items():
