@@ -10,7 +10,8 @@ from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 
 
-def upload_to_youtube(title: str, description: str, tags: str, video_file: str = "output.mp4"):
+def upload_to_youtube(title: str, description: str, tags: str,
+                       video_file: str = "output.mp4", thumbnail_path: str | None = None):
     """
     Upload a video to YouTube Shorts.
     Reads credentials from token.json (written by GitHub Actions from the YOUTUBE_TOKEN_JSON secret).
@@ -86,6 +87,19 @@ def upload_to_youtube(title: str, description: str, tags: str, video_file: str =
         video_id = response["id"]
         print(f"✅ YouTube upload successful! Video ID: {video_id}")
         print(f"   URL: https://youtube.com/shorts/{video_id}")
+
+        # Upload thumbnail if available
+        if thumbnail_path and os.path.exists(thumbnail_path):
+            try:
+                print("🖼️  Setting custom thumbnail...")
+                youtube.thumbnails().set(
+                    videoId=video_id,
+                    media_body=MediaFileUpload(thumbnail_path, mimetype="image/jpeg")
+                ).execute()
+                print("✅ Thumbnail set successfully.")
+            except Exception as thumb_err:
+                print(f"⚠️  Thumbnail upload failed (non-critical): {thumb_err}")
+
         return video_id
 
     except Exception as e:

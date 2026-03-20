@@ -12,8 +12,8 @@ def generate_voiceover(script_text: str) -> bool:
     """
     Generate voiceover + subtitles from script text.
 
-    Uses edge-tts with an energetic male voice (+20% speed for viral pacing).
-    Falls back to gTTS if edge-tts fails.
+    Uses edge-tts with a warm, natural-sounding voice at human pacing.
+    Falls back to gTTS if edge-tts fails (3 attempts with retry).
 
     Returns True on success, False on total failure.
     """
@@ -26,7 +26,13 @@ def generate_voiceover(script_text: str) -> bool:
     with open(temp_file, "w", encoding="utf-8") as f:
         f.write(script_text)
 
-    success = _try_edge_tts(temp_file)
+    success = False
+    for attempt in range(1, 4):
+        if _try_edge_tts(temp_file):
+            success = True
+            break
+        print(f"⚠️  edge-tts attempt {attempt} failed. Retrying in 3s...")
+        time.sleep(3)
 
     # Clean up temp file
     if os.path.exists(temp_file):
@@ -42,39 +48,51 @@ def generate_voiceover(script_text: str) -> bool:
 
 def _try_edge_tts(script_file: str) -> bool:
     """Run edge-tts and return True if it succeeds."""
-    print("🎙️ Generating voiceover with edge-tts (fast & free)...")
+    print("🎙️ Generating voiceover with edge-tts...")
 
-    voice = "en-US-ChristopherNeural"   # Deep, energetic male voice
-    rate  = "+20%"                       # Slightly faster — keeps viewers hooked
-
-    cmd = [
-        "edge-tts",
-        "--voice", voice,
-        "--rate",  rate,
-        "-f", script_file,
-        "--write-media",     "voiceover.mp3",
-        "--write-subtitles", "subtitles.vtt",
+    # Voice hierarchy — try most natural first, fall back if unavailable
+    voice_options = [
+        # BrianNeural — newest, warmest, most human-sounding (2024)
+        ("en-US-BrianNeural",      "+8%",  "+2Hz"),
+        # ChristopherNeural — deep, energetic, good fallback
+        ("en-US-ChristopherNeural", "+5%", "+0Hz"),
+        # GuyNeural — natural casual American voice
+        ("en-US-GuyNeural",        "+5%",  "+0Hz"),
     ]
 
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-        if result.returncode == 0 and os.path.exists("voiceover.mp3"):
-            size_kb = os.path.getsize("voiceover.mp3") // 1024
-            print(f"✅ edge-tts voiceover and VTT subtitles generated successfully! ({size_kb} KB)")
-            return True
-        else:
-            err = result.stderr.strip()[:200]
-            print(f"❌ edge-tts failed: {err}")
+    for voice, rate, pitch in voice_options:
+        cmd = [
+            "edge-tts",
+            "--voice", voice,
+            "--rate",  rate,
+            "--pitch", pitch,
+            "-f", script_file,
+            "--write-media",     "voiceover.mp3",
+            "--write-subtitles", "subtitles.vtt",
+        ]
+
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            if result.returncode == 0 and os.path.exists("voiceover.mp3"):
+                size_kb = os.path.getsize("voiceover.mp3") // 1024
+                print(f"✅ Voiceover ready! Voice: {voice}, Rate: {rate}, Pitch: {pitch} ({size_kb} KB)")
+                return True
+            else:
+                err = result.stderr.strip()[:200]
+                print(f"⚠️  Voice {voice} failed: {err}")
+                # Try next voice
+                continue
+        except FileNotFoundError:
+            print("❌ edge-tts not found. Install with: pip install edge-tts")
             return False
-    except FileNotFoundError:
-        print("❌ edge-tts not found. Install with: pip install edge-tts")
-        return False
-    except subprocess.TimeoutExpired:
-        print("❌ edge-tts timed out.")
-        return False
-    except Exception as e:
-        print(f"❌ edge-tts error: {e}")
-        return False
+        except subprocess.TimeoutExpired:
+            print(f"❌ edge-tts timed out for voice {voice}.")
+            continue
+        except Exception as e:
+            print(f"❌ edge-tts error with {voice}: {e}")
+            continue
+
+    return False
 
 
 def _try_gtts(script_text: str) -> bool:

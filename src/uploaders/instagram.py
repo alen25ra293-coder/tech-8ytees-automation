@@ -188,19 +188,27 @@ def _wait_for_container(base_url, creation_id, access_token, max_wait=300, inter
 
 def _upload_to_fileio(video_path):
     """Upload file to file.io — free, no account needed, auto-deletes after one download."""
-    try:
-        with open(video_path, "rb") as f:
-            resp = requests.post(
-                "https://file.io",
-                files={"file": f},
-                data={"expires": "1d"},
-                timeout=120,
-            )
-        data = resp.json()
-        if data.get("success") and data.get("link"):
-            return data["link"]
-    except Exception as e:
-        print(f"       ⚠️  file.io upload failed: {e}")
+    for attempt in range(1, 3):
+        try:
+            with open(video_path, "rb") as f:
+                resp = requests.post(
+                    "https://file.io",
+                    files={"file": f},
+                    data={"expires": "1d"},
+                    timeout=120,
+                )
+            if resp.status_code == 200 and resp.text.strip():
+                data = resp.json()
+                if data.get("success") and data.get("link"):
+                    return data["link"]
+            
+            print(f"       ⚠️  file.io attempt {attempt} failed (status {resp.status_code}).")
+            if attempt < 2:
+                time.sleep(5)
+        except Exception as e:
+            print(f"       ⚠️  file.io attempt {attempt} error: {e}")
+            if attempt < 2:
+                time.sleep(5)
     return None
 
 

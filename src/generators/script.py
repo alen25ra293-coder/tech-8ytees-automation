@@ -1,19 +1,19 @@
 """
-Script Generator — generates short, viral YouTube Shorts / Instagram Reels scripts
-using Gemini AI with few-shot examples and automatic key rotation.
+Script Generator — viral YouTube Shorts / Instagram Reels scripts.
+Enforces human-sounding language, pattern-interrupt hooks, loop endings,
+dynamic hashtags, and strong title optimization.
 """
 import os
 import random
 import google.generativeai as genai
 
-# ---------------------------------------------------------------------------
-# API key management — supports multiple keys (comma-separated)
-# ---------------------------------------------------------------------------
+# ── API key rotation ─────────────────────────────────────────────────────────
 _gemini_keys_raw = (
     os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY", "")
 )
 GEMINI_KEYS = [k.strip() for k in _gemini_keys_raw.split(",") if k.strip()]
 _key_index = 0
+
 
 def _next_key():
     global _key_index
@@ -24,158 +24,233 @@ def _next_key():
     return key
 
 
-# ---------------------------------------------------------------------------
-# Few-shot examples — teach the model what "good" looks like
-# ---------------------------------------------------------------------------
+def _get_model():
+    key = _next_key()
+    if not key:
+        return None
+    genai.configure(api_key=key)
+    return genai.GenerativeModel("gemini-2.5-flash")
+
+
+# ── Few-shot examples — pattern-interrupt hooks, loop endings ────────────────
 EXAMPLE_SCRIPTS = [
     {
-        "topic": "best wireless earbuds 2026",
-        "title": "NEVER BUY AIRPODS AGAIN!",
+        "topic": "best wireless earbuds under $60",
+        "title": "I TESTED Every Cheap Earbud So You Don't Have To",
+        "hook": "Nobody tells you this when you buy AirPods.",
         "script": (
-            "Stop wasting money on AirPods! I just tested the top three wireless earbuds "
-            "of 2026 and Apple isn't even number one. The Soundcore Space A40 — sixty bucks, "
-            "punchy bass, ten hours battery. Insane value. Second, Samsung Galaxy Buds 3. "
-            "If you own an Android, these integrate perfectly without the Apple tax. "
-            "But the king? The Nothing Ear. Transparent design, high-res audio, half "
-            "the price of AirPods Pro. Check the link in bio for the full breakdown!"
+            "Nobody tells you this when you buy AirPods. You're not paying for better sound. "
+            "You're paying for the logo. I've tested every cheap earbud out there and here's the truth — "
+            "the Soundcore Space A40 at sixty bucks has better bass, longer battery, and "
+            "noise cancellation that slaps harder than AirPods. I gave them to my Apple-obsessed "
+            "friend and he couldn't go back. Samsung Galaxy Buds for Android users? No contest. "
+            "But the absolute king right now is the Nothing Ear — half the price, "
+            "twice the personality. And remember — nobody tells you this, "
+            "until now. Smash that subscribe button, send this to a friend who needs to see it, "
+            "and follow us on Instagram — links are in the bio!"
         ),
     },
     {
-        "topic": "AI tools that will replace your job",
-        "title": "AI Is Coming For Your Job",
+        "topic": "AI tools replacing jobs",
+        "title": "5 AI Tools QUIETLY Replacing Your Coworkers",
+        "hook": "Here's what your boss isn't telling you.",
         "script": (
-            "Five AI tools that are genuinely replacing real jobs right now. "
-            "Number one: ChatGPT is already replacing junior copywriters — companies "
-            "cut headcount by 30 percent. Number two: Midjourney killed stock photo sales "
-            "overnight. Number three: GitHub Copilot is writing 40 percent of all new code. "
-            "Number four: Perplexity is wrecking SEO blogging. Number five: Synthesia is "
-            "replacing corporate video teams. Adapt or get left behind. "
-            "Check the link in bio for the full breakdown!"
+            "Here's what your boss isn't telling you. Five AI tools are replacing real people "
+            "at real companies right now. ChatGPT already cut junior copywriter positions by "
+            "30 percent at dozens of agencies. Midjourney killed stock photography overnight. "
+            "GitHub Copilot writes over 40 percent of new code at some companies. Perplexity "
+            "is wrecking SEO blogs. Synthesia is replacing corporate video teams. Look — "
+            "the winners aren't the people who fight AI. They're the people who use it "
+            "better than anyone else. And here's what your boss still isn't telling you: "
+            "you have about six months to get ahead of this. "
+            "Smash that subscribe button, send this to a friend who needs to see it, "
+            "and follow us on Instagram — links are in the bio!"
         ),
     },
 ]
 
-# ---------------------------------------------------------------------------
-# Fallback topics (used only if Gemini is completely unavailable)
-# ---------------------------------------------------------------------------
+# ── Pattern-interrupt hook openers ───────────────────────────────────────────
+HOOK_OPENERS = [
+    "Nobody talks about this, but",
+    "Here's what they don't tell you —",
+    "This changed everything for me.",
+    "Stop what you're doing and listen.",
+    "I almost made a huge mistake.",
+    "Here's the thing nobody tells you —",
+    "Wait — before you buy anything,",
+    "Real talk:",
+    "I tested this so you don't have to.",
+    "This is going to sound crazy, but",
+]
+
+# ── Fallback topics ───────────────────────────────────────────────────────────
 FALLBACK_TOPICS = [
     "The $50 gadget that beats your laptop",
     "Hidden iPhone features nobody talks about",
-    "This USB-C hub changes everything",
     "Stop buying expensive earbuds — here's why",
     "The smartwatch Apple doesn't want you to own",
     "AI tools that will replace your job in 2026",
     "The gaming mouse pros secretly use",
     "Mechanical keyboards are a luxury scam",
+    "Budget laptop that outperforms expensive ones",
 ]
 
 
-# ---------------------------------------------------------------------------
-# Main script generation
-# ---------------------------------------------------------------------------
+# ── Main script generation ────────────────────────────────────────────────────
 def generate_script(topic: str, attempt: int = 1) -> str | None:
-    """
-    Generate a short viral script (100-130 words) for the given topic.
+    """Generate a viral 120-145 word script with hook, loop ending, and CTA."""
+    print(f"🤖 Generating viral script (attempt {attempt}/3)...")
 
-    Returns: raw response string from Gemini, or None on total failure.
-    """
-    print(f"🤖 Generating short viral script (attempt {attempt}/3)...")
-
-    api_key = _next_key()
-    if not api_key:
-        print("❌ No Gemini API keys available. Set GEMINI_API_KEYS in your secrets.")
+    hook = random.choice(HOOK_OPENERS)
+    model = _get_model()
+    if not model:
+        print("❌ No Gemini API keys. Using fallback.")
         return _build_fallback_script(topic)
 
-    try:
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-2.5-flash")
+    examples_text = "\n\n".join(
+        f"EXAMPLE:\nTopic: {ex['topic']}\nTitle: {ex['title']}\nHook: {ex['hook']}\nScript: {ex['script']}"
+        for ex in EXAMPLE_SCRIPTS
+    )
 
-        examples_text = "\n\n".join(
-            f"Example:\nTopic: {ex['topic']}\nTitle: {ex['title']}\nScript: {ex['script']}"
-            for ex in EXAMPLE_SCRIPTS
-        )
+    prompt = f"""You are the scriptwriter for viral YouTube Shorts channel "Tech 8ytees".
+Your scripts sound like a smart friend talking to you — NEVER like an article, review, or AI.
 
-        prompt = f"""You are an expert YouTube Shorts scriptwriter for the viral tech channel "Tech 8ytees".
-Write SHORT, PUNCHY, VIRAL scripts that are exactly 110-130 WORDS.
-
-STUDY THESE EXAMPLES (notice they are short ~120 words):
+STUDY THESE EXAMPLES:
 {examples_text}
 
----
-TASK: Write a 110-130 word script about: "{topic}"
+══════════════════════════════════════════════
+TASK: Write a viral 125-145 word script about: "{topic}"
+══════════════════════════════════════════════
 
-NON-NEGOTIABLE RULES:
-1. WORD COUNT: exactly 110-130 words. Not 200, not 300. SHORT AND PUNCHY.
-2. Start with a HOOK that grabs attention in the very first sentence.
-3. Make 2-3 punchy points, each in 1-2 short sentences.
-4. Use conversational language. Sound like a real human, not a robot.
-5. End EXACTLY with: "Check the link in bio for the full breakdown!"
-6. No emojis in the script text.
+STRUCTURE (follow exactly):
+1. 🎣 HOOK (first sentence — use this exact opener): "{hook}"
+2. 📌 2-3 punchy points (conversational, short, real)
+3. 🔁 LOOP ENDING (second-to-last sentence must echo the hook so rewatching feels natural)
+4. 📣 CTA (EXACT last sentence, word-for-word, no changes):
+   "Smash that subscribe button, send this to a friend who needs to see it, and follow us on Instagram — links are in the bio!"
 
-OUTPUT FORMAT (no extra text):
-TITLE: [Clickbaity title under 60 chars, ALL CAPS words]
-SCRIPT: [110-130 word punchy script]
-TAGS: [10 comma-separated YouTube tags]
-DESCRIPTION: [2-3 sentences for video description]
-THUMBNAIL_TEXT: [2-4 words MAX, ALL CAPS]
+LANGUAGE RULES:
+✅ Contractions always: don't, you've, I'm, here's, that's, we're
+✅ Casual bridges: "Look,", "Honestly,", "Real talk:", "Here's the thing —"
+✅ Short fragments. Personal pronouns. Slang is fine.
+✅ Vary sentence length (mix 3-word punches with 15-word sentences)
+
+FORBIDDEN (never ever use):
+❌ "In conclusion", "Furthermore", "It's worth noting", "This device provides"
+❌ Passive voice. Formal language. Essay structure.
+❌ Emojis in the script text.
+
+TITLE RULES (write the most clickable title possible):
+- Include a number OR a question OR an emotional trigger word
+- Examples of strong title types: "I Tested 7 Earbuds — Here's the Truth", "Why I REGRET Buying This", "The Gadget Nobody Warned Me About"
+- ALL CAPS on 2-3 key trigger words
+
+OUTPUT FORMAT (nothing else, no extra text):
+TITLE: [max 65 chars — number/question/emotional trigger, ALL CAPS key words]
+HOOK_LINE: [just the first sentence — the exact hook used]
+SCRIPT: [125-145 word full script starting with the hook]
+TAGS: [10 tags — mix of 5 niche + 5 broad, comma-separated]
+DESCRIPTION: [2 casual human-sounding sentences]
+THUMBNAIL_TEXT: [3-5 ALL CAPS words that would look great on a thumbnail]
+CAPTION_HOOK: [Single punchy first line for Instagram caption — curiosity gap or bold claim, max 120 chars]
 """
+
+    try:
         response = model.generate_content(prompt)
         script_text = response.text.strip()
 
-        # Validate word count
         if "SCRIPT:" in script_text:
             body = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
             wc = len(body.split())
-            print(f"📝 Script word count: {wc} words")
-            if wc < 80 or wc > 180:
-                print(f"⚠️  Script is {wc} words (target: 110-130). Regenerating (attempt {attempt})...")
+            print(f"📝 Script: {wc} words")
+            if wc < 90 or wc > 210:
                 if attempt < 3:
+                    print(f"⚠️  Out of range ({wc}w). Regenerating...")
                     return generate_script(topic, attempt + 1)
-                # Accept it on final attempt
-                print("⚠️  Accepting script despite length — 3 attempts exhausted.")
+                print("⚠️  Accepting despite length — 3 attempts exhausted.")
 
         return script_text
 
     except Exception as e:
         err = str(e).lower()
-        if "quota" in err or "resource_exhausted" in err:
-            print(f"⚠️  Gemini key exhausted, rotating to next key...")
-            if attempt <= len(GEMINI_KEYS):
-                return generate_script(topic, attempt + 1)
-        print(f"❌ Gemini API error: {e}")
+        if ("quota" in err or "resource_exhausted" in err) and attempt <= len(GEMINI_KEYS):
+            return generate_script(topic, attempt + 1)
+        print(f"❌ Gemini error: {e}")
         return _build_fallback_script(topic)
 
 
+# ── Dynamic hashtag generation ────────────────────────────────────────────────
+def generate_dynamic_hashtags(topic: str) -> str:
+    """
+    Generate 8 topic-specific hashtags (5 niche + 3 broad).
+    Returns a space-separated hashtag string like '#gadgets #tech ...'
+    """
+    print("🏷️ Generating dynamic hashtags...")
+    model = _get_model()
+
+    if not model:
+        return _fallback_hashtags(topic)
+
+    prompt = f"""Generate exactly 8 Instagram/YouTube hashtags for a viral tech video about: "{topic}"
+
+Rules:
+- 5 NICHE hashtags: directly about the product/topic (e.g. #WirelessEarbuds #AirPodsAlternative)
+- 3 BROAD hashtags: wide reach (e.g. #Tech #Gadgets #TechTips)
+- No spaces inside hashtags. No '#' prefix for words with spaces.
+- Output ONLY the hashtags separated by spaces. Nothing else.
+Example output: #WirelessEarbuds #BudgetEarbuds #AirPodsAlternative #SoundcoreReview #NothingEar #Tech #Gadgets #TechReview
+"""
+    try:
+        resp = model.generate_content(prompt)
+        tags = resp.text.strip()
+        # Validate it looks like hashtags
+        if "#" in tags and len(tags) > 10:
+            print(f"✅ Hashtags: {tags}")
+            return tags
+    except Exception:
+        pass
+
+    return _fallback_hashtags(topic)
+
+
+def _fallback_hashtags(topic: str) -> str:
+    words = [w.strip(".,!?") for w in topic.split()[:3]]
+    niche = " ".join(f"#{w.capitalize()}" for w in words if w)
+    broad = "#Tech #Gadgets #TechShorts #Viral #Shorts"
+    return f"{niche} {broad} #Tech8ytees #InstagramReels"
+
+
+# ── Fallback script ───────────────────────────────────────────────────────────
 def _build_fallback_script(topic: str) -> str:
-    """Return a template script when Gemini is unavailable."""
-    print("⚠️  Using fallback script template (Gemini unavailable).")
-    safe_topic = topic[:50]
-    return f"""TITLE: {safe_topic[:55].upper()}
-SCRIPT: Here's something nobody in tech is talking about. {safe_topic}. \
-This has changed dramatically in 2026 and most people still don't know it. \
-First, the technology has gotten significantly better. The options are more \
-diverse and more affordable than ever before. Second, even budget options now \
-include premium features that used to cost twice as much. Third, if you haven't \
-looked at this in the last six months, you are missing out. The gap between \
-cheap and expensive has never been smaller. This is genuinely the best time \
-to make a decision. Check the link in bio for the full breakdown!
-TAGS: tech, gadgets, review, 2026, shorts, techy, comparison, buying guide, recommendations, viral
-DESCRIPTION: Everything you need to know about {safe_topic} in 2026. Drop your questions in the comments!
-THUMBNAIL_TEXT: {safe_topic[:20].upper()}"""
+    print("⚠️  Using fallback script (Gemini unavailable).")
+    hook = random.choice(HOOK_OPENERS)
+    safe = topic[:50]
+    return f"""TITLE: {safe[:55].upper()} — The Truth Nobody Tells You
+HOOK_LINE: {hook}
+SCRIPT: {hook} — {safe} has changed completely in 2026 and most people still don't get it. \
+I've been testing this for weeks and honestly, the results surprised even me. \
+The budget options right now perform as well as expensive ones did two years ago. \
+Like the gap just doesn't exist anymore. Don't sleep on this category. \
+Look — if you haven't revisited this recently, you're leaving real money on the table. \
+And just like I said at the start — {hook.lower()} But now you do. \
+Smash that subscribe button, send this to a friend who needs to see it, and follow us on Instagram — links are in the bio!
+TAGS: tech, gadgets, review, 2026, shorts, viral, buying guide, recommendations, techy, budget tech
+DESCRIPTION: Can't believe how much {safe} has changed. Drop your questions in the comments — I read every single one.
+THUMBNAIL_TEXT: {safe[:20].upper()} TRUTH
+CAPTION_HOOK: The truth about {safe} that nobody is talking about 👇"""
 
 
-# ---------------------------------------------------------------------------
-# Script parsing
-# ---------------------------------------------------------------------------
+# ── Script parsing ────────────────────────────────────────────────────────────
 def parse_script(raw: str) -> dict | None:
     """Parse the Gemini response into a structured dict."""
     if not raw:
         return None
 
-    fields = ["title", "script", "tags", "description", "thumbnail_text"]
+    fields = ["title", "hook_line", "script", "tags", "description",
+              "thumbnail_text", "caption_hook"]
     data = {f: "" for f in fields}
     current_key = None
-    buffer = []
+    buffer: list[str] = []
 
     for line in raw.strip().split("\n"):
         matched = False
@@ -195,11 +270,19 @@ def parse_script(raw: str) -> dict | None:
 
     # Fallback for thumbnail_text
     if not data["thumbnail_text"] and data["title"]:
-        words = data["title"].split()[:4]
-        data["thumbnail_text"] = " ".join(words).upper()
+        data["thumbnail_text"] = " ".join(data["title"].split()[:4]).upper()
 
-    script_words = len(data["script"].split())
-    title = data["title"] or "(no title)"
-    print(f"✅ Script parsed — Title: {title} ({script_words} words)")
+    # Auto-append CTA if Gemini forgot it
+    cta = ("Smash that subscribe button, send this to a friend who needs to see it, "
+           "and follow us on Instagram — links are in the bio!")
+    if data["script"] and "subscribe button" not in data["script"].lower():
+        data["script"] = data["script"].rstrip() + " " + cta
+        print("ℹ️  CTA auto-appended (was missing from output).")
 
+    # Fallback caption hook
+    if not data["caption_hook"] and data["title"]:
+        data["caption_hook"] = f"The truth about this that nobody's talking about 👇"
+
+    wc = len(data["script"].split())
+    print(f"✅ Script parsed — \"{data['title']}\" ({wc} words)")
     return data
