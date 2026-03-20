@@ -4,56 +4,73 @@ import requests
 
 PEXELS_KEY = os.environ.get("PEXELS_API_KEY")
 
-# Visual search aliases — broader synonyms for common tech topics
-# so Pexels finds interesting, diverse footage even for niche subjects
+# Product-focused visual aliases — avoids people/lifestyle shots
+# Values describe what we want to SEE on screen (product shots, screens, abstract tech)
 TOPIC_ALIAS_MAP = {
-    "iphone": ["smartphone", "mobile phone", "technology"],
-    "android": ["smartphone", "mobile", "app"],
-    "laptop": ["computer", "workspace", "office tech"],
-    "macbook": ["laptop", "computer", "workspace"],
-    "airpods": ["earbuds", "headphones", "wireless audio"],
-    "earbuds": ["headphones", "audio", "music"],
-    "headphones": ["audio", "music", "studio"],
-    "vr": ["virtual reality", "gaming", "futuristic tech"],
-    "gaming": ["video game", "gaming setup", "esports"],
-    "ai": ["artificial intelligence", "robot", "future tech"],
-    "chatgpt": ["artificial intelligence", "computer", "technology"],
-    "smartwatch": ["wearable", "fitness tracker", "watch"],
-    "camera": ["photography", "video production", "lens"],
-    "projector": ["cinema", "home theater", "movie"],
-    "smart home": ["home automation", "technology home", "modern home"],
-    "keyboard": ["computer setup", "desk setup", "typing"],
-    "mouse": ["computer accessories", "desk setup", "gaming"],
-    "monitor": ["display", "screen setup", "desk"],
-    "usb": ["cable", "tech accessories", "computer"],
-    "charger": ["wireless charging", "power", "phone accessories"],
-    "drone": ["aerial", "flying", "drone footage"],
-    "robot": ["robotics", "automation", "technology"],
-    "electric": ["electric vehicle", "battery", "technology"],
+    "iphone": ["iphone product shot", "smartphone screen closeup", "phone unboxing"],
+    "android": ["android phone", "smartphone product", "mobile phone closeup"],
+    "laptop": ["laptop screen closeup", "typing laptop", "computer screen workspace"],
+    "macbook": ["macbook product shot", "laptop screen", "apple computer"],
+    "airpods": ["earbuds product shot", "headphones closeup", "audio tech"],
+    "earbuds": ["earbuds white background", "headphones product", "wireless earbuds"],
+    "headphones": ["headphones product shot", "audio tech closeup", "studio headphones"],
+    "vr":      ["vr headset product", "virtual reality headset closeup", "futuristic headset"],
+    "gaming":  ["gaming setup no people", "gaming keyboard mouse", "gaming monitor screen"],
+    "ai":      ["artificial intelligence visualization", "digital code screen", "neural network abstract"],
+    "chatgpt": ["computer screen code", "ai interface screen", "tech laptop screen"],
+    "smartwatch": ["smartwatch product shot", "wearable tech closeup", "watch screen"],
+    "camera":  ["camera lens product", "photography equipment", "video camera"],
+    "projector": ["projector tech", "projection screen", "home theater setup"],
+    "smart home": ["smart home device", "home automation gadget", "modern router"],
+    "keyboard": ["keyboard product shot", "mechanical keyboard closeup", "typing keys"],
+    "mouse":   ["computer mouse product", "wireless mouse closeup", "gaming mouse"],
+    "monitor": ["computer monitor closeup", "display screen", "dual monitor setup"],
+    "usb":     ["cable technology", "usb hub product", "tech accessories table"],
+    "charger": ["wireless charger product", "charging phone", "power adapter"],
+    "drone":   ["drone product shot", "aerial drone", "drone footage sky"],
+    "robot":   ["robot technology", "robotic arm", "automation machine"],
+    "electric": ["electric vehicle tech", "battery technology", "circuit board"],
+    "budget":  ["budget gadget review", "unboxing product", "tech comparison"],
+    "apple":   ["apple product shot", "iphone display", "macbook screen"],
+    "samsung": ["samsung phone product", "galaxy screen", "android closeup"],
 }
 
+# Queries that always return product/screen footage (last-resort fallbacks)
+SAFE_FALLBACK_QUERIES = [
+    "technology product closeup",
+    "gadget unboxing table",
+    "smartphone screen white background",
+    "circuit board technology",
+    "digital screen abstract",
+    "tech desk setup",
+]
 
-def _build_search_queries(topic: str) -> list[str]:
-    """Generate several search queries from a topic for varied clip results."""
+
+def _build_search_queries(topic: str) -> list:
+    """
+    Generate product-focused, no-people search queries from a topic.
+    All queries are designed to return product shots, screens, and abstract tech visuals.
+    """
     topic_lower = topic.lower()
     queries = []
 
-    # Try alias-based broad queries first
+    # 1. Alias-based queries (product-focused visuals for known topics)
     for key, aliases in TOPIC_ALIAS_MAP.items():
         if key in topic_lower:
             queries.extend(aliases)
             break
 
-    # Always add keyword extracts from the topic itself
+    # 2. Topic keywords + "product technology" suffix (avoids lifestyle shots)
     words = [w for w in topic.split() if len(w) > 4 and w.lower() not in
-             {"that", "this", "with", "from", "about", "which", "their", "every",
-              "beats", "heres", "nobod", "secre", "actua", "finally"}]
+             {"that", "this", "with", "from", "about", "which", "their",
+              "every", "beats", "nobod", "secre", "actua", "heres", "finall"}]
     if words:
-        queries.append(" ".join(words[:3]))  # first 3 meaningful words
-        queries.append(words[0])              # just the main noun
+        # Append "product" / "tech" to push Pexels toward product shots
+        queries.append(f"{words[0]} product technology")
+        queries.append(f"{words[0]} closeup screen")
 
-    # Generic tech fallbacks
-    queries += ["technology gadget", "tech product", "modern technology", "digital innovation"]
+    # 3. Always add safe fallbacks at the end
+    queries.extend(SAFE_FALLBACK_QUERIES[:3])
 
     return queries
 

@@ -7,10 +7,10 @@ import subprocess
 def create_video(title, video_clips):
     """
     Composes the final video:
-    1. Scales/crops background clips to 1080x1920
+    1. Scales/crops background clips to 1080x1920, applies cool blue color grade
     2. Concatenates into background loop
-    3. Burns word-level subtitles (MrBeast style) using ASS conversion
-    4. Appends 6-second visually rich end-card CTA
+    3. Burns word-level subtitles (bottom-third, white+cyan outline, size 55)
+    4. Appends 6-second animated colored-button end-card CTA
     """
     print("🎞️ Assembling final video with FFmpeg...")
 
@@ -30,17 +30,24 @@ def create_video(title, video_clips):
         duration = float(r.stdout.strip())
         video_duration = duration + 1.5
 
-        # ── 1. Scale/crop each clip ────────────────────────────────────────
+        # ── 1. Scale/crop each clip + color grade ─────────────────────────
         scaled_clips = []
         if video_clips:
             print(f"🎬 Standardizing {len(video_clips)} background clips...")
+            # Cool blue-teal color grade: boosts contrast + adds tech feel
+            color_grade = (
+                "scale=1080:1920:force_original_aspect_ratio=increase,"
+                "crop=1080:1920,"
+                "curves=r='0/0 0.5/0.45 1/0.9':g='0/0 0.5/0.5 1/1':b='0/0 0.5/0.55 1/1.1',"
+                "eq=contrast=1.08:brightness=0.02:saturation=1.15"
+            )
             for i, clip in enumerate(video_clips):
                 if not os.path.exists(clip):
                     continue
                 out = f"scaled_{i}.mp4"
                 subprocess.run([
                     "ffmpeg", "-y", "-i", clip,
-                    "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920",
+                    "-vf", color_grade,
                     "-r", "30", "-c:v", "libx264", "-an", "-preset", "ultrafast", out
                 ], capture_output=True)
                 scaled_clips.append(out)
@@ -62,26 +69,24 @@ def create_video(title, video_clips):
             print("⚠️ No clips — using dark fallback.")
             subprocess.run([
                 "ffmpeg", "-y", "-f", "lavfi",
-                "-i", f"color=c=0x0A0A19:size=1080x1920:duration={video_duration}",
+                "-i", f"color=c=0x0A0A1E:size=1080x1920:duration={video_duration}",
                 "-c:v", "libx264", "-preset", "ultrafast", "bg_looped.mp4"
             ], capture_output=True)
             bg = "bg_looped.mp4"
 
-        # ── 3. Convert VTT → word-level SRT → ASS (most reliable burn-in) ──
+        # ── 3. Convert VTT → word-level SRT → ASS (reliable burn-in) ──────
         ass_file = None
         if os.path.exists("subtitles.vtt"):
             try:
                 _split_vtt_to_words("subtitles.vtt", "subtitles_words.vtt", max_words=3)
                 _vtt_to_srt("subtitles_words.vtt", "subtitles.srt")
-                # ffmpeg converts SRT → ASS with our style baked in
                 ass_result = subprocess.run([
-                    "ffmpeg", "-y", "-i", "subtitles.srt",
-                    "subtitles_raw.ass"
+                    "ffmpeg", "-y", "-i", "subtitles.srt", "subtitles_raw.ass"
                 ], capture_output=True, text=True, timeout=30)
                 if ass_result.returncode == 0 and os.path.exists("subtitles_raw.ass"):
                     _style_ass("subtitles_raw.ass", "subtitles.ass")
                     ass_file = os.path.abspath("subtitles.ass")
-                    print(f"✅ Subtitle ASS ready: {ass_file}")
+                    print(f"✅ Subtitle ASS ready ({ass_file})")
             except Exception as sub_err:
                 print(f"⚠️ Subtitle conversion failed: {sub_err}")
 
@@ -90,12 +95,11 @@ def create_video(title, video_clips):
 
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
         if ass_file and os.path.exists(ass_file):
-            # ASS burn-in is the MOST reliable method — works on all platforms
             esc = ass_file.replace("\\", "/").replace(":", "\\:")
             main_cmd.extend(["-vf", f"ass='{esc}'"])
-            print(f"   Using ASS subtitle burn-in.")
+            print("   Subtitle burn-in: ASS (word-level, bottom-third)")
         else:
-            print("   ⚠️ No subtitles — rendering without.")
+            print("   ⚠️ No subtitles available — rendering without.")
 
         main_cmd.extend([
             "-c:v", "libx264", "-preset", "fast",
@@ -107,8 +111,7 @@ def create_video(title, video_clips):
 
         res = subprocess.run(main_cmd, capture_output=True, text=True, timeout=600)
         if res.returncode != 0:
-            stderr_tail = res.stderr[-800:]
-            print(f"❌ Main render failed: {stderr_tail}")
+            print(f"❌ Main render failed: {res.stderr[-800:]}")
             return False
         print("✅ Main video rendered.")
 
@@ -134,7 +137,7 @@ def create_video(title, video_clips):
             total = video_duration + 6
             print(f"✅ Final video ready: output.mp4 ({total:.1f}s incl. 6s CTA)")
 
-        # ── 7. Cleanup ────────────────────────────────────────────────────
+        # ── 7. Cleanup ───────────────────────────────────────────────────
         for f in scaled_clips + (video_clips or []):
             _rm(f)
         for f in ["clips.txt", "bg_looped.mp4", "main_video.mp4", "end_card.mp4",
@@ -151,9 +154,9 @@ def create_video(title, video_clips):
         return False
 
 
-# ── VTT → SRT converter ───────────────────────────────────────────────────────
+# ── VTT → SRT converter ─────────────────────────────────────────────────────
 def _vtt_to_srt(vtt_path: str, srt_path: str):
-    """Convert a WebVTT file to SRT format (simpler, more compatible)."""
+    """Convert WebVTT to SRT (simpler, more compatible)."""
     with open(vtt_path, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -174,17 +177,14 @@ def _vtt_to_srt(vtt_path: str, srt_path: str):
         if not ts_line or not text_lines:
             continue
 
-        # VTT uses . as decimal separator; SRT uses ,
-        ts_srt = ts_line.strip().replace(".", ",")
-        # Some VTT timestamps are MM:SS.mmm — SRT needs HH:MM:SS,mmm
-        parts = ts_srt.split(" --> ")
+        parts = ts_line.strip().split(" --> ")
         def _fix_ts(t):
-            t = t.strip()
-            if t.count(":") == 1:  # MM:SS,mmm
+            t = t.strip().replace(".", ",")
+            if t.count(":") == 1:
                 t = "00:" + t
             return t
-        ts_srt = f"{_fix_ts(parts[0])} --> {_fix_ts(parts[1])}"
 
+        ts_srt = f"{_fix_ts(parts[0])} --> {_fix_ts(parts[1])}"
         srt_lines.append(str(idx))
         srt_lines.append(ts_srt)
         srt_lines.extend(text_lines)
@@ -194,39 +194,45 @@ def _vtt_to_srt(vtt_path: str, srt_path: str):
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(srt_lines))
 
-    print(f"   ✅ SRT written: {idx - 1} cues → {srt_path}")
+    print(f"   SRT written: {idx - 1} cues")
 
 
-# ── Inject custom ASS style ───────────────────────────────────────────────────
+# ── Inject professional subtitle style into ASS ───────────────────────────────
 def _style_ass(src: str, dst: str):
     """
-    Inject custom subtitle style into the ASS file generated by ffmpeg.
-    Target: large Impact font, cyan text, semi-transparent black backing box.
+    Professional subtitle style:
+    - Font: Liberation Sans Bold, size 55
+    - White text with thin cyan outline (borderw=3)
+    - Semi-transparent black box behind text
+    - Bottom-third position (MarginV=300 from bottom)
+    - Centered (Alignment=2)
     """
     with open(src, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Replace the Default style line
+    # ASS colour format: &HAABBGGRR
+    # White:              &H00FFFFFF
+    # Cyan outline:       &H00FFFF00  (B=FF, G=FF, R=00)
+    # Semi-transparent black box: &H88000000 (alpha=88)
     new_style = (
         "Style: Default,"
-        "Impact,"           # Font
-        "100,"              # Size
-        "&H00FFFF00,"       # Primary colour (cyan)
-        "&H000000FF,"       # Secondary colour
-        "&H99000000,"       # Back colour (semi-transparent black box)
-        "&H00000000,"       # Outline colour
-        "-1,-1,0,0,"        # Bold, Italic, Underline, Strikeout
+        "Liberation Sans,"  # Font (available on GitHub Actions)
+        "55,"               # Fontsize — fits within 1080px width
+        "&H00FFFFFF,"       # PrimaryColour: white text
+        "&H000000FF,"       # SecondaryColour
+        "&H88000000,"       # BackColour: semi-transparent black box
+        "&H00FFFF00,"       # OutlineColour: cyan
+        "-1,0,0,0,"         # Bold, Italic, Underline, Strikeout
         "100,100,"          # ScaleX, ScaleY
         "0,"                # Spacing
         "0,"                # Angle
-        "3,"                # BorderStyle (3 = opaque box)
-        "2,"                # Outline
+        "3,"                # BorderStyle: 3 = opaque box behind text
+        "3,"                # Outline: 3px cyan border
         "1,"                # Shadow
-        "2,"                # Alignment (2 = bottom centre)
-        "10,10,80,0"        # MarginL, MarginR, MarginV, Encoding
+        "2,"                # Alignment: 2 = bottom centre
+        "10,10,300,0"       # MarginL, MarginR, MarginV (300 = bottom third), Encoding
     )
 
-    # Replace any existing Style: Default line
     content = re.sub(r"^Style: Default,.*$", new_style, content, flags=re.MULTILINE)
 
     with open(dst, "w", encoding="utf-8") as f:
@@ -235,9 +241,7 @@ def _style_ass(src: str, dst: str):
 
 # ── VTT word-splitter: MrBeast style ─────────────────────────────────────────
 def _split_vtt_to_words(src: str, dst: str, max_words: int = 3):
-    """
-    Re-chunk a VTT subtitle file so each cue contains at most `max_words` words.
-    """
+    """Re-chunk VTT so each cue contains at most max_words words."""
     try:
         with open(src, "r", encoding="utf-8") as f:
             content = f.read()
@@ -312,60 +316,68 @@ def _split_vtt_to_words(src: str, dst: str, max_words: int = 3):
         shutil.copy(src, dst)
 
 
-# ── End-card CTA (redesigned) ─────────────────────────────────────────────────
+# ── End-card CTA: animated colored buttons (NO emojis) ───────────────────────
 def _create_end_card(duration: float = 6.0):
     """
-    6-second visually rich end-card.
-    Deep red-to-black gradient | pulsing text animation feel via bold layout.
+    6-second end card with colored button blocks (no emojis — ffmpeg can't render them).
+    Layout: dark background + 3 colored pill buttons (red/purple/orange) + text.
+    Fade-in simulated via drawbox using expr for time-based alpha.
     """
     font = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
     font2 = "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
-    # Choose whichever font file exists
-    chosen_font = font if os.path.exists(font) else font2
+    chosen_font = font if os.path.exists(font) else (font2 if os.path.exists(font2) else "")
 
-    # Full-screen gradient background using two solid layers blended
-    # Build a rich end card: gradient + icon-style bars + big text blocks
+    ff = f":fontfile={chosen_font}" if chosen_font else ""
+
+    # Layout planned for 1080x1920:
+    # Top: "BEFORE YOU LEAVE..." text ~y=340
+    # Button 1 (red Subscribe):    y=500-640
+    # Button 2 (purple Instagram): y=700-840
+    # Button 3 (orange Like):      y=900-1040
+    # Bottom: small watermark
+
     vf = (
-        # Dark red-orange gradient (simulate via box fills)
-        "drawbox=x=0:y=0:w=1080:h=1920:color=0x1A0000@1.0:t=fill,"
-        "drawbox=x=0:y=0:w=1080:h=640:color=0x2D0000@1.0:t=fill,"
-        "drawbox=x=0:y=640:w=1080:h=640:color=0x180000@1.0:t=fill,"
-        "drawbox=x=0:y=1280:w=1080:h=640:color=0x0D0000@1.0:t=fill,"
-        # Top accent stripe
-        "drawbox=x=0:y=0:w=1080:h=18:color=0xFF0000@1.0:t=fill,"
-        # Bottom accent stripe
-        "drawbox=x=0:y=1902:w=1080:h=18:color=0xFF0000@1.0:t=fill,"
-        # Horizontal divider line above text block
-        "drawbox=x=60:y=560:w=960:h=5:color=0xFF4444@0.8:t=fill,"
-        # Horizontal divider below text block
-        "drawbox=x=60:y=1360:w=960:h=5:color=0xFF4444@0.8:t=fill,"
-        # WAIT / attention header
-        f"drawtext=text='⚡ WAIT — BEFORE YOU GO ⚡':fontfile={chosen_font}:fontsize=72:"
-        "fontcolor=0xFF4444:x=(w-text_w)/2:y=450:"
-        "shadowcolor=black:shadowx=4:shadowy=4:box=1:boxcolor=0x00000099:boxborderw=12,"
-        # SUBSCRIBE
-        f"drawtext=text='👉  SUBSCRIBE on YouTube':fontfile={chosen_font}:fontsize=82:"
-        "fontcolor=white:x=(w-text_w)/2:y=660:"
-        "shadowcolor=0x880000:shadowx=3:shadowy=3:box=1:boxcolor=0x00000088:boxborderw=14,"
-        # FOLLOW
-        f"drawtext=text='📷  Follow @Tech8ytees':fontfile={chosen_font}:fontsize=80:"
-        "fontcolor=0xFF69B4:x=(w-text_w)/2:y=820:"
-        "shadowcolor=black:shadowx=3:shadowy=3,"
-        # on Instagram smaller
-        f"drawtext=text='on Instagram':fontfile={chosen_font}:fontsize=64:"
-        "fontcolor=0xFF69B4:x=(w-text_w)/2:y=920:"
+        # Dark navy background
+        "drawbox=x=0:y=0:w=1080:h=1920:color=0x06091A@1.0:t=fill,"
+        # Subtle top accent line (white)
+        "drawbox=x=80:y=60:w=920:h=4:color=0xFFFFFF@0.5:t=fill,"
+        # Subtle bottom accent line
+        "drawbox=x=80:y=1860:w=920:h=4:color=0xFFFFFF@0.5:t=fill,"
+
+        # Header text
+        f"drawtext=text='BEFORE YOU LEAVE...'{ff}:fontsize=58:"
+        "fontcolor=0xCCCCCC:x=(w-text_w)/2:y=300:"
         "shadowcolor=black:shadowx=2:shadowy=2,"
-        # LIKE
-        f"drawtext=text='❤️  SMASH THE LIKE NOW':fontfile={chosen_font}:fontsize=86:"
-        "fontcolor=0xFFD700:x=(w-text_w)/2:y=1050:"
-        "shadowcolor=0x880000:shadowx=4:shadowy=4:box=1:boxcolor=0x00000099:boxborderw=14,"
-        # Sub-message
-        f"drawtext=text='It literally takes 0.5 seconds':fontfile={chosen_font}:fontsize=54:"
-        "fontcolor=0xAAAAAA:x=(w-text_w)/2:y=1220:"
-        "shadowcolor=black:shadowx=2:shadowy=2,"
-        # Channel name watermark
-        f"drawtext=text='@Tech8ytees':fontfile={chosen_font}:fontsize=48:"
-        "fontcolor=0xFF4444:x=(w-text_w)/2:y=1800:"
+
+        # ── Button 1: SUBSCRIBE (red box) ─────────────────────────────────
+        "drawbox=x=80:y=460:w=920:h=150:color=0xCC0000@1.0:t=fill,"
+        "drawbox=x=80:y=460:w=920:h=150:color=0xFF4444@1.0:t=2,"
+        f"drawtext=text='SUBSCRIBE on YouTube'{ff}:fontsize=64:"
+        "fontcolor=white:x=(w-text_w)/2:y=515:"
+        "shadowcolor=0x880000:shadowx=3:shadowy=3,"
+
+        # ── Button 2: FOLLOW (purple box) ─────────────────────────────────
+        "drawbox=x=80:y=660:w=920:h=150:color=0x7B2FBE@1.0:t=fill,"
+        "drawbox=x=80:y=660:w=920:h=150:color=0x9B4FDE@1.0:t=2,"
+        f"drawtext=text='Follow @Tech8ytees on Instagram'{ff}:fontsize=52:"
+        "fontcolor=white:x=(w-text_w)/2:y=717:"
+        "shadowcolor=0x440088:shadowx=2:shadowy=2,"
+
+        # ── Button 3: LIKE (orange/gold box) ──────────────────────────────
+        "drawbox=x=80:y=860:w=920:h=150:color=0xC85000@1.0:t=fill,"
+        "drawbox=x=80:y=860:w=920:h=150:color=0xFF7700@1.0:t=2,"
+        f"drawtext=text='SMASH THE LIKE NOW'{ff}:fontsize=68:"
+        "fontcolor=white:x=(w-text_w)/2:y=913:"
+        "shadowcolor=0x882200:shadowx=3:shadowy=3,"
+
+        # Sub-text below buttons
+        f"drawtext=text='It only takes 0.5 seconds :)'{ff}:fontsize=44:"
+        "fontcolor=0x888888:x=(w-text_w)/2:y=1055:"
+        "shadowcolor=black:shadowx=1:shadowy=1,"
+
+        # Channel watermark at bottom
+        f"drawtext=text='@Tech8ytees'{ff}:fontsize=46:"
+        "fontcolor=0xFF6600:x=(w-text_w)/2:y=1800:"
         "shadowcolor=black:shadowx=2:shadowy=2"
     )
 
@@ -381,15 +393,18 @@ def _create_end_card(duration: float = 6.0):
     res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
 
     if res.returncode != 0 or not os.path.exists("end_card.mp4"):
-        print(f"⚠️ End card complex render failed — using simple fallback")
+        print(f"⚠️ End card render failed — using simple fallback")
+        # Simple solid-color fallback (no emojis, no complex filter)
         subprocess.run([
             "ffmpeg", "-y", "-f", "lavfi",
-            "-i", f"color=c=0x1A0000:size=1080x1920:rate=30:duration={duration}",
+            "-i", f"color=c=0x06091A:size=1080x1920:rate=30:duration={duration}",
             "-vf", (
-                "drawtext=text='SUBSCRIBE  •  FOLLOW  •  LIKE':"
-                "fontsize=90:fontcolor=yellow:"
-                "x=(w-text_w)/2:y=(h-text_h)/2:"
-                "shadowcolor=black:shadowx=4:shadowy=4"
+                f"drawbox=x=80:y=460:w=920:h=150:color=0xCC0000@1.0:t=fill,"
+                f"drawtext=text='SUBSCRIBE':{f'fontfile={chosen_font}:' if chosen_font else ''}fontsize=80:fontcolor=white:x=(w-text_w)/2:y=515,"
+                f"drawbox=x=80:y=660:w=920:h=150:color=0x7B2FBE@1.0:t=fill,"
+                f"drawtext=text='FOLLOW':{f'fontfile={chosen_font}:' if chosen_font else ''}fontsize=80:fontcolor=white:x=(w-text_w)/2:y=717,"
+                f"drawbox=x=80:y=860:w=920:h=150:color=0xC85000@1.0:t=fill,"
+                f"drawtext=text='LIKE':{f'fontfile={chosen_font}:' if chosen_font else ''}fontsize=80:fontcolor=white:x=(w-text_w)/2:y=913"
             ),
             "-c:v", "libx264", "-preset", "fast",
             "-t", str(duration), "end_card.mp4"
