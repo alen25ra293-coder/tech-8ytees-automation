@@ -2,18 +2,22 @@ name: Tech 8ytees Daily Upload
 
 on:
   schedule:
-    # IST Peak hours — 7:00 AM IST (01:30 UTC) and 7:00 PM IST (13:30 UTC)
+    # IST Peak hours: 7:00 AM IST (01:30 UTC) and 7:00 PM IST (13:30 UTC)
     - cron: '30 1 * * *'   # 7:00 AM IST  — morning peak
     - cron: '30 13 * * *'  # 7:00 PM IST  — evening peak
   workflow_dispatch:        # Manual trigger from GitHub UI
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Cache dirs for large AI models (avoids re-downloading every run)
+  XDG_CACHE_HOME: /home/runner/.cache
+  HF_HOME:        /home/runner/.cache/huggingface
+  WHISPER_CACHE:  /home/runner/.cache/whisper
 
 jobs:
   upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75   # Extended: Kokoro + Whisper model download on first run
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────
@@ -27,7 +31,7 @@ jobs:
           python-version: '3.11'
 
       # ── 3. System dependencies ────────────────────────────
-      - name: 📦 Install system dependencies (FFmpeg + fonts)
+      - name: 📦 Install system dependencies (FFmpeg + fonts + audio)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends \
@@ -35,31 +39,44 @@ jobs:
             fonts-liberation \
             fonts-liberation2 \
             fonts-open-sans \
+            espeak-ng \
+            libsndfile1 \
             imagemagick
 
-      # ── 4. Python packages ───────────────────────────────
+      # ── 4. Cache Kokoro + Whisper models ─────────────────
+      - name: 💾 Cache AI models (Kokoro + Whisper)
+        uses: actions/cache@v4
+        with:
+          path: |
+            /home/runner/.cache/huggingface
+            /home/runner/.cache/whisper
+          key: ai-models-kokoro-whisper-v1
+          restore-keys: |
+            ai-models-kokoro-whisper-
+
+      # ── 5. Python packages ───────────────────────────────
       - name: 📦 Install Python dependencies
         run: pip install --upgrade pip && pip install -r requirements.txt
 
-      # ── 5. Write YouTube OAuth token ─────────────────────
+      # ── 6. Write YouTube OAuth token ─────────────────────
       - name: 🔑 Write YouTube token.json
         run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
 
-      # ── 6. Run automation ─────────────────────────────────
+      # ── 7. Run automation ─────────────────────────────────
       - name: 🚀 Run Tech 8ytees automation
         env:
           # Gemini AI (script generation)
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
           GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEYS }}   # legacy alias
 
-          # Voice / Media
+          # Video backgrounds
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
           # Instagram — Graph API (primary, most reliable)
           IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
           IG_GRAPH_ACCESS_TOKEN:  ${{ secrets.IG_GRAPH_ACCESS_TOKEN }}
 
-          # Instagram — Instagrapi fallback (may fail on cloud IPs)
+          # Instagram — Instagrapi fallback
           IG_USERNAME: ${{ secrets.IG_USERNAME }}
           IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
 
@@ -67,8 +84,8 @@ jobs:
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
         run: python main.py
 
-      # ── 7. Upload output video as artifact (for debugging) ──
-      - name: 📼 Save output video as artifact (if exists)
+      # ── 8. Upload output video as artifact (for debugging) ─
+      - name: 📼 Save output video as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -79,11 +96,11 @@ jobs:
           retention-days: 5
           if-no-files-found: ignore
 
-      # ── 8. Cleanup ────────────────────────────────────────
+      # ── 9. Cleanup ─────────────────────────────────────────
       - name: 🧹 Clean up temporary files
         if: always()
         run: |
-          rm -f output.mp4 output_thumbnail.jpg voiceover.mp3 \
+          rm -f output.mp4 output_thumbnail.jpg voiceover.mp3 voiceover_raw.wav \
                 bg_video.mp4 bg_looped.mp4 main_video.mp4 end_card.mp4 \
                 token.json subtitles.vtt subtitles_words.vtt temp_script.txt
           rm -f bg_clip_*.mp4 scaled_*.mp4 clips.txt final_concat.txt
