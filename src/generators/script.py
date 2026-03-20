@@ -69,30 +69,65 @@ EXAMPLE_SCRIPTS = [
     },
 ]
 
-# ── Pattern-interrupt hook openers ───────────────────────────────────────────
+# -- Pattern-interrupt hook openers -------------------------------------------
 HOOK_OPENERS = [
     "Nobody talks about this, but",
-    "Here's what they don't tell you —",
+    "Here's what they don't tell you --",
     "This changed everything for me.",
-    "Stop what you're doing and listen.",
+    "Stop scrolling. This matters.",
     "I almost made a huge mistake.",
-    "Here's the thing nobody tells you —",
-    "Wait — before you buy anything,",
+    "Wait -- before you spend another dollar,",
     "Real talk:",
     "I tested this so you don't have to.",
     "This is going to sound crazy, but",
+    "The tech industry is lying to you.",
+    "I can't believe nobody talks about this.",
+    "You're wasting money every single day.",
+    "Okay this blew my mind.",
+    "Don't buy anything until you see this.",
+    "I switched and I'm never going back.",
+    "My friend thought I was crazy -- until",
+    "Three years ago I made the worst tech mistake of my life.",
+    "This $30 gadget embarrassed my $800 setup.",
+    "Everyone laughed at me for buying this.",
+    "I compared every option. One won by a mile.",
+    "Here's the secret pros never share.",
+    "I found a cheat code for tech buyers.",
+    "Your phone is hiding something from you.",
+    "This got my tech-obsessed friend to throw out his MacBook.",
+    "Here's what a million-dollar YouTuber uses that you don't.",
 ]
 
-# ── Fallback topics ───────────────────────────────────────────────────────────
+# -- Fallback topics ----------------------------------------------------------
 FALLBACK_TOPICS = [
-    "The $50 gadget that beats your laptop",
+    # Regret / mistakes
+    "The worst tech purchase I ever made",
+    "Why I returned my iPhone and switched to Android",
+    "Stop buying flagship phones -- here's the real reason",
+    # Secret / hidden
+    "The $30 gadget that pros hide from you",
     "Hidden iPhone features nobody talks about",
-    "Stop buying expensive earbuds — here's why",
     "The smartwatch Apple doesn't want you to own",
-    "AI tools that will replace your job in 2026",
-    "The gaming mouse pros secretly use",
-    "Mechanical keyboards are a luxury scam",
+    # Money / savings
+    "The $50 gadget that beats your laptop",
     "Budget laptop that outperforms expensive ones",
+    "Stop buying expensive earbuds -- here's why",
+    # Change / lifestyle
+    "AI tools that will replace your job in 2026",
+    "The gadget that made me delete half my apps",
+    "This one product made my apartment feel 10x smarter",
+    # Status
+    "The one gadget every programmer secretly uses",
+    "The gaming mouse pros use but never talk about",
+    "The best headphones for creators that nobody buys",
+    # Curiosity
+    "What happens if you charge your phone all night",
+    "The VR headset that nobody is talking about",
+    "The best tech accessories nobody talks about",
+    # Comparison / contrast
+    "Cheap vs expensive phone: the truth nobody shows you",
+    "Wired vs wireless headphones in 2026: you'll be surprised",
+    "USB hub vs dock: the $20 difference that changes everything",
 ]
 
 
@@ -112,47 +147,52 @@ def generate_script(topic: str, attempt: int = 1) -> str | None:
         for ex in EXAMPLE_SCRIPTS
     )
 
-    prompt = f"""You are the scriptwriter for viral YouTube Shorts channel "Tech 8ytees".
-Your scripts sound like a smart friend talking to you — NEVER like an article, review, or AI.
+    prompt = f"""You are the scriptwriter for "Tech 8ytees" -- a viral YouTube Shorts/Reels channel.
+GOAL: Make viewers STOP scrolling in the first 2 seconds. 96% skip immediately. You must fight that.
 
 STUDY THESE EXAMPLES:
 {examples_text}
 
-══════════════════════════════════════════════
-TASK: Write a viral 125-145 word script about: "{topic}"
-══════════════════════════════════════════════
+================================================
+TASK: Write a viral 130-155 word script about: "{topic}"
+================================================
 
 STRUCTURE (follow exactly):
-1. 🎣 HOOK (first sentence — use this exact opener): "{hook}"
-2. 📌 2-3 punchy points (conversational, short, real)
-3. 🔁 LOOP ENDING (second-to-last sentence must echo the hook so rewatching feels natural)
-4. 📣 CTA (EXACT last sentence, word-for-word, no changes):
-   "Smash that subscribe button, send this to a friend who needs to see it, and follow us on Instagram — links are in the bio!"
+1. HOOK (first sentence): "{hook}"
+   - Must be under 2.5 seconds when spoken. Short, tense, no fluff.
+   - Creates instant "wait, what?" in viewer's brain.
+2. 2-3 punchy points (real facts, dollar amounts, percentages, brand names)
+3. LOOP ENDING (echoes the hook -- makes rewatching feel natural)
+4. CTA (EXACT, word-for-word):
+   "Smash that subscribe button, send this to a friend who needs to see it, and follow us on Instagram -- links are in the bio!"
 
-LANGUAGE RULES:
-✅ Contractions always: don't, you've, I'm, here's, that's, we're
-✅ Casual bridges: "Look,", "Honestly,", "Real talk:", "Here's the thing —"
-✅ Short fragments. Personal pronouns. Slang is fine.
-✅ Vary sentence length (mix 3-word punches with 15-word sentences)
+RETENTION RULES (what top creators do):
+- First 5 words MUST create tension or a knowledge gap
+- Use numbers: $47, 40%, 3x better, under 2 weeks
+- Name real products and brands with real prices
+- Short fragments hit hard: "Gone. Just like that.", "I couldn't go back."
+- Contractions always: don't, you've, I'm, here's
+- Mix sentence lengths (3-word punches + 15-word sentences)
 
-FORBIDDEN (never ever use):
-❌ "In conclusion", "Furthermore", "It's worth noting", "This device provides"
-❌ Passive voice. Formal language. Essay structure.
-❌ Emojis in the script text.
+FORBIDDEN (these kill retention):
+- Generic openers: "In today's video", "Let's talk about", "Hey everyone"
+- Formal language, passive voice, essay structure
+- Long descriptions without drama or tension
+- Emojis in the script text
 
-TITLE RULES (write the most clickable title possible):
-- Include a number OR a question OR an emotional trigger word
-- Examples of strong title types: "I Tested 7 Earbuds — Here's the Truth", "Why I REGRET Buying This", "The Gadget Nobody Warned Me About"
-- ALL CAPS on 2-3 key trigger words
+TITLE RULES:
+- Number OR question OR emotional trigger word
+- Strong examples: "Why I RETURNED My $1200 Laptop", "5 Gadgets I Use EVERY Day", "This $40 Device Changed Everything"
+- ALL CAPS on 2-3 trigger words
 
 OUTPUT FORMAT (nothing else, no extra text):
-TITLE: [max 65 chars — number/question/emotional trigger, ALL CAPS key words]
-HOOK_LINE: [just the first sentence — the exact hook used]
-SCRIPT: [125-145 word full script starting with the hook]
-TAGS: [10 tags — mix of 5 niche + 5 broad, comma-separated]
+TITLE: [max 65 chars]
+HOOK_LINE: [just the first sentence]
+SCRIPT: [130-155 word script starting with the hook]
+TAGS: [10 tags, comma-separated]
 DESCRIPTION: [2 casual human-sounding sentences]
-THUMBNAIL_TEXT: [3-5 ALL CAPS words that would look great on a thumbnail]
-CAPTION_HOOK: [Single punchy first line for Instagram caption — curiosity gap or bold claim, max 120 chars]
+THUMBNAIL_TEXT: [3-5 ALL CAPS words]
+CAPTION_HOOK: [Single punchy Instagram caption opener -- bold claim or curiosity gap, max 120 chars]
 """
 
     try:

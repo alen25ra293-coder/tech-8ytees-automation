@@ -121,8 +121,21 @@ def create_video(title, video_clips):
 
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
         if ass_file and os.path.exists(ass_file):
-            esc = ass_file.replace("\\", "/").replace(":", "\\:")
-            main_cmd.extend(["-vf", f"ass='{esc}'"])
+            # Use the RELATIVE path 'subtitles.ass' — FFmpeg resolves from CWD
+            # NEVER escape colons on Linux (it corrupts the path).
+            # On Windows, FFmpeg needs C\:/path format, but CI is always Linux.
+            import platform
+            if platform.system() == "Windows":
+                # Windows: escape drive letter colon only
+                esc = ass_file.replace("\\", "/")
+                # e.g., C:/foo → C\:/foo
+                if len(esc) > 1 and esc[1] == ":":
+                    esc = esc[0] + "\\:" + esc[2:]
+                sub_filter = f"ass='{esc}'"
+            else:
+                # Linux/Mac: use relative path — no escaping needed
+                sub_filter = "ass=subtitles.ass"
+            main_cmd.extend(["-vf", sub_filter])
             print("   Subtitle burn-in: ASS (word-level, bottom-third)")
         else:
             print("   ⚠️ No subtitles available — rendering without.")
