@@ -1,9 +1,23 @@
 """
 Auto Thumbnail Generator
 Generates a 1280x720 YouTube thumbnail with bold text overlay using Pillow.
+Randomizes accent color & background gradient each run for visual variety.
 """
 import os
+import random
 import textwrap
+
+
+# Palette of vibrant accent color schemes (accent, text, background start, end)
+_COLOR_PALETTES = [
+    {"accent": (255, 200,   0), "text": (255, 230,   0), "bg1": ( 10,  10,  25), "bg2": ( 25,  20,  50)},  # Gold (default)
+    {"accent": (255,  50,  80), "text": (255,  80, 100), "bg1": ( 15,   5,  10), "bg2": ( 40,  10,  20)},  # Red/Pink
+    {"accent": (  0, 200, 255), "text": (  0, 230, 255), "bg1": (  5,  10,  25), "bg2": ( 10,  25,  50)},  # Cyan
+    {"accent": (  0, 255, 120), "text": ( 80, 255, 160), "bg1": (  5,  15,  10), "bg2": ( 10,  35,  20)},  # Green
+    {"accent": (255, 120,   0), "text": (255, 160,  30), "bg1": ( 20,  10,   5), "bg2": ( 40,  20,   5)},  # Orange
+    {"accent": (180,   0, 255), "text": (210,  60, 255), "bg1": ( 15,   5,  25), "bg2": ( 30,   5,  50)},  # Purple
+    {"accent": (255, 255, 255), "text": (240, 240, 240), "bg1": (  0,  10,  30), "bg2": ( 10,  20,  60)},  # White/Deep Blue
+]
 
 
 def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "output_thumbnail.jpg") -> str | None:
@@ -22,22 +36,28 @@ def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "outp
     try:
         W, H = 1280, 720
 
+        # Pick a random color palette each run for variety
+        palette = random.choice(_COLOR_PALETTES)
+        accent  = palette["accent"]
+        text_color = palette["text"]
+        bg1     = palette["bg1"]
+        bg2     = palette["bg2"]
+
         # ── Background: dark gradient ──────────────────────────────────────
-        img = Image.new("RGB", (W, H), color=(10, 10, 25))
+        img = Image.new("RGB", (W, H), color=bg1)
         draw = ImageDraw.Draw(img)
 
-        # Draw gradient bands
         for y in range(H):
             ratio = y / H
-            r = int(10 + ratio * 20)
-            g = int(10 + ratio * 15)
-            b = int(25 + ratio * 40)
+            r = int(bg1[0] + ratio * (bg2[0] - bg1[0]))
+            g = int(bg1[1] + ratio * (bg2[1] - bg1[1]))
+            b = int(bg1[2] + ratio * (bg2[2] - bg1[2]))
             draw.line([(0, y), (W, y)], fill=(r, g, b))
 
-        # Accent bar at top
-        draw.rectangle([0, 0, W, 12], fill=(255, 200, 0))
-        # Accent bar at bottom
-        draw.rectangle([0, H - 12, W, H], fill=(255, 200, 0))
+        # Accent bars at top and bottom
+        bar_h = 12
+        draw.rectangle([0, 0, W, bar_h], fill=accent)
+        draw.rectangle([0, H - bar_h, W, H], fill=accent)
 
         # ── Load fonts ──────────────────────────────────────────────────────
         font_paths = [
@@ -57,38 +77,39 @@ def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "outp
                         continue
             return ImageFont.load_default()
 
-        font_main = load_font(130)
-        font_sub  = load_font(52)
-        font_badge = load_font(38)
+        font_main  = load_font(120)
+        font_sub   = load_font(48)
+        font_badge = load_font(36)
 
-        # ── Thumbnail text (main big yellow text) ──────────────────────────
+        # ── Thumbnail text (main big text) ─────────────────────────────────
         clean_main = thumbnail_text.upper().strip()
-        lines = textwrap.wrap(clean_main, width=14)
+        lines = textwrap.wrap(clean_main, width=15)
 
-        # Shadow + main text centered vertically in upper 55% of image
-        text_block_height = len(lines) * 145
+        text_block_height = len(lines) * 140
         start_y = max(60, (H * 0.55 - text_block_height) // 2)
 
         for i, line in enumerate(lines):
-            y = int(start_y + i * 145)
-            # Shadow
+            y = int(start_y + i * 140)
+            # Dark shadow
             draw.text((W // 2 + 4, y + 4), line, font=font_main,
                       fill=(0, 0, 0), anchor="mm")
-            # Main text (yellow)
+            # Main colored text
             draw.text((W // 2, y), line, font=font_main,
-                      fill=(255, 220, 0), anchor="mm")
+                      fill=text_color, anchor="mm")
 
         # ── Channel badge ──────────────────────────────────────────────────
         badge_text = "Tech 8ytees"
         draw.rounded_rectangle([W - 280, H - 75, W - 20, H - 20],
-                                radius=12, fill=(255, 200, 0))
+                                radius=12, fill=accent)
+        # Badge text in dark color
+        badge_fg = (10, 10, 25) if sum(accent) > 400 else (255, 255, 255)
         draw.text((W - 150, H - 47), badge_text, font=font_badge,
-                  fill=(10, 10, 25), anchor="mm")
+                  fill=badge_fg, anchor="mm")
 
-        # ── Subtitle line (smaller white text) ────────────────────────────
+        # ── Subtitle line (smaller text) ─────────────────────────────────
         sub_text = title[:55] + ("…" if len(title) > 55 else "")
         draw.text((W // 2, H - 100), sub_text, font=font_sub,
-                  fill=(220, 220, 220), anchor="mm")
+                  fill=(210, 210, 210), anchor="mm")
 
         # ── Save ───────────────────────────────────────────────────────────
         img.save(output_path, "JPEG", quality=95)

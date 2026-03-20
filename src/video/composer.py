@@ -90,8 +90,10 @@ def create_video(title, video_clips):
         )
 
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
-        if sub_file:
-            main_cmd.extend(["-vf", f"subtitles={sub_file}:force_style='{sub_style}'"])
+        if sub_file and os.path.exists(sub_file):
+            # ffmpeg subtitles filter REQUIRES absolute path on Linux (GitHub Actions)
+            abs_sub = os.path.abspath(sub_file).replace("\\", "/").replace(":", "\\:")
+            main_cmd.extend(["-vf", f"subtitles='{abs_sub}':force_style='{sub_style}'"])
         main_cmd.extend([
             "-c:v", "libx264", "-preset", "fast",
             "-c:a", "aac",
