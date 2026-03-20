@@ -19,62 +19,75 @@ def create_video(title, video_clips):
         return False
 
     try:
-        # ── Duration ───────────────────────────────────────────────────────
+        # ── 0. Get duration ──────────────────────────────────────────────────
         r = subprocess.run([
-            "ffprobe", "-v", "error",
-            "-show_entries", "format=duration",
-            "-of", "default=noprint_wrappers=1:nokey=1",
-            "voiceover.mp3"
+            "ffprobe", "-v", "error", "-show_entries", "format=duration",
+            "-of", "default=noprint_wrappers=1:nokey=1", "voiceover.mp3"
         ], capture_output=True, text=True, timeout=10)
-
         duration = float(r.stdout.strip())
         video_duration = duration + 1.5
 
-        # ── 1. Scale/crop each clip + color grade ─────────────────────────
+        # ── 1. Scale/crop each clip + color grade ─────────────────────────────
         scaled_clips = []
+        # Cool blue-teal color grade: boosts contrast + adds tech feel
+        color_grade = (
+            "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
+            "curves=r='0/0 0.5/0.45 1/0.9':g='0/0 0.5/0.5 1/1':b='0/0 0.5/0.55 1/1.1',"
+            "eq=contrast=1.08:brightness=0.02:saturation=1.15"
+        )
+
         if video_clips:
             print(f"🎬 Standardizing {len(video_clips)} background clips...")
-            # Cool blue-teal color grade: boosts contrast + adds tech feel
-            color_grade = (
-                "scale=1080:1920:force_original_aspect_ratio=increase,"
-                "crop=1080:1920,"
-                "curves=r='0/0 0.5/0.45 1/0.9':g='0/0 0.5/0.5 1/1':b='0/0 0.5/0.55 1/1.1',"
-                "eq=contrast=1.08:brightness=0.02:saturation=1.15"
-            )
             for i, clip in enumerate(video_clips):
                 if not os.path.exists(clip):
                     continue
                 out = f"scaled_{i}.mp4"
-                subprocess.run([
-                    "ffmpeg", "-y", "-i", clip,
-                    "-vf", color_grade,
+                res = subprocess.run([
+                    "ffmpeg", "-y", "-i", clip, "-vf", color_grade,
                     "-r", "30", "-c:v", "libx264", "-an", "-preset", "ultrafast", out
-                ], capture_output=True)
-                scaled_clips.append(out)
+                ], capture_output=True, text=True)
+                if res.returncode == 0 and os.path.exists(out):
+                    scaled_clips.append(out)
+                else:
+                    print(f"⚠️ Failed to standardize clip {i}: {res.stderr[:100]}")
 
-        # ── 2. Concatenate background ──────────────────────────────────────
+        # ── 2. Concatenate background ──────────────────────────────────────────
+        bg = ""
         if scaled_clips:
-            with open("clips.txt", "w") as f:
-                repeats = int(video_duration / (len(scaled_clips) * 5)) + 2
-                for _ in range(repeats):
-                    for c in scaled_clips:
-                        f.write(f"file '{c}'\n")
-            print("🎬 Concatenating background...")
-            subprocess.run([
-                "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-                "-i", "clips.txt", "-c", "copy", "bg_looped.mp4"
-            ], capture_output=True)
-            bg = "bg_looped.mp4"
-        else:
-            print("⚠️ No clips — using dark fallback.")
+            try:
+                with open("clips.txt", "w") as f:
+                    # Fill duration + buffer
+                    repeats = int(video_duration / (len(scaled_clips) * 2)) + 2
+                    for _ in range(repeats):
+                        for c in scaled_clips:
+                            # Use absolute paths for concat safety
+                            abs_path = os.path.abspath(c).replace('\\', '/')
+                            f.write(f"file '{abs_path}'\n")
+                
+                print("🎬 Concatenating background...")
+                res = subprocess.run([
+                    "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+                    "-i", "clips.txt", "-c", "copy", "bg_looped.mp4"
+                ], capture_output=True, text=True)
+                
+                if res.returncode == 0 and os.path.exists("bg_looped.mp4"):
+                    bg = "bg_looped.mp4"
+                else:
+                    print(f"⚠️ Concatenation failed: {res.stderr[:200]}")
+            except Exception as e:
+                print(f"⚠️ Concat setup failed: {e}")
+
+        # ── 3. Fallback: Solid color if no background produced ──────────────────
+        if not bg:
+            print("🎬 Using dark fallback background...")
             subprocess.run([
                 "ffmpeg", "-y", "-f", "lavfi",
-                "-i", f"color=c=0x0A0A1E:size=1080x1920:duration={video_duration}",
-                "-c:v", "libx264", "-preset", "ultrafast", "bg_looped.mp4"
+                "-i", f"color=c=0x06091A:s=1080x1920:d={int(video_duration)+2}",
+                "-pix_fmt", "yuv420p", "-r", "30", "bg_looped.mp4"
             ], capture_output=True)
             bg = "bg_looped.mp4"
 
-        # ── 3. Convert VTT → word-level SRT → ASS (reliable burn-in) ──────
+        # ── 3a. Convert VTT → word-level SRT → ASS (reliable burn-in) ───────────
         ass_file = None
         if os.path.exists("subtitles.vtt"):
             try:
@@ -90,8 +103,8 @@ def create_video(title, video_clips):
             except Exception as sub_err:
                 print(f"⚠️ Subtitle conversion failed: {sub_err}")
 
-        # ── 4. Final render: video + audio + subtitles ─────────────────────
-        print("🎬 Rendering main video with word-level subtitles...")
+        # ── 4. Main Render ──────────────────────────────────────────────────────
+        print(f"🎬 Rendering main video (Source: {bg})...")
 
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
         if ass_file and os.path.exists(ass_file):
