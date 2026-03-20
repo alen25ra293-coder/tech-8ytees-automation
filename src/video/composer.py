@@ -240,26 +240,32 @@ def _style_ass(src: str, dst: str):
     # White:              &H00FFFFFF
     # Cyan outline:       &H00FFFF00  (B=FF, G=FF, R=00)
     # Semi-transparent black box: &H88000000 (alpha=88)
+    # Correct V4+ field order: Name, Fontname, Fontsize, Primary, Secondary, Outline, Back, ...
     new_style = (
         "Style: Default,"
-        "Liberation Sans,"  # Font (available on GitHub Actions)
-        "55,"               # Fontsize — fits within 1080px width
-        "&H00FFFFFF,"       # PrimaryColour: white text
+        "DejaVu Sans,"      # Font (guaranteed on Ubuntu with fonts-dejavu)
+        "60,"               # Fontsize - bold and readable
+        "&H00FFFFFF,"       # PrimaryColour: White
         "&H000000FF,"       # SecondaryColour
-        "&H88000000,"       # BackColour: semi-transparent black box
-        "&H00FFFF00,"       # OutlineColour: cyan
+        "&H00FFFF00,"       # OutlineColour: Cyan (BGR: 00 FF FF)
+        "&H88000000,"       # BackColour: Semi-transparent black (AABBGGRR)
         "-1,0,0,0,"         # Bold, Italic, Underline, Strikeout
         "100,100,"          # ScaleX, ScaleY
         "0,"                # Spacing
         "0,"                # Angle
-        "3,"                # BorderStyle: 3 = opaque box behind text
-        "3,"                # Outline: 3px cyan border
+        "3,"                # BorderStyle: 3 = Opaque box behind text
+        "3,"                # Outline thickness
         "1,"                # Shadow
-        "2,"                # Alignment: 2 = bottom centre
-        "10,10,300,0"       # MarginL, MarginR, MarginV (300 = bottom third), Encoding
+        "2,"                # Alignment: 2 = Bottom Centre
+        "10,10,300,0"       # MarginL, MarginR, MarginV (300px from bottom)
     )
 
-    content = re.sub(r"^Style: Default,.*$", new_style, content, flags=re.MULTILINE)
+    # Ensure we replace the style regardless of exact match
+    if "Style: Default," in content:
+        content = re.sub(r"Style: Default,.*", new_style, content)
+    else:
+        # Fallback: append if somehow missing (unlikely but safe)
+        content += "\n" + new_style
 
     with open(dst, "w", encoding="utf-8") as f:
         f.write(content)

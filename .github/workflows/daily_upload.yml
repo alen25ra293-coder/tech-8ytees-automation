@@ -38,6 +38,7 @@ jobs:
             ffmpeg \
             fonts-liberation \
             fonts-liberation2 \
+            fonts-dejavu \
             fonts-open-sans \
             espeak-ng \
             libsndfile1 \
