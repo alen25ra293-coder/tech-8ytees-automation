@@ -29,11 +29,11 @@ def create_video(title, video_clips):
 
         # ── 1. Scale/crop each clip + color grade ─────────────────────────────
         scaled_clips = []
-        # Cool blue-teal color grade: boosts contrast + adds tech feel
+        # Punchy tech color grade: boosts contrast + saturation + subtle blue tint
+        # Using eq + hue instead of complex curves for better FFmpeg compatibility
         color_grade = (
             "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-            "curves=r='0/0 0.5/0.45 1/0.9':g='0/0 0.5/0.5 1/1':b='0/0 0.5/0.55 1/1.1',"
-            "eq=contrast=1.08:brightness=0.02:saturation=1.15"
+            "setsar=1,eq=contrast=1.15:brightness=0.03:saturation=1.25:gamma=0.9"
         )
 
         if video_clips:
@@ -49,7 +49,20 @@ def create_video(title, video_clips):
                 if res.returncode == 0 and os.path.exists(out):
                     scaled_clips.append(out)
                 else:
-                    print(f"⚠️ Failed to standardize clip {i}: {res.stderr[:100]}")
+                    # Retry once WITHOUT any filters if it fails
+                    print(f"   ⚠️ Filter failed on clip {i}, retrying without filter...")
+                    res_retry = subprocess.run([
+                        "ffmpeg", "-y", "-i", clip,
+                        "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1",
+                        "-r", "30", "-c:v", "libx264", "-an", "-preset", "ultrafast", out
+                    ], capture_output=True, text=True)
+                    
+                    if res_retry.returncode == 0 and os.path.exists(out):
+                        scaled_clips.append(out)
+                        print(f"   ✅ Clip {i} recovered (no filter).")
+                    else:
+                        err_msg = res_retry.stderr[-500:] if res_retry.stderr else "Unknown error"
+                        print(f"⚠️ Failed to standardize clip {i} even without filter: {err_msg}")
 
         # ── 2. Concatenate background ──────────────────────────────────────────
         bg = ""

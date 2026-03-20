@@ -146,7 +146,9 @@ def fetch_background_clips(topic: str, num_clips: int = 5) -> list[str]:
                         url = best_file["link"]
                         n = len(clips_downloaded)
                         print(f"   Downloading clip {n + 1} ({query})...")
-                        data = requests.get(url, timeout=20).content
+                        res_dl = requests.get(url, timeout=20)
+                        res_dl.raise_for_status()
+                        data = res_dl.content
                         fname = f"bg_clip_{n}.mp4"
                         with open(fname, "wb") as f:
                             f.write(data)
