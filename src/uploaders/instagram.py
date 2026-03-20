@@ -66,7 +66,11 @@ def _try_graph_api(video_path, caption):
     print("   [1/2] Trying Instagram Graph API (Official)...")
 
     account_id  = os.environ.get("IG_BUSINESS_ACCOUNT_ID", "").strip()
-    access_token = os.environ.get("IG_GRAPH_ACCESS_TOKEN", "").strip()
+    account_id   = os.environ.get("IG_BUSINESS_ACCOUNT_ID", "").strip()
+    access_token = os.environ.get("IG_GRAPH_ACCESS_TOKEN", "").strip().replace('"', '').replace("'", "").strip()
+
+    # Extra cleaning: access tokens never contain dots or newlines
+    access_token = access_token.split('\n')[0].split('\r')[0].split('.')[0].strip()
 
     if not account_id or not access_token:
         print("       ⏭️  Graph API credentials not configured.")
@@ -92,7 +96,10 @@ def _try_graph_api(video_path, caption):
     print("       🎬 Creating Instagram media container...")
     clean_caption = _sanitize_caption(caption)
 
-    container_url = f"https://graph.instagram.com/v19.0/{account_id}/media"
+    # CRITICAL: Business/Creator accounts must use the FACEBOOK host for Instagram Graph API
+    base_url = "https://graph.facebook.com/v19.0"
+    
+    container_url = f"{base_url}/{account_id}/media"
     container_payload = {
         "media_type":  "REELS",
         "video_url":   public_url,
@@ -119,13 +126,13 @@ def _try_graph_api(video_path, caption):
 
     # --- Step C: Poll until the container is FINISHED processing ---
     print("       ⏳ Waiting for video to finish processing...")
-    if not _wait_for_container(account_id, creation_id, access_token):
+    if not _wait_for_container(base_url, creation_id, access_token):
         print("       ❌ Video processing timed out or failed.")
         return False
 
     # --- Step D: Publish the container ---
     print("       🚀 Publishing Reel...")
-    publish_url = f"https://graph.instagram.com/v19.0/{account_id}/media_publish"
+    publish_url = f"{base_url}/{account_id}/media_publish"
     publish_payload = {
         "creation_id":  creation_id,
         "access_token": access_token,
@@ -149,9 +156,9 @@ def _try_graph_api(video_path, caption):
         return False
 
 
-def _wait_for_container(account_id, creation_id, access_token, max_wait=300, interval=10):
+def _wait_for_container(base_url, creation_id, access_token, max_wait=300, interval=10):
     """Poll the container status until FINISHED or timeout."""
-    status_url = f"https://graph.instagram.com/v19.0/{creation_id}"
+    status_url = f"{base_url}/{creation_id}"
     params = {
         "fields": "status,status_code",
         "access_token": access_token,
