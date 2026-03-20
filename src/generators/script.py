@@ -183,6 +183,7 @@ FORBIDDEN (these kill retention):
 - Long descriptions without drama or tension
 - Emojis in the script text
 - Filler words: "basically", "actually", "I wanted to", "Today I'll be showing"
+- ANY markdown formatting: no **bold**, no *italics*, no _underscores_, no `code` — output PLAIN TEXT ONLY
 
 TITLE RULES:
 - Number OR question OR emotional trigger word

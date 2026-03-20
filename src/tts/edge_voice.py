@@ -13,6 +13,31 @@ import subprocess
 import json
 
 
+# ── Text sanitization (removes markdown that TTS would read aloud) ────────────
+
+def _sanitize_for_tts(text: str) -> str:
+    """
+    Remove markdown formatting that TTS engines would read literally.
+    Examples: **bold** → bold, *italic* → italic, `code` → code
+    """
+    # Remove bold: **text** or __text__
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    text = re.sub(r'__(.+?)__', r'\1', text)
+    # Remove italic: *text* or _text_ (single)
+    text = re.sub(r'\*(.+?)\*', r'\1', text)
+    text = re.sub(r'(?<!\w)_(.+?)_(?!\w)', r'\1', text)
+    # Remove inline code: `text`
+    text = re.sub(r'`(.+?)`', r'\1', text)
+    # Remove strikethrough: ~~text~~
+    text = re.sub(r'~~(.+?)~~', r'\1', text)
+    # Remove any remaining standalone asterisks or underscores
+    text = re.sub(r'(?<!\w)\*+(?!\w)', '', text)
+    text = re.sub(r'(?<!\w)_+(?!\w)', '', text)
+    # Clean up any double spaces left behind
+    text = re.sub(r'  +', ' ', text)
+    return text.strip()
+
+
 # ── Public entry-point ────────────────────────────────────────────────────────
 
 def generate_voiceover(script_text: str) -> bool:
@@ -24,20 +49,26 @@ def generate_voiceover(script_text: str) -> bool:
         print("❌ Script text is empty — cannot generate voiceover.")
         return False
 
+    # Sanitize markdown formatting that TTS would read literally
+    # e.g., "**entire**" → "entire" (not "asterisk asterisk entire asterisk asterisk")
+    clean_text = _sanitize_for_tts(script_text)
+    if clean_text != script_text:
+        print("🧹 Cleaned markdown from script text for TTS.")
+
     # ── 1. ElevenLabs (best: indistinguishable from human) ───────────────────
-    if _try_elevenlabs(script_text):
-        _generate_subtitles_from_audio("voiceover.mp3", script_text)
+    if _try_elevenlabs(clean_text):
+        _generate_subtitles_from_audio("voiceover.mp3", clean_text)
         return True
 
     # ── 2. Kokoro TTS (offline, excellent quality) ───────────────────────────
-    if _try_kokoro(script_text):
-        _generate_subtitles_from_audio("voiceover.mp3", script_text)
+    if _try_kokoro(clean_text):
+        _generate_subtitles_from_audio("voiceover.mp3", clean_text)
         return True
 
     # ── 3. edge-tts (may be blocked on GitHub Actions) ───────────────────────
     temp_file = "temp_script.txt"
     with open(temp_file, "w", encoding="utf-8") as f:
-        f.write(script_text)
+        f.write(clean_text)
 
     for attempt in range(1, 4):
         if _try_edge_tts(temp_file):
@@ -52,8 +83,8 @@ def generate_voiceover(script_text: str) -> bool:
 
     # ── 4. Final fallback: gTTS ───────────────────────────────────────────────
     print("🎙️ Falling back to gTTS...")
-    if _try_gtts(script_text):
-        _generate_subtitles_from_audio("voiceover.mp3", script_text)
+    if _try_gtts(clean_text):
+        _generate_subtitles_from_audio("voiceover.mp3", clean_text)
         return True
 
     return False

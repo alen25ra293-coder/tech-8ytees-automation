@@ -52,7 +52,7 @@ def create_video(title, video_clips):
                 vf = first_clip_grade if i == 0 else color_grade
                 res = subprocess.run([
                     "ffmpeg", "-y", "-i", clip, "-vf", vf,
-                    "-r", "30", "-c:v", "libx264", "-an", "-preset", "ultrafast", out
+                    "-pix_fmt", "yuv420p", "-r", "30", "-c:v", "libx264", "-an", "-preset", "ultrafast", out
                 ], capture_output=True, text=True)
                 if res.returncode == 0 and os.path.exists(out):
                     scaled_clips.append(out)
@@ -62,7 +62,7 @@ def create_video(title, video_clips):
                     res_retry = subprocess.run([
                         "ffmpeg", "-y", "-i", clip,
                         "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1",
-                        "-r", "30", "-c:v", "libx264", "-an", "-preset", "ultrafast", out
+                        "-pix_fmt", "yuv420p", "-r", "30", "-c:v", "libx264", "-an", "-preset", "ultrafast", out
                     ], capture_output=True, text=True)
                     
                     if res_retry.returncode == 0 and os.path.exists(out):
@@ -129,20 +129,14 @@ def create_video(title, video_clips):
 
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
         if ass_file and os.path.exists(ass_file):
-            # Use the RELATIVE path 'subtitles.ass' — FFmpeg resolves from CWD
-            # NEVER escape colons on Linux (it corrupts the path).
-            # On Windows, FFmpeg needs C\:/path format, but CI is always Linux.
+            # Use absolute path for FFmpeg subtitle filter
+            # Windows: escape drive letter colon (C:/foo → C\:/foo)
+            # Linux/Mac: use absolute path directly
             import platform
-            if platform.system() == "Windows":
-                # Windows: escape drive letter colon only
-                esc = ass_file.replace("\\", "/")
-                # e.g., C:/foo → C\:/foo
-                if len(esc) > 1 and esc[1] == ":":
-                    esc = esc[0] + "\\:" + esc[2:]
-                sub_filter = f"ass='{esc}'"
-            else:
-                # Linux/Mac: use relative path — no escaping needed
-                sub_filter = "ass=subtitles.ass"
+            esc = ass_file.replace("\\", "/")
+            if platform.system() == "Windows" and len(esc) > 1 and esc[1] == ":":
+                esc = esc[0] + "\\:" + esc[2:]
+            sub_filter = f"ass='{esc}'"
             main_cmd.extend(["-vf", sub_filter])
             print("   Subtitle burn-in: ASS (word-level, bottom-third)")
         else:
@@ -372,9 +366,12 @@ def _split_vtt_to_words(src: str, dst: str, max_words: int = 3):
 # ── End-card CTA: animated colored buttons (NO emojis) ───────────────────────
 def _create_end_card(duration: float = 6.0):
     """
-    6-second end card with colored button blocks (no emojis — ffmpeg can't render them).
-    Layout: dark background + 3 colored pill buttons (red/purple/orange) + text.
-    Fade-in simulated via drawbox using expr for time-based alpha.
+    Professional 6-second end card with:
+    - "Thanks for watching!" header
+    - Gold accent lines (top/bottom)
+    - Centered colored pill buttons (red/purple/orange)
+    - Fade-in/fade-out animation
+    - @Tech8ytees branding at bottom
     """
     font = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
     font2 = "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
@@ -382,56 +379,69 @@ def _create_end_card(duration: float = 6.0):
 
     ff = f":fontfile={chosen_font}" if chosen_font else ""
 
-    # Layout planned for 1080x1920:
-    # Top: "BEFORE YOU LEAVE..." text ~y=340
-    # Button 1 (red Subscribe):    y=500-640
-    # Button 2 (purple Instagram): y=700-840
-    # Button 3 (orange Like):      y=900-1040
-    # Bottom: small watermark
+    # Layout for 1080x1920:
+    # Gold line: y=80
+    # "Thanks for watching!": y=200
+    # "BEFORE YOU LEAVE...": y=320
+    # Button 1 (red Subscribe): y=460-610
+    # Button 2 (purple Instagram): y=660-810
+    # Button 3 (orange Like): y=860-1010
+    # Sub-text: y=1070
+    # @Tech8ytees: y=1780
+    # Gold line: y=1860
 
     vf = (
         # Dark navy background
         "drawbox=x=0:y=0:w=1080:h=1920:color=0x06091A@1.0:t=fill,"
-        # Subtle top accent line (white)
-        "drawbox=x=80:y=60:w=920:h=4:color=0xFFFFFF@0.5:t=fill,"
-        # Subtle bottom accent line
-        "drawbox=x=80:y=1860:w=920:h=4:color=0xFFFFFF@0.5:t=fill,"
+        # Gold accent line at top
+        "drawbox=x=100:y=80:w=880:h=6:color=0xFFD700@0.9:t=fill,"
+        # Gold accent line at bottom
+        "drawbox=x=100:y=1860:w=880:h=6:color=0xFFD700@0.9:t=fill,"
 
-        # Header text
-        f"drawtext=text='BEFORE YOU LEAVE...'{ff}:fontsize=58:"
-        "fontcolor=0xCCCCCC:x=(w-text_w)/2:y=300:"
+        # "Thanks for watching!" header
+        f"drawtext=text='Thanks for watching!'{ff}:fontsize=54:"
+        "fontcolor=0xFFD700:x=(w-text_w)/2:y=180:"
         "shadowcolor=black:shadowx=2:shadowy=2,"
 
+        # "BEFORE YOU LEAVE..." subheader
+        f"drawtext=text='BEFORE YOU LEAVE...'{ff}:fontsize=48:"
+        "fontcolor=0xAAAAAA:x=(w-text_w)/2:y=280:"
+        "shadowcolor=black:shadowx=1:shadowy=1,"
+
         # ── Button 1: SUBSCRIBE (red box) ─────────────────────────────────
-        "drawbox=x=80:y=460:w=920:h=150:color=0xCC0000@1.0:t=fill,"
-        "drawbox=x=80:y=460:w=920:h=150:color=0xFF4444@1.0:t=2,"
-        f"drawtext=text='SUBSCRIBE on YouTube'{ff}:fontsize=64:"
-        "fontcolor=white:x=(w-text_w)/2:y=515:"
-        "shadowcolor=0x880000:shadowx=3:shadowy=3,"
+        # Centered button: x=140 (was 80), w=800 (was 920) for better padding
+        "drawbox=x=140:y=420:w=800:h=140:color=0xCC0000@1.0:t=fill,"
+        "drawbox=x=140:y=420:w=800:h=140:color=0xFF4444@1.0:t=3,"
+        f"drawtext=text='SUBSCRIBE on YouTube'{ff}:fontsize=56:"
+        "fontcolor=white:x=(w-text_w)/2:y=470:"
+        "shadowcolor=0x660000:shadowx=3:shadowy=3,"
 
         # ── Button 2: FOLLOW (purple box) ─────────────────────────────────
-        "drawbox=x=80:y=660:w=920:h=150:color=0x7B2FBE@1.0:t=fill,"
-        "drawbox=x=80:y=660:w=920:h=150:color=0x9B4FDE@1.0:t=2,"
-        f"drawtext=text='Follow @Tech8ytees on Instagram'{ff}:fontsize=52:"
-        "fontcolor=white:x=(w-text_w)/2:y=717:"
+        "drawbox=x=140:y=600:w=800:h=140:color=0x7B2FBE@1.0:t=fill,"
+        "drawbox=x=140:y=600:w=800:h=140:color=0x9B4FDE@1.0:t=3,"
+        f"drawtext=text='Follow on Instagram'{ff}:fontsize=56:"
+        "fontcolor=white:x=(w-text_w)/2:y=650:"
         "shadowcolor=0x440088:shadowx=2:shadowy=2,"
 
         # ── Button 3: LIKE (orange/gold box) ──────────────────────────────
-        "drawbox=x=80:y=860:w=920:h=150:color=0xC85000@1.0:t=fill,"
-        "drawbox=x=80:y=860:w=920:h=150:color=0xFF7700@1.0:t=2,"
-        f"drawtext=text='SMASH THE LIKE NOW'{ff}:fontsize=68:"
-        "fontcolor=white:x=(w-text_w)/2:y=913:"
-        "shadowcolor=0x882200:shadowx=3:shadowy=3,"
+        "drawbox=x=140:y=780:w=800:h=140:color=0xC85000@1.0:t=fill,"
+        "drawbox=x=140:y=780:w=800:h=140:color=0xFF7700@1.0:t=3,"
+        f"drawtext=text='SMASH THE LIKE'{ff}:fontsize=60:"
+        "fontcolor=white:x=(w-text_w)/2:y=828:"
+        "shadowcolor=0x662200:shadowx=3:shadowy=3,"
 
         # Sub-text below buttons
-        f"drawtext=text='It only takes 0.5 seconds :)'{ff}:fontsize=44:"
-        "fontcolor=0x888888:x=(w-text_w)/2:y=1055:"
+        f"drawtext=text='It only takes a second'{ff}:fontsize=40:"
+        "fontcolor=0x666666:x=(w-text_w)/2:y=970:"
         "shadowcolor=black:shadowx=1:shadowy=1,"
 
         # Channel watermark at bottom
-        f"drawtext=text='@Tech8ytees'{ff}:fontsize=46:"
-        "fontcolor=0xFF6600:x=(w-text_w)/2:y=1800:"
-        "shadowcolor=black:shadowx=2:shadowy=2"
+        f"drawtext=text='@Tech8ytees'{ff}:fontsize=52:"
+        "fontcolor=0xFFD700:x=(w-text_w)/2:y=1780:"
+        "shadowcolor=black:shadowx=2:shadowy=2,"
+
+        # Fade-in (0-0.5s) and fade-out (5.5-6s)
+        f"fade=t=in:st=0:d=0.5,fade=t=out:st={duration-0.5}:d=0.5"
     )
 
     cmd = [
@@ -440,6 +450,7 @@ def _create_end_card(duration: float = 6.0):
         "-i", f"color=c=black:size=1080x1920:rate=30:duration={duration}",
         "-vf", vf,
         "-c:v", "libx264", "-preset", "fast",
+        "-pix_fmt", "yuv420p",
         "-t", str(duration),
         "end_card.mp4"
     ]
@@ -447,19 +458,23 @@ def _create_end_card(duration: float = 6.0):
 
     if res.returncode != 0 or not os.path.exists("end_card.mp4"):
         print(f"⚠️ End card render failed — using simple fallback")
-        # Simple solid-color fallback (no emojis, no complex filter)
+        # Simple solid-color fallback (no complex filter)
+        font_opt = f"fontfile={chosen_font}:" if chosen_font else ""
         subprocess.run([
             "ffmpeg", "-y", "-f", "lavfi",
             "-i", f"color=c=0x06091A:size=1080x1920:rate=30:duration={duration}",
             "-vf", (
-                f"drawbox=x=80:y=460:w=920:h=150:color=0xCC0000@1.0:t=fill,"
-                f"drawtext=text='SUBSCRIBE':{f'fontfile={chosen_font}:' if chosen_font else ''}fontsize=80:fontcolor=white:x=(w-text_w)/2:y=515,"
-                f"drawbox=x=80:y=660:w=920:h=150:color=0x7B2FBE@1.0:t=fill,"
-                f"drawtext=text='FOLLOW':{f'fontfile={chosen_font}:' if chosen_font else ''}fontsize=80:fontcolor=white:x=(w-text_w)/2:y=717,"
-                f"drawbox=x=80:y=860:w=920:h=150:color=0xC85000@1.0:t=fill,"
-                f"drawtext=text='LIKE':{f'fontfile={chosen_font}:' if chosen_font else ''}fontsize=80:fontcolor=white:x=(w-text_w)/2:y=913"
+                f"drawtext=text='Thanks for watching':{font_opt}fontsize=60:fontcolor=0xFFD700:x=(w-text_w)/2:y=300,"
+                f"drawbox=x=140:y=500:w=800:h=140:color=0xCC0000@1.0:t=fill,"
+                f"drawtext=text='SUBSCRIBE':{font_opt}fontsize=70:fontcolor=white:x=(w-text_w)/2:y=545,"
+                f"drawbox=x=140:y=700:w=800:h=140:color=0x7B2FBE@1.0:t=fill,"
+                f"drawtext=text='FOLLOW':{font_opt}fontsize=70:fontcolor=white:x=(w-text_w)/2:y=745,"
+                f"drawbox=x=140:y=900:w=800:h=140:color=0xC85000@1.0:t=fill,"
+                f"drawtext=text='LIKE':{font_opt}fontsize=70:fontcolor=white:x=(w-text_w)/2:y=945,"
+                f"drawtext=text='@Tech8ytees':{font_opt}fontsize=50:fontcolor=0xFFD700:x=(w-text_w)/2:y=1780"
             ),
             "-c:v", "libx264", "-preset", "fast",
+            "-pix_fmt", "yuv420p",
             "-t", str(duration), "end_card.mp4"
         ], capture_output=True)
 

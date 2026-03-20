@@ -7,7 +7,7 @@ Falls back to Instagrapi if Graph API credentials aren't set.
 HOW THE GRAPH API WORKS (2-STEP FLOW):
   Step 1: Create a media container → pass `video_url` (public URL of the file)
            The API downloads it from that URL, so we need a public host.
-           We use file.io (free, no signup, auto-expires after download).
+           We use tmpfiles.org (free, no signup, auto-expires).
   Step 2: Poll until container status = FINISHED, then call media_publish.
 
 GITHUB SECRETS NEEDED (add in repo Settings → Secrets):
@@ -83,12 +83,10 @@ def _try_graph_api(video_path, caption):
 
     # --- Step A: Upload to a free public host so Graph API can fetch the file ---
     print("       📡 Uploading video to temporary public host...")
-    public_url = _upload_to_fileio(video_path)
+    # Go directly to tmpfiles.org (file.io blocks GitHub Actions IPs)
+    public_url = _upload_to_tmpfiles(video_path)
     if not public_url:
-        print("       ❌ Could not obtain a public URL for the video. Trying fallback host...")
-        public_url = _upload_to_tmpfiles(video_path)
-    if not public_url:
-        print("       ❌ All public hosts failed. Cannot use Graph API without a public URL.")
+        print("       ❌ Could not obtain a public URL for the video.")
         return False
     print(f"       ✅ Public URL obtained.")
 
@@ -184,32 +182,6 @@ def _wait_for_container(base_url, creation_id, access_token, max_wait=300, inter
         waited += interval
 
     return False  # timed out
-
-
-def _upload_to_fileio(video_path):
-    """Upload file to file.io — free, no account needed, auto-deletes after one download."""
-    for attempt in range(1, 3):
-        try:
-            with open(video_path, "rb") as f:
-                resp = requests.post(
-                    "https://file.io",
-                    files={"file": f},
-                    data={"expires": "1d"},
-                    timeout=120,
-                )
-            if resp.status_code == 200 and resp.text.strip():
-                data = resp.json()
-                if data.get("success") and data.get("link"):
-                    return data["link"]
-            
-            print(f"       ⚠️  file.io attempt {attempt} failed (status {resp.status_code}).")
-            if attempt < 2:
-                time.sleep(5)
-        except Exception as e:
-            print(f"       ⚠️  file.io attempt {attempt} error: {e}")
-            if attempt < 2:
-                time.sleep(5)
-    return None
 
 
 def _upload_to_tmpfiles(video_path):
