@@ -83,8 +83,32 @@ def _try_graph_api(video_path, caption):
 
     # --- Step A: Upload to a free public host so Graph API can fetch the file ---
     print("       📡 Uploading video to temporary public host...")
-    # Go directly to tmpfiles.org (file.io blocks GitHub Actions IPs)
-    public_url = _upload_to_tmpfiles(video_path)
+    # Try file.io first (works with Instagram when available)
+    # Fall back to tmpfiles.org if file.io fails
+    public_url = None
+    
+    # Attempt file.io with timeout to avoid GitHub Actions hangs
+    try:
+        print("       Trying file.io...")
+        with open(video_path, "rb") as f:
+            resp = requests.post(
+                "https://file.io",
+                files={"file": f},
+                data={"expires": "1d"},
+                timeout=30,
+            )
+        if resp.status_code == 200:
+            data = resp.json()
+            if data.get("success") and data.get("link"):
+                public_url = data["link"]
+                print("       ✅ file.io upload successful.")
+    except Exception as e:
+        print(f"       ⚠️  file.io failed ({e}), trying tmpfiles.org...")
+    
+    # Fall back to tmpfiles.org
+    if not public_url:
+        public_url = _upload_to_tmpfiles(video_path)
+    
     if not public_url:
         print("       ❌ Could not obtain a public URL for the video.")
         return False
