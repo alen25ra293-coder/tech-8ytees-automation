@@ -232,7 +232,11 @@ def _upload_to_tmpfiles(video_path):
 def _sanitize_caption(caption):
     """Ensure caption has Reels hashtags and stays under 2200 chars."""
     if "#reels" not in caption.lower():
-        caption = f"{caption}\n\n#Reels #InstagramReels #TechReels #Tech8ytees"
+        caption = (
+            f"{caption}\n\n"
+            f"#Reels #InstagramReels #TechReels #Tech8ytees "
+            f"#TechTok #Viral #ExplorePage #TechShorts"
+        )
     return caption[:2200]
 
 

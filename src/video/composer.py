@@ -127,62 +127,64 @@ def create_video(title, video_clips):
         # ── 4. Main Render ──────────────────────────────────────────────────────
         print(f"🎬 Rendering main video (Source: {bg})...")
 
+        # Check for optional background music
+        bgm_file = None
+        for candidate in ["bgm.mp3", "bgm.wav", "bgm.m4a"]:
+            if os.path.exists(candidate):
+                bgm_file = candidate
+                break
+
+        # Build FFmpeg command with subtitle + optional BGM
+        import platform
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
+
+        if bgm_file:
+            # Loop BGM to fill the whole duration
+            main_cmd.extend(["-stream_loop", "-1", "-i", bgm_file])
+            print(f"   🎵 Background music detected: {bgm_file}")
+
+        # --- Video filter (subtitles) ---
+        vf_filter = None
         if ass_file and os.path.exists(ass_file):
-            # Use absolute path for FFmpeg subtitle filter
-            # Windows: escape drive letter colon (C:/foo → C\:/foo)
-            # Linux/Mac: use absolute path directly
-            import platform
             esc = ass_file.replace("\\", "/")
             if platform.system() == "Windows" and len(esc) > 1 and esc[1] == ":":
                 esc = esc[0] + "\\:" + esc[2:]
-            sub_filter = f"ass='{esc}'"
-            main_cmd.extend(["-vf", sub_filter])
+            vf_filter = f"ass='{esc}'"
             print("   Subtitle burn-in: ASS (word-level, bottom-third)")
         else:
             print("   ⚠️ No subtitles available — rendering without.")
+
+        # --- Audio filter (mix voiceover + optional BGM) ---
+        if bgm_file:
+            # Mix voiceover (input 1) at full volume with BGM (input 2) at 12%
+            af_filter = "[1:a]volume=1.0[vo];[2:a]volume=0.12[bg];[vo][bg]amix=inputs=2:duration=first[aout]"
+            if vf_filter:
+                main_cmd.extend(["-vf", vf_filter])
+            main_cmd.extend(["-filter_complex", af_filter, "-map", "0:v", "-map", "[aout]"])
+        else:
+            if vf_filter:
+                main_cmd.extend(["-vf", vf_filter])
+            main_cmd.extend(["-map", "0:v", "-map", "1:a"])
 
         main_cmd.extend([
             "-c:v", "libx264", "-preset", "fast",
             "-c:a", "aac",
             "-t", str(video_duration),
             "-shortest",
-            "main_video.mp4"
+            "output.mp4"
         ])
 
         res = subprocess.run(main_cmd, capture_output=True, text=True, timeout=600)
         if res.returncode != 0:
             print(f"❌ Main render failed: {res.stderr[-800:]}")
             return False
-        print("✅ Main video rendered.")
+        print(f"✅ Final video ready: output.mp4 ({video_duration:.1f}s)")
 
-        # ── 5. End-card CTA slide (6 sec) ─────────────────────────────────
-        print("🎬 Creating end-card CTA slide...")
-        _create_end_card()
-
-        # ── 6. Concat main + end-card ──────────────────────────────────────
-        with open("final_concat.txt", "w") as f:
-            f.write("file 'main_video.mp4'\n")
-            if os.path.exists("end_card.mp4"):
-                f.write("file 'end_card.mp4'\n")
-
-        res2 = subprocess.run([
-            "ffmpeg", "-y", "-f", "concat", "-safe", "0",
-            "-i", "final_concat.txt", "-c", "copy", "output.mp4"
-        ], capture_output=True, text=True, timeout=120)
-
-        if res2.returncode != 0 or not os.path.exists("output.mp4"):
-            os.rename("main_video.mp4", "output.mp4")
-            print("⚠️  End-card concat failed — video saved without end-card.")
-        else:
-            total = video_duration + 6
-            print(f"✅ Final video ready: output.mp4 ({total:.1f}s incl. 6s CTA)")
-
-        # ── 7. Cleanup ───────────────────────────────────────────────────
+        # ── 5. Cleanup ───────────────────────────────────────────────────
         for f in scaled_clips + (video_clips or []):
             _rm(f)
-        for f in ["clips.txt", "bg_looped.mp4", "main_video.mp4", "end_card.mp4",
-                  "final_concat.txt", "subtitles_words.vtt", "subtitles.srt",
+        for f in ["clips.txt", "bg_looped.mp4",
+                  "subtitles_words.vtt", "subtitles.srt",
                   "subtitles_raw.ass", "subtitles.ass"]:
             _rm(f)
 
@@ -241,45 +243,56 @@ def _vtt_to_srt(vtt_path: str, srt_path: str):
 # ── Inject professional subtitle style into ASS ───────────────────────────────
 def _style_ass(src: str, dst: str):
     """
-    Professional subtitle style:
-    - Font: Liberation Sans Bold, size 55
-    - White text with thin cyan outline (borderw=3)
-    - Semi-transparent black box behind text
-    - Bottom-third position (MarginV=300 from bottom)
-    - Centered (Alignment=2)
+    Viral-style subtitles (MrBeast / Ali Abdaal):
+    - Canvas forced to 1080×1920 (9:16 vertical video)
+    - Font: Impact Bold, size 58
+    - White text with thick black outline (BorderStyle=1, Outline=4)
+    - Bottom-third, centred (Alignment=2, MarginV=120)
     """
     with open(src, "r", encoding="utf-8") as f:
         content = f.read()
 
+    # ── FIX: Force PlayRes to match our 1080×1920 video ──────────────────
+    # FFmpeg's SRT→ASS default is 384×288 — all margins/sizes are relative
+    # to PlayRes, so without this fix text is pushed off-screen.
+    if "PlayResX" in content:
+        content = re.sub(r"PlayResX:\s*\d+", "PlayResX: 1080", content)
+    else:
+        content = content.replace("[Script Info]", "[Script Info]\nPlayResX: 1080", 1)
+
+    if "PlayResY" in content:
+        content = re.sub(r"PlayResY:\s*\d+", "PlayResY: 1920", content)
+    else:
+        content = content.replace("PlayResX: 1080", "PlayResX: 1080\nPlayResY: 1920", 1)
+
     # ASS colour format: &HAABBGGRR
-    # White:              &H00FFFFFF
-    # Cyan outline:       &H00FFFF00  (B=FF, G=FF, R=00)
-    # Semi-transparent black box: &H88000000 (alpha=88)
-    # Correct V4+ field order: Name, Fontname, Fontsize, Primary, Secondary, Outline, Back, ...
+    # V4+ field order: Name, Fontname, Fontsize, Primary, Secondary, Outline, Back,
+    #                  Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY,
+    #                  Spacing, Angle, BorderStyle, Outline, Shadow,
+    #                  Alignment, MarginL, MarginR, MarginV, Encoding
     new_style = (
         "Style: Default,"
-        "DejaVu Sans,"      # Font (guaranteed on Ubuntu with fonts-dejavu)
-        "60,"               # Fontsize - bold and readable
-        "&H00FFFFFF,"       # PrimaryColour: White
-        "&H000000FF,"       # SecondaryColour
-        "&H00FFFF00,"       # OutlineColour: Cyan (BGR: 00 FF FF)
-        "&H88000000,"       # BackColour: Semi-transparent black (AABBGGRR)
-        "-1,0,0,0,"         # Bold, Italic, Underline, Strikeout
-        "100,100,"          # ScaleX, ScaleY
-        "0,"                # Spacing
-        "0,"                # Angle
-        "3,"                # BorderStyle: 3 = Opaque box behind text
-        "3,"                # Outline thickness
-        "1,"                # Shadow
-        "2,"                # Alignment: 2 = Bottom Centre
-        "10,10,300,0"       # MarginL, MarginR, MarginV (300px from bottom)
+        "Impact,"               # Font — bold, punchy, available everywhere
+        "58,"                   # Fontsize (relative to PlayRes 1920)
+        "&H00FFFFFF,"           # PrimaryColour: White
+        "&H000000FF,"           # SecondaryColour: Red (unused)
+        "&H00000000,"           # OutlineColour: Black (max contrast)
+        "&H80000000,"           # BackColour: 50% transparent black shadow
+        "-1,0,0,0,"             # Bold=Yes, Italic/Underline/Strike=No
+        "100,100,"              # ScaleX, ScaleY
+        "0,"                    # Spacing
+        "0,"                    # Angle
+        "1,"                    # BorderStyle: 1 = Outline + drop shadow
+        "4,"                    # Outline thickness (thick for readability)
+        "2,"                    # Shadow distance
+        "2,"                    # Alignment: 2 = Bottom-Centre
+        "20,20,120,0"           # MarginL, MarginR, MarginV=120px, Encoding
     )
 
-    # Ensure we replace the style regardless of exact match
+    # Replace existing Default style
     if "Style: Default," in content:
         content = re.sub(r"Style: Default,.*", new_style, content)
     else:
-        # Fallback: append if somehow missing (unlikely but safe)
         content += "\n" + new_style
 
     with open(dst, "w", encoding="utf-8") as f:
@@ -361,125 +374,6 @@ def _split_vtt_to_words(src: str, dst: str, max_words: int = 3):
     except Exception as e:
         print(f"⚠️  VTT split failed ({e}) — using original subtitles.")
         shutil.copy(src, dst)
-
-
-# ── End-card CTA: animated colored buttons (NO emojis) ───────────────────────
-def _create_end_card(duration: float = 6.0):
-    """
-    Professional 6-second end card with:
-    - "Thanks for watching!" header
-    - Gold accent lines (top/bottom)
-    - Centered colored pill buttons (red/purple/orange)
-    - Fade-in/fade-out animation
-    - @Tech8ytees branding at bottom
-    """
-    font = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
-    font2 = "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf"
-    chosen_font = font if os.path.exists(font) else (font2 if os.path.exists(font2) else "")
-
-    ff = f":fontfile={chosen_font}" if chosen_font else ""
-
-    # Layout for 1080x1920:
-    # Gold line: y=80
-    # "Thanks for watching!": y=200
-    # "BEFORE YOU LEAVE...": y=320
-    # Button 1 (red Subscribe): y=460-610
-    # Button 2 (purple Instagram): y=660-810
-    # Button 3 (orange Like): y=860-1010
-    # Sub-text: y=1070
-    # @Tech8ytees: y=1780
-    # Gold line: y=1860
-
-    vf = (
-        # Dark navy background
-        "drawbox=x=0:y=0:w=1080:h=1920:color=0x06091A@1.0:t=fill,"
-        # Gold accent line at top
-        "drawbox=x=100:y=80:w=880:h=6:color=0xFFD700@0.9:t=fill,"
-        # Gold accent line at bottom
-        "drawbox=x=100:y=1860:w=880:h=6:color=0xFFD700@0.9:t=fill,"
-
-        # "Thanks for watching!" header
-        f"drawtext=text='Thanks for watching!'{ff}:fontsize=54:"
-        "fontcolor=0xFFD700:x=(w-text_w)/2:y=180:"
-        "shadowcolor=black:shadowx=2:shadowy=2,"
-
-        # "BEFORE YOU LEAVE..." subheader
-        f"drawtext=text='BEFORE YOU LEAVE...'{ff}:fontsize=48:"
-        "fontcolor=0xAAAAAA:x=(w-text_w)/2:y=280:"
-        "shadowcolor=black:shadowx=1:shadowy=1,"
-
-        # ── Button 1: SUBSCRIBE (red box) ─────────────────────────────────
-        # Centered button: x=140 (was 80), w=800 (was 920) for better padding
-        "drawbox=x=140:y=420:w=800:h=140:color=0xCC0000@1.0:t=fill,"
-        "drawbox=x=140:y=420:w=800:h=140:color=0xFF4444@1.0:t=3,"
-        f"drawtext=text='SUBSCRIBE on YouTube'{ff}:fontsize=56:"
-        "fontcolor=white:x=(w-text_w)/2:y=470:"
-        "shadowcolor=0x660000:shadowx=3:shadowy=3,"
-
-        # ── Button 2: FOLLOW (purple box) ─────────────────────────────────
-        "drawbox=x=140:y=600:w=800:h=140:color=0x7B2FBE@1.0:t=fill,"
-        "drawbox=x=140:y=600:w=800:h=140:color=0x9B4FDE@1.0:t=3,"
-        f"drawtext=text='Follow on Instagram'{ff}:fontsize=56:"
-        "fontcolor=white:x=(w-text_w)/2:y=650:"
-        "shadowcolor=0x440088:shadowx=2:shadowy=2,"
-
-        # ── Button 3: LIKE (orange/gold box) ──────────────────────────────
-        "drawbox=x=140:y=780:w=800:h=140:color=0xC85000@1.0:t=fill,"
-        "drawbox=x=140:y=780:w=800:h=140:color=0xFF7700@1.0:t=3,"
-        f"drawtext=text='SMASH THE LIKE'{ff}:fontsize=60:"
-        "fontcolor=white:x=(w-text_w)/2:y=828:"
-        "shadowcolor=0x662200:shadowx=3:shadowy=3,"
-
-        # Sub-text below buttons
-        f"drawtext=text='It only takes a second'{ff}:fontsize=40:"
-        "fontcolor=0x666666:x=(w-text_w)/2:y=970:"
-        "shadowcolor=black:shadowx=1:shadowy=1,"
-
-        # Channel watermark at bottom
-        f"drawtext=text='@Tech8ytees'{ff}:fontsize=52:"
-        "fontcolor=0xFFD700:x=(w-text_w)/2:y=1780:"
-        "shadowcolor=black:shadowx=2:shadowy=2,"
-
-        # Fade-in (0-0.5s) and fade-out (5.5-6s)
-        f"fade=t=in:st=0:d=0.5,fade=t=out:st={duration-0.5}:d=0.5"
-    )
-
-    cmd = [
-        "ffmpeg", "-y",
-        "-f", "lavfi",
-        "-i", f"color=c=black:size=1080x1920:rate=30:duration={duration}",
-        "-vf", vf,
-        "-c:v", "libx264", "-preset", "fast",
-        "-pix_fmt", "yuv420p",
-        "-t", str(duration),
-        "end_card.mp4"
-    ]
-    res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-
-    if res.returncode != 0 or not os.path.exists("end_card.mp4"):
-        print(f"⚠️ End card render failed — using simple fallback")
-        # Simple solid-color fallback (no complex filter)
-        font_opt = f"fontfile={chosen_font}:" if chosen_font else ""
-        subprocess.run([
-            "ffmpeg", "-y", "-f", "lavfi",
-            "-i", f"color=c=0x06091A:size=1080x1920:rate=30:duration={duration}",
-            "-vf", (
-                f"drawtext=text='Thanks for watching':{font_opt}fontsize=60:fontcolor=0xFFD700:x=(w-text_w)/2:y=300,"
-                f"drawbox=x=140:y=500:w=800:h=140:color=0xCC0000@1.0:t=fill,"
-                f"drawtext=text='SUBSCRIBE':{font_opt}fontsize=70:fontcolor=white:x=(w-text_w)/2:y=545,"
-                f"drawbox=x=140:y=700:w=800:h=140:color=0x7B2FBE@1.0:t=fill,"
-                f"drawtext=text='FOLLOW':{font_opt}fontsize=70:fontcolor=white:x=(w-text_w)/2:y=745,"
-                f"drawbox=x=140:y=900:w=800:h=140:color=0xC85000@1.0:t=fill,"
-                f"drawtext=text='LIKE':{font_opt}fontsize=70:fontcolor=white:x=(w-text_w)/2:y=945,"
-                f"drawtext=text='@Tech8ytees':{font_opt}fontsize=50:fontcolor=0xFFD700:x=(w-text_w)/2:y=1780"
-            ),
-            "-c:v", "libx264", "-preset", "fast",
-            "-pix_fmt", "yuv420p",
-            "-t", str(duration), "end_card.mp4"
-        ], capture_output=True)
-
-    if os.path.exists("end_card.mp4"):
-        print("✅ End-card CTA created.")
 
 
 def _rm(path: str):

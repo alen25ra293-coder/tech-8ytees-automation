@@ -42,10 +42,14 @@ def upload_to_youtube(title: str, description: str, tags: str,
         else:
             upload_title = title
 
-        if "#shorts" not in description.lower():
-            upload_description = f"{description}\n\n#Shorts #Tech8ytees #TechShorts #Gadgets"
-        else:
-            upload_description = description
+        # Build SEO-optimized description
+        # First line is keyword-rich (YouTube uses it in search results)
+        upload_description = (
+            f"{description}\n\n"
+            f"🔔 Subscribe for daily tech shorts!\n"
+            f"📱 Follow us on Instagram: @Tech8ytees\n\n"
+            f"#Shorts #Tech8ytees #TechShorts #Gadgets #TechReview #Tech #Viral"
+        )
 
         # Normalise tags: accept both string and list
         if isinstance(tags, str):
@@ -53,9 +57,12 @@ def upload_to_youtube(title: str, description: str, tags: str,
         else:
             tag_list = tags
 
-        # Add channel-specific tags
-        base_tags = ["Tech8ytees", "TechShorts", "Gadgets", "Shorts", "Tech"]
-        tag_list = list(dict.fromkeys(tag_list + base_tags))[:15]  # deduplicate, cap at 15
+        # Add channel-specific tags for maximum discoverability
+        base_tags = [
+            "Tech8ytees", "TechShorts", "Gadgets", "Shorts", "Tech",
+            "TechReview", "Viral", "TechTok", "GadgetReview", "BudgetTech"
+        ]
+        tag_list = list(dict.fromkeys(tag_list + base_tags))[:20]  # deduplicate, cap at 20
 
         request_body = {
             "snippet": {

@@ -39,15 +39,14 @@ EXAMPLE_SCRIPTS = [
         "title": "I TESTED Every Cheap Earbud So You Don't Have To",
         "hook": "Nobody tells you this when you buy AirPods.",
         "script": (
-            "Nobody tells you this when you buy AirPods. You're not paying for better sound. "
-            "You're paying for the logo. I've tested every cheap earbud out there and here's the truth — "
-            "the Soundcore Space A40 at sixty bucks has better bass, longer battery, and "
-            "noise cancellation that slaps harder than AirPods. I gave them to my Apple-obsessed "
-            "friend and he couldn't go back. Samsung Galaxy Buds for Android users? No contest. "
-            "But the absolute king right now is the Nothing Ear — half the price, "
-            "twice the personality. And remember — nobody tells you this, "
-            "until now. Smash that subscribe button, send this to a friend who needs to see it, "
-            "and follow us on Instagram — links are in the bio!"
+            "Nobody tells you this when you buy AirPods. You're not paying "
+            "for better sound. You're paying for the logo. I tested every "
+            "cheap earbud out there — the Soundcore Space A40 at sixty bucks "
+            "has better bass, longer battery, and noise cancellation that "
+            "slaps harder than AirPods. My Apple-obsessed friend tried them "
+            "and couldn't go back. The Nothing Ear? Half the price, twice "
+            "the personality. And nobody tells you this — until now. "
+            "Subscribe, send this to a friend, and follow us on Instagram!"
         ),
     },
     {
@@ -55,16 +54,31 @@ EXAMPLE_SCRIPTS = [
         "title": "5 AI Tools QUIETLY Replacing Your Coworkers",
         "hook": "Here's what your boss isn't telling you.",
         "script": (
-            "Here's what your boss isn't telling you. Five AI tools are replacing real people "
-            "at real companies right now. ChatGPT already cut junior copywriter positions by "
-            "30 percent at dozens of agencies. Midjourney killed stock photography overnight. "
-            "GitHub Copilot writes over 40 percent of new code at some companies. Perplexity "
-            "is wrecking SEO blogs. Synthesia is replacing corporate video teams. Look — "
-            "the winners aren't the people who fight AI. They're the people who use it "
-            "better than anyone else. And here's what your boss still isn't telling you: "
-            "you have about six months to get ahead of this. "
-            "Smash that subscribe button, send this to a friend who needs to see it, "
-            "and follow us on Instagram — links are in the bio!"
+            "Here's what your boss isn't telling you. Five AI tools are "
+            "replacing real people right now. ChatGPT cut junior copywriter "
+            "positions by 30 percent. Midjourney killed stock photography "
+            "overnight. GitHub Copilot writes 40 percent of new code at "
+            "some companies. Perplexity is wrecking SEO blogs. Synthesia "
+            "replaced corporate video teams. The winners aren't people who "
+            "fight AI — they're the ones using it better than anyone else. "
+            "You have about six months. And here's what your boss still "
+            "isn't telling you. Subscribe, send this to a friend, "
+            "and follow us on Instagram!"
+        ),
+    },
+    {
+        "topic": "the $30 gadget that changes your setup",
+        "title": "This $30 GADGET Embarrassed My $800 Setup",
+        "hook": "Everyone laughed when I plugged this in.",
+        "script": (
+            "Everyone laughed when I plugged this in. A thirty dollar USB-C "
+            "hub that does what my $200 dock couldn't. Dual monitors, SD card "
+            "slot, ethernet, and 100 watt passthrough charging. I threw my old "
+            "dock in the trash. The build quality? Metal. Not cheap plastic. "
+            "It handles 4K at 60Hz without dropping frames. My tech friends asked "
+            "where I got it and bought three. The best part? No driver install. "
+            "Plug in and forget. Everyone laughed — now they all have one. "
+            "Subscribe, send this to a friend, and follow us on Instagram!"
         ),
     },
 ]
@@ -72,11 +86,11 @@ EXAMPLE_SCRIPTS = [
 # -- Pattern-interrupt hook openers -------------------------------------------
 HOOK_OPENERS = [
     "Nobody talks about this, but",
-    "Here's what they don't tell you --",
+    "Here's what they don't tell you —",
     "This changed everything for me.",
     "Stop scrolling. This matters.",
     "I almost made a huge mistake.",
-    "Wait -- before you spend another dollar,",
+    "Wait — before you spend another dollar,",
     "Real talk:",
     "I tested this so you don't have to.",
     "This is going to sound crazy, but",
@@ -86,7 +100,7 @@ HOOK_OPENERS = [
     "Okay this blew my mind.",
     "Don't buy anything until you see this.",
     "I switched and I'm never going back.",
-    "My friend thought I was crazy -- until",
+    "My friend thought I was crazy — until",
     "Three years ago I made the worst tech mistake of my life.",
     "This $30 gadget embarrassed my $800 setup.",
     "Everyone laughed at me for buying this.",
@@ -94,8 +108,13 @@ HOOK_OPENERS = [
     "Here's the secret pros never share.",
     "I found a cheat code for tech buyers.",
     "Your phone is hiding something from you.",
-    "This got my tech-obsessed friend to throw out his MacBook.",
-    "Here's what a million-dollar YouTuber uses that you don't.",
+    "This got my friend to throw out his MacBook.",
+    "Here's what million-dollar YouTubers use that you don't.",
+    "Delete this app right now.",
+    "I was today years old when I learned this.",
+    "Your charger is slowly killing your phone.",
+    "They removed this feature and nobody noticed.",
+    "This free app replaces a $200 subscription.",
 ]
 
 # -- Fallback topics ----------------------------------------------------------
@@ -103,7 +122,7 @@ FALLBACK_TOPICS = [
     # Regret / mistakes
     "The worst tech purchase I ever made",
     "Why I returned my iPhone and switched to Android",
-    "Stop buying flagship phones -- here's the real reason",
+    "Stop buying flagship phones — here's the real reason",
     # Secret / hidden
     "The $30 gadget that pros hide from you",
     "Hidden iPhone features nobody talks about",
@@ -111,11 +130,11 @@ FALLBACK_TOPICS = [
     # Money / savings
     "The $50 gadget that beats your laptop",
     "Budget laptop that outperforms expensive ones",
-    "Stop buying expensive earbuds -- here's why",
+    "Stop buying expensive earbuds — here's why",
     # Change / lifestyle
     "AI tools that will replace your job in 2026",
     "The gadget that made me delete half my apps",
-    "This one product made my apartment feel 10x smarter",
+    "This one product made my setup 10x smarter",
     # Status
     "The one gadget every programmer secretly uses",
     "The gaming mouse pros use but never talk about",
@@ -133,7 +152,7 @@ FALLBACK_TOPICS = [
 
 # ── Main script generation ────────────────────────────────────────────────────
 def generate_script(topic: str, attempt: int = 1) -> str | None:
-    """Generate a viral 120-145 word script with hook, loop ending, and CTA."""
+    """Generate a viral 95-115 word script with hook, loop ending, and CTA."""
     print(f"🤖 Generating viral script (attempt {attempt}/3)...")
 
     hook = random.choice(HOOK_OPENERS)
@@ -147,57 +166,69 @@ def generate_script(topic: str, attempt: int = 1) -> str | None:
         for ex in EXAMPLE_SCRIPTS
     )
 
-    prompt = f"""You are the scriptwriter for "Tech 8ytees" -- a viral YouTube Shorts/Reels channel.
-GOAL: Make viewers STOP scrolling in the first 2 seconds. 96% skip immediately. You must fight that.
+    prompt = f"""You are the scriptwriter for "Tech 8ytees" — a viral tech YouTube Shorts/Instagram Reels channel.
 
-STUDY THESE EXAMPLES:
+MISSION: 96% of viewers scroll away in the first 2 seconds. You must BREAK that pattern.
+
+STUDY THESE VIRAL EXAMPLES:
 {examples_text}
 
-================================================
-TASK: Write a viral 95-115 word script about: "{topic}"
-================================================
+=================================================================
+TASK: Write a viral 95-115 word tech SHORT script about: "{topic}"
+=================================================================
 
-TARGET: The final video must be 38-45 SECONDS long when spoken.
-At natural speech pace (~2.5 words/sec): 100 words = ~40 seconds. DO NOT exceed 115 words.
+TIMING: spoken at ~2.7 words/sec → 100 words ≈ 37 seconds. Max 115 words = 42 seconds.
+The final video MUST stay under 45 seconds.
 
-STRUCTURE (follow exactly):
-1. HOOK (first sentence): "{hook}"
-   - Must be under 2.5 seconds when spoken. Short, tense, no fluff.
-   - Creates instant "wait, what?" in viewer's brain.
-2. 2-3 punchy points (real facts, dollar amounts, percentages, brand names)
-3. LOOP ENDING (echoes the hook -- makes rewatching feel natural)
-4. CTA (EXACT, word-for-word):
-   "Smash that subscribe button, send this to a friend who needs to see it, and follow us on Instagram -- links are in the bio!"
+STRUCTURE (follow this exactly):
+1. HOOK (first sentence): Begin with "{hook}"
+   - MUST be under 8 words and spoken in under 2.5 seconds.
+   - Create a "wait, what?" reaction. Use tension, controversy, or a knowledge gap.
+2. BODY (2-3 fast punchy points):
+   - Real brand names, real dollar/percentage numbers, real specs.
+   - Mix sentence lengths: 3-word punches ("Gone. Just like that.") + 12-word details.
+   - Each point escalates — the next one is MORE surprising than the last.
+3. LOOP ENDING: Echo or callback to the hook (makes rewatching feel natural).
+4. CTA (EXACT ending, word-for-word):
+   "Subscribe, send this to a friend, and follow us on Instagram!"
 
-RETENTION RULES (what top creators do):
-- First 5 words MUST create tension or a knowledge gap
-- Use numbers: $47, 40%, 3x better, under 2 weeks
-- Name real products and brands with real prices
-- Short fragments hit hard: "Gone. Just like that.", "I couldn't go back."
-- Contractions always: don't, you've, I'm, here's
-- Mix sentence lengths (3-word punches + 15-word sentences)
-
-FORBIDDEN (these kill retention):
-- Generic openers: "In today's video", "Let's talk about", "Hey everyone"
-- Formal language, passive voice, essay structure
-- Long descriptions without drama or tension
-- Emojis in the script text
-- Filler words: "basically", "actually", "I wanted to", "Today I'll be showing"
-- ANY markdown formatting: no **bold**, no *italics*, no _underscores_, no `code` — output PLAIN TEXT ONLY
+ALGORITHM OPTIMISATION (what makes the algorithm push your video):
+- Pattern interrupt first 3 words → viewer stops scrolling
+- Open loop in hook ("nobody tells you = viewer must stay to find out what)
+- Curiosity gap: tease a payoff, deliver mid-video, then twist at end
+- Contrast / comparison: cheap vs expensive, old vs new, expected vs reality
+- Specific numbers: $47 not "affordable", 40% not "a lot", 3x not "much better"
+- Social proof: "my friend tried", "developer at Google said", "1M+ sold"
+- Name real products: AirPods, Galaxy, ThinkPad, Anker, Nothing, Pixel, Tesla
+- Contractions always: don't, you've, I'm, here's, can't, won't
+- NO filler: never use "basically", "actually", "I wanted to", "today we'll"
+- NO formal language, NO essay structure, NO passive voice
+- NO emojis in script body
+- NO markdown: no **bold**, no *italics*, no _underscores_ — PLAIN TEXT ONLY
 
 TITLE RULES:
-- Number OR question OR emotional trigger word
-- Strong examples: "Why I RETURNED My $1200 Laptop", "5 Gadgets I Use EVERY Day", "This $40 Device Changed Everything"
-- ALL CAPS on 2-3 trigger words
+- Must have 1 number OR 1 question OR 1 emotional trigger word (STOPPED, DESTROYED, KILLED, SECRETLY)
+- ALL CAPS on exactly 2-3 key words: "Why I STOPPED Using AirPods", "This $40 Gadget CHANGED Everything"
+- Max 65 characters
 
-OUTPUT FORMAT (nothing else, no extra text):
-TITLE: [max 65 chars]
-HOOK_LINE: [just the first sentence]
-SCRIPT: [95-115 word script starting with the hook]
-TAGS: [10 tags, comma-separated]
-DESCRIPTION: [2 casual human-sounding sentences]
-THUMBNAIL_TEXT: [3-5 ALL CAPS words]
-CAPTION_HOOK: [Single punchy Instagram caption opener -- bold claim or curiosity gap, max 120 chars]
+THUMBNAIL_TEXT RULES:
+- Exactly 2-4 ALL CAPS words
+- Must create curiosity or shock: "APPLE LIED?!", "RIP AIRPODS", "BYE MACBOOK", "$30 KING"
+- No full sentences. No lowercase.
+
+CAPTION_HOOK RULES:
+- Single sentence that appears BEFORE the "more" button on Instagram
+- Bold claim or cliffhanger, max 100 chars
+- Must make someone tap "more": "I threw out my AirPods after finding this 👇"
+
+OUTPUT FORMAT (nothing else, no commentary, no extra text):
+TITLE: [max 65 chars, 2-3 words ALL CAPS]
+HOOK_LINE: [the first sentence of the script only]
+SCRIPT: [95-115 words starting with the hook, ending with the CTA]
+TAGS: [10 comma-separated tags]
+DESCRIPTION: [2 casual, human sentences — like a comment, not an essay]
+THUMBNAIL_TEXT: [2-4 ALL CAPS words]
+CAPTION_HOOK: [single punchy sentence, max 100 chars]
 """
 
     try:
@@ -208,7 +239,7 @@ CAPTION_HOOK: [Single punchy Instagram caption opener -- bold claim or curiosity
             body = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
             wc = len(body.split())
             print(f"📝 Script: {wc} words")
-            if wc < 75 or wc > 140:
+            if wc < 75 or wc > 145:
                 if attempt < 3:
                     print(f"⚠️  Out of range ({wc}w). Regenerating...")
                     return generate_script(topic, attempt + 1)
@@ -227,7 +258,7 @@ CAPTION_HOOK: [Single punchy Instagram caption opener -- bold claim or curiosity
 # ── Dynamic hashtag generation ────────────────────────────────────────────────
 def generate_dynamic_hashtags(topic: str) -> str:
     """
-    Generate 8 topic-specific hashtags (5 niche + 3 broad).
+    Generate 12 topic-specific hashtags (5 niche + 4 medium + 3 broad).
     Returns a space-separated hashtag string like '#gadgets #tech ...'
     """
     print("🏷️ Generating dynamic hashtags...")
@@ -236,19 +267,19 @@ def generate_dynamic_hashtags(topic: str) -> str:
     if not model:
         return _fallback_hashtags(topic)
 
-    prompt = f"""Generate exactly 8 Instagram/YouTube hashtags for a viral tech video about: "{topic}"
+    prompt = f"""Generate exactly 12 Instagram/YouTube hashtags for a viral tech video about: "{topic}"
 
 Rules:
-- 5 NICHE hashtags: directly about the product/topic (e.g. #WirelessEarbuds #AirPodsAlternative)
-- 3 BROAD hashtags: wide reach (e.g. #Tech #Gadgets #TechTips)
-- No spaces inside hashtags. No '#' prefix for words with spaces.
-- Output ONLY the hashtags separated by spaces. Nothing else.
-Example output: #WirelessEarbuds #BudgetEarbuds #AirPodsAlternative #SoundcoreReview #NothingEar #Tech #Gadgets #TechReview
+- 5 NICHE hashtags: directly about the specific product/topic (e.g. #SoundcoreA40 #AirPodsAlternative #BudgetEarbuds2026)
+- 4 MEDIUM hashtags: category-level reach (e.g. #WirelessEarbuds #TechReview #GadgetReview #BestEarbuds)
+- 3 BROAD hashtags: maximum reach (e.g. #Tech #Shorts #Viral)
+- No spaces inside hashtags. Start each with #.
+- Mix trending and evergreen hashtags.
+- Output ONLY the hashtags separated by spaces. No other text.
 """
     try:
         resp = model.generate_content(prompt)
         tags = resp.text.strip()
-        # Validate it looks like hashtags
         if "#" in tags and len(tags) > 10:
             print(f"✅ Hashtags: {tags}")
             return tags
@@ -261,8 +292,8 @@ Example output: #WirelessEarbuds #BudgetEarbuds #AirPodsAlternative #SoundcoreRe
 def _fallback_hashtags(topic: str) -> str:
     words = [w.strip(".,!?") for w in topic.split()[:3]]
     niche = " ".join(f"#{w.capitalize()}" for w in words if w)
-    broad = "#Tech #Gadgets #TechShorts #Viral #Shorts"
-    return f"{niche} {broad} #Tech8ytees #InstagramReels"
+    broad = "#Tech #Gadgets #TechShorts #Viral #Shorts #TechTok #TechReview"
+    return f"{niche} {broad} #Tech8ytees #Reels"
 
 
 # ── Fallback script ───────────────────────────────────────────────────────────
@@ -275,12 +306,12 @@ HOOK_LINE: {hook}
 SCRIPT: {hook} — {safe} has changed completely in 2026 and most people still don't get it. \
 I've been testing this for weeks and honestly, the results surprised even me. \
 The budget options right now perform as well as expensive ones did two years ago. \
-Like the gap just doesn't exist anymore. Don't sleep on this category. \
-Look — if you haven't revisited this recently, you're leaving real money on the table. \
-And just like I said at the start — {hook.lower()} But now you do. \
-Smash that subscribe button, send this to a friend who needs to see it, and follow us on Instagram — links are in the bio!
-TAGS: tech, gadgets, review, 2026, shorts, viral, buying guide, recommendations, techy, budget tech
-DESCRIPTION: Can't believe how much {safe} has changed. Drop your questions in the comments — I read every single one.
+The gap just doesn't exist anymore. Don't sleep on this category. \
+If you haven't revisited this recently, you're leaving real money on the table. \
+And just like I said — {hook.lower()} But now you do. \
+Subscribe, send this to a friend, and follow us on Instagram!
+TAGS: tech, gadgets, review, 2026, shorts, viral, buying guide, budget tech, tech tips, tech news
+DESCRIPTION: Can't believe how much {safe} has changed. Drop your questions below — I read every one.
 THUMBNAIL_TEXT: {safe[:20].upper()} TRUTH
 CAPTION_HOOK: The truth about {safe} that nobody is talking about 👇"""
 
@@ -318,9 +349,8 @@ def parse_script(raw: str) -> dict | None:
         data["thumbnail_text"] = " ".join(data["title"].split()[:4]).upper()
 
     # Auto-append CTA if Gemini forgot it
-    cta = ("Smash that subscribe button, send this to a friend who needs to see it, "
-           "and follow us on Instagram — links are in the bio!")
-    if data["script"] and "subscribe button" not in data["script"].lower():
+    cta = "Subscribe, send this to a friend, and follow us on Instagram!"
+    if data["script"] and "subscribe" not in data["script"].lower():
         data["script"] = data["script"].rstrip() + " " + cta
         print("ℹ️  CTA auto-appended (was missing from output).")
 

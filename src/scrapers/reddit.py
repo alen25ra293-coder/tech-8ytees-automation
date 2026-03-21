@@ -3,18 +3,20 @@ Topic Scraper
 Fetches today's hottest tech topic from RSS feeds (Hacker News, TechCrunch, Wired),
 falling back to a large curated list if RSS is unavailable.
 
+Includes AI-powered topic rewriting to turn dry headlines into viral angles.
+
 NOTE: Reddit scraping was removed because Reddit blocks GitHub Actions IPs.
 """
+import os
 import requests
 import random
 import xml.etree.ElementTree as ET
-from datetime import datetime
 
 # ---------------------------------------------------------------------------
-# Large curated fallback list — diverse tech topics for maximum variety
+# Large curated fallback list — diverse tech topics, viral phrasing
 # ---------------------------------------------------------------------------
 GADGET_TOPICS = [
-    # AI
+    # AI — high CTR category
     "The AI tool that replaces your entire team",
     "ChatGPT is dying — this AI is taking over",
     "The free AI that beats Midjourney",
@@ -23,7 +25,9 @@ GADGET_TOPICS = [
     "Why everyone is quitting ChatGPT for this",
     "Best free AI tools you need right now",
     "Google AI just destroyed the competition",
-    # Smartphones
+    "The AI app that does your homework in 10 seconds",
+    "I replaced my assistant with a free AI tool",
+    # Smartphones — highest volume
     "Stop buying iPhones — here's why",
     "Hidden iPhone features that feel illegal to know",
     "The Android phone that beats iPhone for half the price",
@@ -32,6 +36,8 @@ GADGET_TOPICS = [
     "Best smartphones under $200 in 2026",
     "Why I switched from iPhone to Android",
     "The phone camera trick nobody tells you",
+    "Your phone is spying on you — here's the proof",
+    "The phone setting you NEED to turn off right now",
     # Laptops & PCs
     "The $400 laptop that embarrasses MacBook",
     "Budget laptop that outperforms expensive ones",
@@ -64,7 +70,7 @@ GADGET_TOPICS = [
     "Best gaming monitor for the money in 2026",
     "Why I quit console gaming for PC",
     "The mechanical keyboard that changed everything",
-    "Mechanical keyboards are a luxury scam",
+    "The $50 gaming gear that pros actually use",
     # Accessories & Gadgets
     "The USB-C hub that changes your whole setup",
     "This $30 gadget went viral for a reason",
@@ -74,37 +80,28 @@ GADGET_TOPICS = [
     "Don't buy a webcam until you watch this",
     "The best desk setup upgrades under $100",
     "The mini projector that replaces your TV",
-    # Cameras & Photography
-    "The camera phone that beats your DSLR",
-    "Best camera for YouTube under $500",
-    "Why I stopped using a real camera",
-    "The GoPro killer nobody is talking about",
-    "Best action camera of 2026 ranked",
     # Wearables
     "Best budget smartwatch that beats Apple Watch",
     "The fitness tracker that changed my life",
-    "Roborock vs Roomba — one wins, one fails",
     "Why smart glasses are finally worth it",
     "The smartwatch Apple doesn't want you to see",
     # Software & Apps
     "The FREE software that replaces paid apps",
     "Best free apps that feel too good to be free",
     "The browser extension everyone should have",
-    "Why I use Linux and never looked back",
     "The free tool that saves me 2 hours daily",
+    "Delete these apps from your phone RIGHT NOW",
     # VR / Future Tech
     "The VR headset nobody is talking about",
     "Why everyone is wrong about VR",
     "The craziest AI gadgets of 2026",
-    "Best wireless charger for any phone",
     "The tech that will replace your smartphone",
     "Why foldable phones are the future",
     "The battery tech that changes everything",
-    "Electric gadgets that pay for themselves",
 ]
 
 
-# ── RSS Feed URLs (these don't block GitHub Actions IPs) ──────────────────────
+# ── RSS Feed URLs ─────────────────────────────────────────────────────────────
 RSS_FEEDS = [
     "https://hnrss.org/frontpage?count=30",          # Hacker News front page
     "https://feeds.feedburner.com/TechCrunch/",      # TechCrunch
@@ -113,10 +110,20 @@ RSS_FEEDS = [
     "https://arstechnica.com/feed/",                 # Ars Technica
 ]
 
+# Words that indicate non-viral / non-video-friendly topics
+_SKIP_WORDS = {
+    "thread", "weekly", "discussion", "ask hn", "show hn",
+    "hiring", "who is hiring", "launch hn", "tell hn",
+    "podcast", "newsletter", "roundup", "summary",
+    "fundraise", "acqui", "ipo", "earnings",
+    "obituary", "rip:", "passed away",
+}
+
 
 def get_trending_topics_rss() -> list[str]:
     """
     Fetch top posts from tech RSS feeds and return as topic strings.
+    Filters out boring or non-video-friendly titles.
     """
     print("📱 Fetching trending topics from RSS feeds...")
     headers = {
@@ -136,37 +143,31 @@ def get_trending_topics_rss() -> list[str]:
             resp = requests.get(feed_url, headers=headers, timeout=15)
             if resp.status_code != 200:
                 continue
-            
-            # Parse RSS/Atom XML
+
             root = ET.fromstring(resp.content)
-            
+
             # Handle both RSS and Atom formats
             items = root.findall(".//item") or root.findall(".//{http://www.w3.org/2005/Atom}entry")
-            
+
             for item in items[:15]:
-                # RSS format: <title>
                 title_elem = item.find("title")
                 if title_elem is None:
-                    # Atom format: <title>
                     title_elem = item.find("{http://www.w3.org/2005/Atom}title")
-                
+
                 if title_elem is None or not title_elem.text:
                     continue
-                    
+
                 title = title_elem.text.strip()
-                
-                # Filter out low-quality titles
+
+                # Filter out low-quality / non-viral titles
+                title_lower = title.lower()
                 if (
                     title
                     and 15 < len(title) < 150
-                    and "thread" not in title.lower()
-                    and "weekly" not in title.lower()
-                    and "discussion" not in title.lower()
-                    and "ask hn" not in title.lower()
-                    and "show hn" not in title.lower()
+                    and not any(skip in title_lower for skip in _SKIP_WORDS)
                 ):
                     trending.append(title)
-                    
+
         except Exception as e:
             print(f"   ⚠️ RSS feed failed ({feed_url[:30]}...): {e}")
             continue
@@ -179,20 +180,60 @@ def get_trending_topics_rss() -> list[str]:
     return []
 
 
+def _rewrite_topic_viral(topic: str) -> str:
+    """
+    Use Gemini to turn a dry news headline into a viral video angle.
+    Falls back to original topic if Gemini is unavailable.
+    """
+    try:
+        import google.generativeai as genai
+
+        keys_raw = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY", "")
+        keys = [k.strip() for k in keys_raw.split(",") if k.strip()]
+        if not keys:
+            return topic
+
+        genai.configure(api_key=random.choice(keys))
+        model = genai.GenerativeModel("gemini-2.5-flash")
+
+        prompt = f"""Rewrite this tech news headline into a viral YouTube Shorts title angle.
+
+Original headline: "{topic}"
+
+Rules:
+- Output ONE line only — the rewritten topic (no quotes, no commentary)
+- Use emotional triggers: "Nobody Talks About", "The Truth About", "Why I Stopped", "$30 Alternative"
+- Make it a curiosity gap or a bold claim
+- Max 60 characters
+- Include a specific hook: a dollar amount, a brand name, or a bold opinion
+- Examples of good rewrites:
+  "Apple announces M4 chip" → "Why the M4 Mac is a waste of money"
+  "Samsung Galaxy S25 review" → "The $800 phone that can't beat a $300 one"
+  "OpenAI releases GPT-5" → "GPT-5 just killed 3 apps you pay for"
+"""
+        resp = model.generate_content(prompt)
+        rewritten = resp.text.strip().strip('"').strip("'")
+        if rewritten and len(rewritten) > 10:
+            print(f"   🔄 Rewrote: \"{topic[:40]}...\" → \"{rewritten}\"")
+            return rewritten
+    except Exception:
+        pass
+
+    return topic
+
+
 def get_todays_topic() -> str:
     """
     Pick today's topic.
-    Prefers RSS trending topics; falls back to the large curated local list.
-    Uses current timestamp (not just date) so EVERY run picks a different topic.
+    Prefers RSS trending topics (rewritten for virality); falls back to curated list.
+    Uses true randomness so each run picks a unique topic.
     """
     trending = get_trending_topics_rss()
 
-    # Use current minute-level timestamp so each run (7AM and 7PM) picks a different topic
-    seed = int(datetime.now().timestamp() // 60)  # changes every minute
-    random.seed(seed)
-
     if trending:
+        # Pick a random trending topic and rewrite it for viral phrasing
         topic = random.choice(trending)
+        topic = _rewrite_topic_viral(topic)
         print(f"📌 Today's trending topic: {topic}")
     else:
         topic = random.choice(GADGET_TOPICS)

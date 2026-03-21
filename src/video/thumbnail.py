@@ -82,23 +82,27 @@ def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "outp
                         continue
             return ImageFont.load_default()
 
-        font_main  = load_font(120)
-        font_sub   = load_font(48)
+        font_main  = load_font(140)
+        font_sub   = load_font(44)
         font_badge = load_font(36)
 
         # ── Thumbnail text (main big text) ─────────────────────────────────
         clean_main = thumbnail_text.upper().strip()
-        lines = textwrap.wrap(clean_main, width=15)
+        lines = textwrap.wrap(clean_main, width=12)
 
-        text_block_height = len(lines) * 140
-        start_y = max(60, (H * 0.55 - text_block_height) // 2)
+        text_block_height = len(lines) * 160
+        start_y = max(80, (H * 0.55 - text_block_height) // 2)
 
         for i, line in enumerate(lines):
-            y = int(start_y + i * 140)
-            # Dark shadow
-            draw.text((W // 2 + 4, y + 4), line, font=font_main,
-                      fill=(0, 0, 0), anchor="mm")
-            # Main colored text
+            y = int(start_y + i * 160)
+            # Thick dark outline (draw text 8 times offset for stroke effect)
+            for dx in [-3, 0, 3]:
+                for dy in [-3, 0, 3]:
+                    if dx == 0 and dy == 0:
+                        continue
+                    draw.text((W // 2 + dx, y + dy), line, font=font_main,
+                              fill=(0, 0, 0), anchor="mm")
+            # Main colored text on top
             draw.text((W // 2, y), line, font=font_main,
                       fill=text_color, anchor="mm")
 
