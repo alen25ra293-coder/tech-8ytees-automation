@@ -2,10 +2,30 @@ import os
 import time
 import requests
 
+def _upload_to_tmpfiles(video_path):
+    """Upload to tmpfiles.org - most reliable for GitHub Actions."""
+    try:
+        with open(video_path, "rb") as f:
+            resp = requests.post(
+                "https://tmpfiles.org/api/v1/upload",
+                files={"file": f},
+                timeout=120,
+            )
+        data = resp.json()
+        if data.get("status") == "success":
+            # Convert the page URL to a direct download URL
+            # tmpfiles.org page URLs: https://tmpfiles.org/123/file.mp4
+            # Direct URL: https://tmpfiles.org/dl/123/file.mp4
+            page_url = data["data"]["url"]
+            return page_url.replace("tmpfiles.org/", "tmpfiles.org/dl/")
+    except Exception as e:
+        print(f"   ⚠️  tmpfiles.org upload failed: {e}")
+    return None
+
 def upload_to_instagram(video_path, caption, hashtags="", question=""):
     """
     Uploads to Instagram Reels using the Official Graph API:
-    1. Uploads local video to file.io (temporary public URL)
+    1. Uploads local video to tmpfiles.org (temporary public URL)
     2. Creates a media container on Instagram
     3. Polls status until 'FINISHED'
     4. Publishes the Reel
@@ -13,8 +33,8 @@ def upload_to_instagram(video_path, caption, hashtags="", question=""):
     """
     print("📤 Uploading to Instagram Reels via Official Graph API...")
 
-    access_token = os.environ.get("IG_GRAPH_ACCESS_TOKEN")
-    business_id = os.environ.get("IG_BUSINESS_ACCOUNT_ID")
+    access_token = os.environ.get("IG_GRAPH_ACCESS_TOKEN", "").strip().replace('"', '').replace("'", "").strip()
+    business_id = os.environ.get("IG_BUSINESS_ACCOUNT_ID", "").strip()
 
     if not access_token or not business_id:
         print("❌ Instagram Graph API credentials missing.")
@@ -27,54 +47,37 @@ def upload_to_instagram(video_path, caption, hashtags="", question=""):
     try:
         # ── 1. Upload video to temporary hosting ─────────────────────────────
         # Instagram Graph API requires a public URL to fetch the video.
-        # Try multiple services with fallback for reliability.
+        # tmpfiles.org is most reliable from GitHub Actions.
         video_url = None
         
-        # Try 0x0.st first (more reliable, no rate limits)
-        print("   ☁️  Uploading video to temporary hosting (0x0.st)...")
-        try:
-            with open(video_path, "rb") as f:
-                resp = requests.post("https://0x0.st", files={"file": f}, timeout=120)
-            if resp.status_code == 200 and resp.text.strip().startswith("http"):
-                video_url = resp.text.strip()
-                print(f"   ✅ Temporary link: {video_url}")
-        except Exception as e:
-            print(f"   ⚠️  0x0.st failed: {e}")
+        # Try tmpfiles.org first (most reliable)
+        print("   ☁️  Uploading video to temporary hosting (tmpfiles.org)...")
+        video_url = _upload_to_tmpfiles(video_path)
         
-        # Fallback to file.io if 0x0.st failed
+        if video_url:
+            print(f"   ✅ Temporary link obtained")
+        
+        # Fallback to file.io
         if not video_url:
             print("   ☁️  Trying fallback (file.io)...")
             try:
                 with open(video_path, "rb") as f:
-                    resp = requests.post("https://file.io", files={"file": f}, timeout=120)
+                    resp = requests.post(
+                        "https://file.io",
+                        files={"file": f},
+                        data={"expires": "1d"},
+                        timeout=60,
+                    )
                 if resp.status_code == 200:
-                    try:
-                        data = resp.json()
-                        video_url = data.get("link")
-                    except Exception:
-                        print(f"   ⚠️  file.io returned invalid JSON: {resp.text[:100]}")
+                    data = resp.json()
+                    if data.get("success") and data.get("link"):
+                        video_url = data["link"]
+                        print(f"   ✅ file.io upload successful")
             except Exception as e:
                 print(f"   ⚠️  file.io failed: {e}")
         
-        # Fallback to transfer.sh
         if not video_url:
-            print("   ☁️  Trying fallback (transfer.sh)...")
-            try:
-                with open(video_path, "rb") as f:
-                    resp = requests.put(
-                        "https://transfer.sh/video.mp4",
-                        data=f,
-                        headers={"Max-Days": "1"},
-                        timeout=120
-                    )
-                if resp.status_code == 200 and resp.text.strip().startswith("http"):
-                    video_url = resp.text.strip()
-                    print(f"   ✅ Temporary link: {video_url}")
-            except Exception as e:
-                print(f"   ⚠️  transfer.sh failed: {e}")
-        
-        if not video_url:
-            print("   ❌ All temporary hosting services failed.")
+            print("   ❌ Could not obtain a public URL for the video.")
             return False
 
         # ── 2. Create Media Container ────────────────────────────────────────
