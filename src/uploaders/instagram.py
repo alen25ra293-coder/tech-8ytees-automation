@@ -25,23 +25,57 @@ def upload_to_instagram(video_path, caption, hashtags="", question=""):
         return False
 
     try:
-        # ── 1. Upload video to temporary hosting (file.io) ───────────────────
+        # ── 1. Upload video to temporary hosting ─────────────────────────────
         # Instagram Graph API requires a public URL to fetch the video.
-        # file.io is epistemic and deletes after 1 download.
-        print("   ☁️  Uploading video to temporary hosting (file.io)...")
-        with open(video_path, "rb") as f:
-            resp = requests.post("https://file.io", files={"file": f}, timeout=60)
+        # Try multiple services with fallback for reliability.
+        video_url = None
         
-        if resp.status_code != 200:
-            print(f"   ❌ Temporary upload failed: {resp.text}")
-            return False
+        # Try 0x0.st first (more reliable, no rate limits)
+        print("   ☁️  Uploading video to temporary hosting (0x0.st)...")
+        try:
+            with open(video_path, "rb") as f:
+                resp = requests.post("https://0x0.st", files={"file": f}, timeout=120)
+            if resp.status_code == 200 and resp.text.strip().startswith("http"):
+                video_url = resp.text.strip()
+                print(f"   ✅ Temporary link: {video_url}")
+        except Exception as e:
+            print(f"   ⚠️  0x0.st failed: {e}")
         
-        video_url = resp.json().get("link")
+        # Fallback to file.io if 0x0.st failed
         if not video_url:
-            print("   ❌ Failed to get temporary download link.")
-            return False
+            print("   ☁️  Trying fallback (file.io)...")
+            try:
+                with open(video_path, "rb") as f:
+                    resp = requests.post("https://file.io", files={"file": f}, timeout=120)
+                if resp.status_code == 200:
+                    try:
+                        data = resp.json()
+                        video_url = data.get("link")
+                    except Exception:
+                        print(f"   ⚠️  file.io returned invalid JSON: {resp.text[:100]}")
+            except Exception as e:
+                print(f"   ⚠️  file.io failed: {e}")
         
-        print(f"   ✅ Temporary link: {video_url} (auto-deletes after fetch)")
+        # Fallback to transfer.sh
+        if not video_url:
+            print("   ☁️  Trying fallback (transfer.sh)...")
+            try:
+                with open(video_path, "rb") as f:
+                    resp = requests.put(
+                        "https://transfer.sh/video.mp4",
+                        data=f,
+                        headers={"Max-Days": "1"},
+                        timeout=120
+                    )
+                if resp.status_code == 200 and resp.text.strip().startswith("http"):
+                    video_url = resp.text.strip()
+                    print(f"   ✅ Temporary link: {video_url}")
+            except Exception as e:
+                print(f"   ⚠️  transfer.sh failed: {e}")
+        
+        if not video_url:
+            print("   ❌ All temporary hosting services failed.")
+            return False
 
         # ── 2. Create Media Container ────────────────────────────────────────
         print("   📦 Creating Instagram media container...")
