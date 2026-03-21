@@ -35,12 +35,12 @@ jobs:
       - name: 📦 Install system dependencies (FFmpeg + fonts + audio)
         run: |
           sudo apt-get update -qq
+          # Auto-accept EULA for mscorefonts-installer (to get Impact font)
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
           sudo apt-get install -y --no-install-recommends \
             ffmpeg \
+            ttf-mscorefonts-installer \
             fonts-liberation \
-            fonts-liberation2 \
-            fonts-dejavu \
-            fonts-open-sans \
             espeak-ng \
             libsndfile1 \
             imagemagick
@@ -74,13 +74,9 @@ jobs:
           # Video backgrounds
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
 
-          # Instagram — Graph API (primary, most reliable)
+          # Instagram — Graph API (Most reliable)
           IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
           IG_GRAPH_ACCESS_TOKEN:  ${{ secrets.IG_GRAPH_ACCESS_TOKEN }}
-
-          # Instagram — Instagrapi fallback
-          IG_USERNAME: ${{ secrets.IG_USERNAME }}
-          IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
 
           # Voiceover
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}

@@ -1,10 +1,11 @@
 """
-Script Generator — viral YouTube Shorts / Instagram Reels scripts.
-Enforces human-sounding language, pattern-interrupt hooks, loop endings,
-dynamic hashtags, and strong title optimization.
+Script Generator — Tech 8ytees
+Viral 25-30 second scripts optimized for <20% skip rate.
+Niche: Budget gadgets and hidden tech gems under $50 that most people don't know about.
 """
 import os
 import random
+from datetime import date
 import google.generativeai as genai
 
 # ── API key rotation ─────────────────────────────────────────────────────────
@@ -32,147 +33,194 @@ def _get_model():
     return genai.GenerativeModel("gemini-2.5-flash")
 
 
-# ── Few-shot examples — SHORT, punchy, 80-95 words ──────────────────────────
+# ── Niche constants ──────────────────────────────────────────────────────────
+NICHE = "budget gadgets and hidden tech gems under $50 that most people don't know about"
+HOOK_FORMULA = 'This $[price] [product] does what your $[expensive product] can\'t'
+TARGET_AUDIENCE = "people who want the best tech without spending a lot of money"
+
+# ── Niche-specific topics ────────────────────────────────────────────────────
+NICHE_TOPICS = [
+    "$15 Bluetooth speaker that sounds like a $300 JBL",
+    "$20 phone camera lens that replaces $800 DSLR shots",
+    "$12 wireless charger that beats $50 Apple MagSafe",
+    "$25 mini projector that replaces your bedroom TV",
+    "$18 magnetic phone mount that beats any car mount",
+    "$10 USB-C hub that does what a $100 docking station does",
+    "$22 noise-cancelling earbuds that rival $250 AirPods Pro",
+    "$30 ring light that makes you look like a studio setup",
+    "$8 cable organizer that fixes your messy desk forever",
+    "$15 portable monitor that turns your phone into a laptop",
+    "$28 smart plug that cuts your electricity bill in half",
+    "$35 keyboard that types better than a $200 mechanical",
+    "$20 desk lamp with wireless charging nobody knows about",
+    "$12 action camera that shoots like a $400 GoPro",
+    "$14 selfie stick tripod that every creator needs",
+    "$25 trackpad for Windows that feels like a MacBook",
+    "$18 LED strip lights that transform any room",
+    "$30 power bank that charges 3 devices at once",
+    "$15 Smart TV remote that controls everything",
+    "$22 webcam that beats $100+ Logitech models",
+    "$20 typeC headphone adapter with built-in DAC",
+    "$35 handheld fan that's basically portable AC",
+    "$10 screen cleaner kit that brings old screens back to life",
+    "$28 portable SSD that's faster than most laptop drives",
+]
+
+# ── Series content rotation (Sat-Mon, Tue-Wed, Thu-Fri) ──────────────────────
+SERIES_THEMES = {
+    5: {"name": "Hidden Gem", "hashtag": "#HiddenGem"},              # Saturday
+    6: {"name": "Hidden Gem", "hashtag": "#HiddenGem"},              # Sunday
+    0: {"name": "Hidden Gem", "hashtag": "#HiddenGem"},              # Monday
+    1: {"name": "Cheap vs Expensive", "hashtag": "#CheapVsExpensive"},  # Tuesday
+    2: {"name": "Cheap vs Expensive", "hashtag": "#CheapVsExpensive"},  # Wednesday
+    3: {"name": "Gadget That Changed Everything", "hashtag": "#GadgetGameChanger"},  # Thursday
+    4: {"name": "Gadget That Changed Everything", "hashtag": "#GadgetGameChanger"},  # Friday
+}
+
+
+def get_series_theme():
+    """Get today's series theme based on day of week."""
+    weekday = date.today().weekday()
+    theme = SERIES_THEMES.get(weekday)
+    if theme:
+        print(f"📅 Series: {theme['name']} ({theme['hashtag']})")
+    return theme
+
+
+# ── Few-shot examples — 60-75 words, punchy ─────────────────────────────────
 EXAMPLE_SCRIPTS = [
     {
-        "topic": "best wireless earbuds under $60",
-        "title": "I TESTED Every Cheap Earbud So You Don't Have To",
-        "hook": "Stop buying AirPods.",
+        "topic": "$22 earbuds that rival $250 AirPods Pro",
+        "title": "These $22 Earbuds DESTROYED My AirPods",
         "script": (
-            "Stop buying AirPods. You're paying for a logo. Not sound. "
-            "I tested 30 earbuds this year — the Soundcore Space A40 at "
-            "sixty bucks has punchier bass, better noise cancellation, "
-            "and ten hours of battery. My Apple-obsessed friend tried them. "
-            "Hasn't touched his AirPods since. The Nothing Ear? Half the "
-            "price. Twice the personality. Transparent design that looks "
-            "insane. You've been overpaying for years and nobody told you. "
-            "Until now. Subscribe, send this to a friend, and follow us "
-            "on Instagram!"
+            "Throw your AirPods away. These 22 dollar earbuds have noise cancelling, "
+            "30 hour battery, and sound quality that makes 250 dollar AirPods feel like "
+            "a scam. They're called QCY T13. Six million sold. I tested them for 3 months "
+            "and I haven't touched my AirPods since. Apple charges you 250 bucks for a "
+            "brand name. Stop falling for it. "
+            "Save this before you buy your next gadget. "
+            "What gadget should I test next? Comment below."
         ),
     },
     {
-        "topic": "the $30 gadget that changes your setup",
-        "title": "This $30 GADGET Embarrassed My $800 Setup",
-        "hook": "Everyone laughed when I plugged this in.",
+        "topic": "$12 action camera that shoots like a $400 GoPro",
+        "title": "This $12 Camera EMBARRASSES GoPro",
         "script": (
-            "Everyone laughed when I plugged this in. A thirty dollar USB-C "
-            "hub. Dual monitors. SD card. Ethernet. 100 watt passthrough. "
-            "My 200 dollar dock couldn't do half of that. Build quality? "
-            "Full metal. Not cheap plastic. 4K at 60 hertz. Zero frame "
-            "drops. Three of my friends bought one the same day. No drivers. "
-            "Plug in and forget. Everyone laughed — now they all have one. "
-            "Subscribe, send this to a friend, and follow us on Instagram!"
+            "Stop buying GoPros. This 12 dollar action camera shoots in 4K, "
+            "is waterproof, and fits in your pocket. It's on Amazon with 50,000 reviews. "
+            "I took it surfing, hiking, and biking. The footage? People thought it was a "
+            "GoPro Hero 12. That costs 400 dollars. This costs 12. Same shots. "
+            "Your expensive camera is a waste of money. "
+            "Save this before you buy your next gadget. "
+            "Which overpriced gadget should I expose next? Comment below."
         ),
     },
 ]
 
-# -- Pattern-interrupt hook openers (SHORT — under 6 words) --------------------
+# -- Pattern-interrupt hooks (under 5 words) -----------------------------------
 HOOK_OPENERS = [
-    "Stop buying this.",
-    "They lied to you.",
-    "Delete this app now.",
-    "Nobody will tell you this.",
+    "Throw this away.",
+    "This costs twelve bucks.",
+    "Your expensive gadget is a scam.",
+    "Nobody knows about this.",
     "This should be illegal.",
-    "You're wasting your money.",
-    "I was wrong about everything.",
+    "Stop overpaying right now.",
+    "This fifteen dollar gadget. Wow.",
+    "Amazon is hiding this.",
+    "I found something insane.",
+    "Delete your cart. Buy this instead.",
+    "Your wallet will thank me.",
     "This changes everything.",
-    "Your phone is lying to you.",
-    "Throw this away immediately.",
-    "Don't buy this. Seriously.",
-    "I almost got scammed.",
-    "This killed my old setup.",
-    "Everyone's sleeping on this.",
-    "Wait. Don't scroll.",
-    "Your charger is destroying your phone.",
-    "I returned my MacBook for this.",
-    "This costs thirty bucks.",
-    "Apple doesn't want you seeing this.",
-    "I can't unsee this.",
-]
-
-# -- Fallback topics ----------------------------------------------------------
-FALLBACK_TOPICS = [
-    "The worst tech purchase I ever made",
-    "Why I returned my iPhone and switched to Android",
-    "Stop buying flagship phones — here's the real reason",
-    "The $30 gadget that pros hide from you",
-    "Hidden iPhone features nobody talks about",
-    "The $50 gadget that beats your laptop",
-    "Budget laptop that outperforms expensive ones",
-    "Stop buying expensive earbuds — here's why",
-    "AI tools that will replace your job in 2026",
-    "Cheap vs expensive phone: the truth nobody shows you",
+    "Stop scrolling. Look at this.",
+    "Fifty dollars. That's it.",
+    "Wait. This actually works?",
+    "Don't buy the expensive one.",
+    "I tested this for 3 months.",
+    "This beat a 500 dollar product.",
+    "The cheap version won.",
+    "They don't want you finding this.",
 ]
 
 
 # ── Main script generation ────────────────────────────────────────────────────
 def generate_script(topic: str, attempt: int = 1) -> str | None:
-    """Generate a viral 80-95 word script for a 35-40 second video."""
+    """Generate a viral 60-75 word script for a 25-30 second video."""
     print(f"🤖 Generating viral script (attempt {attempt}/3)...")
 
     hook = random.choice(HOOK_OPENERS)
+    series = get_series_theme()
     model = _get_model()
     if not model:
         print("❌ No Gemini API keys. Using fallback.")
         return _build_fallback_script(topic)
 
     examples_text = "\n\n".join(
-        f"EXAMPLE:\nTopic: {ex['topic']}\nTitle: {ex['title']}\nHook: {ex['hook']}\nScript: {ex['script']}"
+        f"EXAMPLE:\nTopic: {ex['topic']}\nTitle: {ex['title']}\nScript: {ex['script']}"
         for ex in EXAMPLE_SCRIPTS
     )
 
-    prompt = f"""You are the scriptwriter for "Tech 8ytees" — a viral tech YouTube Shorts channel.
+    series_note = ""
+    if series:
+        series_note = f'\nToday\'s series theme: "{series["name"]}" — integrate this angle naturally.\n'
 
-CONTEXT: Our videos have an 80% skip rate. Viewers leave at the 2-second mark. You MUST fix this.
+    prompt = f"""You are the scriptwriter for "Tech 8ytees" — a viral Instagram Reels / YouTube Shorts channel.
+Niche: {NICHE}
+Target audience: {TARGET_AUDIENCE}
+Hook formula: {HOOK_FORMULA}
 
-STUDY THESE VIRAL EXAMPLES (notice the short, punchy hooks):
+CONTEXT: 80% skip rate. Viewers leave at 2 seconds. Videos must be 25-30 seconds MAX.
+{series_note}
+STUDY THESE EXAMPLES (notice: short, punchy, 60-75 words):
 {examples_text}
 
 =================================================================
-TASK: Write a SHORT, PUNCHY, 80-95 word script about: "{topic}"
+TASK: Write a 60-75 word script about: "{topic}"
 =================================================================
 
-CRITICAL TIMING: The final video MUST be 35-40 seconds. NOT longer.
-At ~2.5 words/sec → 80 words = 32s, 95 words = 38s. Stay in this range.
+CRITICAL TIMING: Video MUST be 25-30 seconds. At ~2.5 words/sec → 60 words = 24s, 75 words = 30s.
+NEVER exceed 75 words. Count them. If over 75, cut ruthlessly.
 
-STRUCTURE (follow EXACTLY):
+EXACT STRUCTURE (every second planned):
 
-1. HOOK (first 2 seconds — this is LIFE OR DEATH):
-   - Begin with: "{hook}"
-   - MUST be under 6 words. Spoken in under 2 seconds.
-   - The viewer decides to stay or leave in this moment. Make it visceral.
-   - Pattern interrupts that work: bold claims, controversy, direct commands, shocking statements.
-   - BAD hooks: "Hey guys today we're looking at..." / "So I found this cool thing..."
-   - GOOD hooks: "Stop buying AirPods." / "They lied to you." / "Delete this app now."
+Second 0-2: PATTERN INTERRUPT
+- Begin with: "{hook}"
+- Under 5 words. Shocking. Viewer stops scrolling.
 
-2. BODY (2 fast points ONLY — no more):
-   - Real brand names. Real dollar amounts. Real specs.
-   - Short sentences. Fragments are good. "Gone. Just like that."
-   - Point 2 must be MORE surprising than point 1 (escalation).
-   - DO NOT ramble. Every single word must earn its place.
+Second 2-5: PROMISE
+- Tell them exactly what they'll get. One sentence.
+- Example: "This 22 dollar gadget has noise cancelling that beats AirPods."
 
-3. LOOP ENDING (1 sentence):
-   - Echo the hook so the viewer feels pulled to rewatch.
+Second 5-20: PROOF + DELIVERY (2 fast facts)
+- Name the ACTUAL product and where to buy it (Amazon, AliExpress).
+- Give one specific number (price, review count, battery hours, megapixels).
+- Give one comparison to the expensive alternative.
+- Short sentences. Fragments OK. "Four K. Waterproof. Twelve dollars."
 
-4. CTA (EXACT words, do not change):
-   "Subscribe, send this to a friend, and follow us on Instagram!"
+Second 20-25: LOOP BACK
+- Echo the hook so the brain wants to rewatch.
+- Example: hook was "This costs twelve bucks." → loop: "Twelve bucks. That's it."
 
-WRITING RULES:
-- Contractions always: don't, you've, I'm, here's, can't
-- Specific numbers: $47 not "affordable", 40% not "a lot"
-- Name real products: AirPods, Galaxy, Anker, Nothing, Pixel
-- NO filler words: never "basically", "actually", "I wanted to", "today we'll", "let me tell you"
-- NO formal language. NO passive voice. NO emojis. NO markdown.
-- Sound like a friend ranting, not a presenter reading a script.
+Second 25-30: CTA (use this EXACT text):
+"Save this before you buy your next gadget. What gadget should I test next? Comment below."
+
+RULES:
+- MAX 75 words. This is non-negotiable.
+- Contractions: don't, you're, it's, can't
+- Real product names when possible (QCY T13, Anker, Baseus, Ugreen)
+- Include a specific dollar price comparison ($X vs $Y)
+- NO filler: never "basically", "actually", "let me tell you"
+- NO emojis. NO markdown. PLAIN TEXT only.
+- Sound like a friend showing you a deal — not a salesperson.
 
 OUTPUT FORMAT (nothing else):
-TITLE: [max 60 chars, 2-3 words ALL CAPS]
-HOOK_LINE: [first sentence only, under 6 words]
-SCRIPT: [80-95 words, starting with hook, ending with CTA]
-TAGS: [10 comma-separated tags]
-DESCRIPTION: [2 casual sentences]
+TITLE: [max 55 chars, 2 words ALL CAPS]
+HOOK_LINE: [first sentence, under 5 words]
+SCRIPT: [60-75 words total, starting with hook, ending with CTA]
+TAGS: [10 comma-separated lowercase tags]
+DESCRIPTION: [1 curiosity-gap sentence — must make people tap "more"]
 THUMBNAIL_TEXT: [2-3 ALL CAPS words]
-CAPTION_HOOK: [punchy sentence, max 80 chars]
+CAPTION_HOOK: [1 bold sentence under 80 chars, curiosity gap]
+QUESTION: [1 direct question the viewer can answer in one word]
 """
 
     try:
@@ -183,9 +231,9 @@ CAPTION_HOOK: [punchy sentence, max 80 chars]
             body = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
             wc = len(body.split())
             print(f"📝 Script: {wc} words")
-            if wc < 60 or wc > 120:
+            if wc < 45 or wc > 95:
                 if attempt < 3:
-                    print(f"⚠️  Out of range ({wc}w, need 80-95). Regenerating...")
+                    print(f"⚠️  Out of range ({wc}w, need 60-75). Regenerating...")
                     return generate_script(topic, attempt + 1)
                 print("⚠️  Accepting despite length — 3 attempts exhausted.")
 
@@ -199,26 +247,30 @@ CAPTION_HOOK: [punchy sentence, max 80 chars]
         return _build_fallback_script(topic)
 
 
-# ── Dynamic hashtag generation ────────────────────────────────────────────────
+# ── Dynamic hashtag generation (niche strategy) ──────────────────────────────
 def generate_dynamic_hashtags(topic: str) -> str:
     """
-    Generate 12 topic-specific hashtags (5 niche + 4 medium + 3 broad).
-    Returns a space-separated hashtag string like '#gadgets #tech ...'
+    Generate 8 stratified hashtags:
+    3 niche (10k-100k posts) + 3 medium (100k-500k) + 2 broad (500k-2M).
+    NEVER use hashtags with over 5M posts.
     """
-    print("🏷️ Generating dynamic hashtags...")
+    print("🏷️ Generating niche hashtags...")
     model = _get_model()
 
     if not model:
         return _fallback_hashtags(topic)
 
-    prompt = f"""Generate exactly 12 Instagram/YouTube hashtags for a viral tech video about: "{topic}"
+    prompt = f"""Generate exactly 8 Instagram hashtags for a viral tech Reel about: "{topic}"
 
-Rules:
-- 5 NICHE hashtags: directly about the specific product/topic (e.g. #SoundcoreA40 #AirPodsAlternative #BudgetEarbuds2026)
-- 4 MEDIUM hashtags: category-level reach (e.g. #WirelessEarbuds #TechReview #GadgetReview #BestEarbuds)
-- 3 BROAD hashtags: maximum reach (e.g. #Tech #Shorts #Viral)
+STRICT RULES:
+- 3 NICHE hashtags (10k-100k posts): hyper-specific to the gadget/product
+  Examples: #BudgetEarbuds #CheapGadgetFinds #AmazonHiddenGem #AliExpressGadget
+- 3 MEDIUM hashtags (100k-500k posts): category-level
+  Examples: #BudgetTech #TechDeals #GadgetReview #AffordableTech
+- 2 BROAD hashtags (500k-2M posts): reachable broad tags
+  Examples: #TechTips #AmazonFinds
+- NEVER use tags with 5M+ posts (#Tech, #AI, #Viral, #Reels — these bury your content)
 - No spaces inside hashtags. Start each with #.
-- Mix trending and evergreen hashtags.
 - Output ONLY the hashtags separated by spaces. No other text.
 """
     try:
@@ -234,10 +286,9 @@ Rules:
 
 
 def _fallback_hashtags(topic: str) -> str:
-    words = [w.strip(".,!?") for w in topic.split()[:3]]
+    words = [w.strip(".,!?$") for w in topic.split()[:3] if len(w) > 2]
     niche = " ".join(f"#{w.capitalize()}" for w in words if w)
-    broad = "#Tech #Gadgets #TechShorts #Viral #Shorts #TechTok #TechReview"
-    return f"{niche} {broad} #Tech8ytees #Reels"
+    return f"{niche} #BudgetGadgets #CheapTechFinds #AmazonHiddenGems #TechDeals #AffordableTech #TechTips #Tech8ytees"
 
 
 # ── Fallback script ───────────────────────────────────────────────────────────
@@ -245,18 +296,18 @@ def _build_fallback_script(topic: str) -> str:
     print("⚠️  Using fallback script (Gemini unavailable).")
     hook = random.choice(HOOK_OPENERS)
     safe = topic[:50]
-    return f"""TITLE: {safe[:55].upper()} — The TRUTH
+    return f"""TITLE: {safe[:45].upper()} — CHEAP
 HOOK_LINE: {hook}
-SCRIPT: {hook} {safe} has changed completely in 2026. Most people still don't get it. \
-I've been testing this for weeks. The results surprised even me. \
-Budget options now perform as well as expensive ones did two years ago. The gap? Gone. \
-If you haven't revisited this recently, you're leaving money on the table. \
-And just like I said — {hook.lower()} But now you do. \
-Subscribe, send this to a friend, and follow us on Instagram!
-TAGS: tech, gadgets, review, 2026, shorts, viral, budget tech, tech tips, tech news, comparison
-DESCRIPTION: Can't believe how much {safe} has changed. Drop your questions below.
-THUMBNAIL_TEXT: {safe[:15].upper()} TRUTH
-CAPTION_HOOK: The truth about {safe} that nobody's talking about 👇"""
+SCRIPT: {hook} This gadget costs under 20 dollars and does what the 300 dollar version does. \
+I found it on Amazon with 40,000 five star reviews. The build quality is insane for the price. \
+I tested it for two months and it outperformed the expensive one every time. \
+Stop overpaying for brand names. {hook.lower()} \
+Save this before you buy your next gadget. What gadget should I test next? Comment below.
+TAGS: budget gadgets, cheap tech, amazon finds, hidden gem, tech deals, affordable tech, gadget review, budget tech, tech tips, cheap gadgets
+DESCRIPTION: This budget gadget just embarrassed a product that costs 10x more 👀
+THUMBNAIL_TEXT: BUDGET BEAST
+CAPTION_HOOK: This gadget costs less than lunch but beats $300 products 👀
+QUESTION: What overpriced gadget should I expose next?"""
 
 
 # ── Script parsing ────────────────────────────────────────────────────────────
@@ -266,7 +317,7 @@ def parse_script(raw: str) -> dict | None:
         return None
 
     fields = ["title", "hook_line", "script", "tags", "description",
-              "thumbnail_text", "caption_hook"]
+              "thumbnail_text", "caption_hook", "question"]
     data = {f: "" for f in fields}
     current_key = None
     buffer: list[str] = []
@@ -289,18 +340,23 @@ def parse_script(raw: str) -> dict | None:
 
     # Fallback for thumbnail_text
     if not data["thumbnail_text"] and data["title"]:
-        data["thumbnail_text"] = " ".join(data["title"].split()[:4]).upper()
+        data["thumbnail_text"] = " ".join(data["title"].split()[:3]).upper()
 
-    # Auto-append CTA if Gemini forgot it
-    cta = "Subscribe, send this to a friend, and follow us on Instagram!"
-    if data["script"] and "subscribe" not in data["script"].lower():
-        data["script"] = data["script"].rstrip() + " " + cta
-        print("ℹ️  CTA auto-appended (was missing from output).")
+    # Auto-append CTA if missing
+    save_cta = "Save this before you buy your next gadget."
+    question_cta = "What gadget should I test next? Comment below."
+    if data["script"] and "save this" not in data["script"].lower():
+        data["script"] = data["script"].rstrip() + " " + save_cta + " " + question_cta
+        print("ℹ️  CTA auto-appended.")
 
     # Fallback caption hook
     if not data["caption_hook"] and data["title"]:
-        data["caption_hook"] = f"The truth about this that nobody's talking about 👇"
+        data["caption_hook"] = "This budget gadget just embarrassed a product 10x its price 👀"
+
+    # Fallback question
+    if not data["question"]:
+        data["question"] = "What overpriced gadget should I expose next?"
 
     wc = len(data["script"].split())
-    print(f"✅ Script parsed — \"{data['title']}\" ({wc} words)")
+    print(f'✅ Script parsed — "{data["title"]}" ({wc} words)')
     return data
