@@ -32,38 +32,22 @@ def _get_model():
     return genai.GenerativeModel("gemini-2.5-flash")
 
 
-# ── Few-shot examples — pattern-interrupt hooks, loop endings ────────────────
+# ── Few-shot examples — SHORT, punchy, 80-95 words ──────────────────────────
 EXAMPLE_SCRIPTS = [
     {
         "topic": "best wireless earbuds under $60",
         "title": "I TESTED Every Cheap Earbud So You Don't Have To",
-        "hook": "Nobody tells you this when you buy AirPods.",
+        "hook": "Stop buying AirPods.",
         "script": (
-            "Nobody tells you this when you buy AirPods. You're not paying "
-            "for better sound. You're paying for the logo. I tested every "
-            "cheap earbud out there — the Soundcore Space A40 at sixty bucks "
-            "has better bass, longer battery, and noise cancellation that "
-            "slaps harder than AirPods. My Apple-obsessed friend tried them "
-            "and couldn't go back. The Nothing Ear? Half the price, twice "
-            "the personality. And nobody tells you this — until now. "
-            "Subscribe, send this to a friend, and follow us on Instagram!"
-        ),
-    },
-    {
-        "topic": "AI tools replacing jobs",
-        "title": "5 AI Tools QUIETLY Replacing Your Coworkers",
-        "hook": "Here's what your boss isn't telling you.",
-        "script": (
-            "Here's what your boss isn't telling you. Five AI tools are "
-            "replacing real people right now. ChatGPT cut junior copywriter "
-            "positions by 30 percent. Midjourney killed stock photography "
-            "overnight. GitHub Copilot writes 40 percent of new code at "
-            "some companies. Perplexity is wrecking SEO blogs. Synthesia "
-            "replaced corporate video teams. The winners aren't people who "
-            "fight AI — they're the ones using it better than anyone else. "
-            "You have about six months. And here's what your boss still "
-            "isn't telling you. Subscribe, send this to a friend, "
-            "and follow us on Instagram!"
+            "Stop buying AirPods. You're paying for a logo. Not sound. "
+            "I tested 30 earbuds this year — the Soundcore Space A40 at "
+            "sixty bucks has punchier bass, better noise cancellation, "
+            "and ten hours of battery. My Apple-obsessed friend tried them. "
+            "Hasn't touched his AirPods since. The Nothing Ear? Half the "
+            "price. Twice the personality. Transparent design that looks "
+            "insane. You've been overpaying for years and nobody told you. "
+            "Until now. Subscribe, send this to a friend, and follow us "
+            "on Instagram!"
         ),
     },
     {
@@ -72,87 +56,58 @@ EXAMPLE_SCRIPTS = [
         "hook": "Everyone laughed when I plugged this in.",
         "script": (
             "Everyone laughed when I plugged this in. A thirty dollar USB-C "
-            "hub that does what my $200 dock couldn't. Dual monitors, SD card "
-            "slot, ethernet, and 100 watt passthrough charging. I threw my old "
-            "dock in the trash. The build quality? Metal. Not cheap plastic. "
-            "It handles 4K at 60Hz without dropping frames. My tech friends asked "
-            "where I got it and bought three. The best part? No driver install. "
+            "hub. Dual monitors. SD card. Ethernet. 100 watt passthrough. "
+            "My 200 dollar dock couldn't do half of that. Build quality? "
+            "Full metal. Not cheap plastic. 4K at 60 hertz. Zero frame "
+            "drops. Three of my friends bought one the same day. No drivers. "
             "Plug in and forget. Everyone laughed — now they all have one. "
             "Subscribe, send this to a friend, and follow us on Instagram!"
         ),
     },
 ]
 
-# -- Pattern-interrupt hook openers -------------------------------------------
+# -- Pattern-interrupt hook openers (SHORT — under 6 words) --------------------
 HOOK_OPENERS = [
-    "Nobody talks about this, but",
-    "Here's what they don't tell you —",
-    "This changed everything for me.",
-    "Stop scrolling. This matters.",
-    "I almost made a huge mistake.",
-    "Wait — before you spend another dollar,",
-    "Real talk:",
-    "I tested this so you don't have to.",
-    "This is going to sound crazy, but",
-    "The tech industry is lying to you.",
-    "I can't believe nobody talks about this.",
-    "You're wasting money every single day.",
-    "Okay this blew my mind.",
-    "Don't buy anything until you see this.",
-    "I switched and I'm never going back.",
-    "My friend thought I was crazy — until",
-    "Three years ago I made the worst tech mistake of my life.",
-    "This $30 gadget embarrassed my $800 setup.",
-    "Everyone laughed at me for buying this.",
-    "I compared every option. One won by a mile.",
-    "Here's the secret pros never share.",
-    "I found a cheat code for tech buyers.",
-    "Your phone is hiding something from you.",
-    "This got my friend to throw out his MacBook.",
-    "Here's what million-dollar YouTubers use that you don't.",
-    "Delete this app right now.",
-    "I was today years old when I learned this.",
-    "Your charger is slowly killing your phone.",
-    "They removed this feature and nobody noticed.",
-    "This free app replaces a $200 subscription.",
+    "Stop buying this.",
+    "They lied to you.",
+    "Delete this app now.",
+    "Nobody will tell you this.",
+    "This should be illegal.",
+    "You're wasting your money.",
+    "I was wrong about everything.",
+    "This changes everything.",
+    "Your phone is lying to you.",
+    "Throw this away immediately.",
+    "Don't buy this. Seriously.",
+    "I almost got scammed.",
+    "This killed my old setup.",
+    "Everyone's sleeping on this.",
+    "Wait. Don't scroll.",
+    "Your charger is destroying your phone.",
+    "I returned my MacBook for this.",
+    "This costs thirty bucks.",
+    "Apple doesn't want you seeing this.",
+    "I can't unsee this.",
 ]
 
 # -- Fallback topics ----------------------------------------------------------
 FALLBACK_TOPICS = [
-    # Regret / mistakes
     "The worst tech purchase I ever made",
     "Why I returned my iPhone and switched to Android",
     "Stop buying flagship phones — here's the real reason",
-    # Secret / hidden
     "The $30 gadget that pros hide from you",
     "Hidden iPhone features nobody talks about",
-    "The smartwatch Apple doesn't want you to own",
-    # Money / savings
     "The $50 gadget that beats your laptop",
     "Budget laptop that outperforms expensive ones",
     "Stop buying expensive earbuds — here's why",
-    # Change / lifestyle
     "AI tools that will replace your job in 2026",
-    "The gadget that made me delete half my apps",
-    "This one product made my setup 10x smarter",
-    # Status
-    "The one gadget every programmer secretly uses",
-    "The gaming mouse pros use but never talk about",
-    "The best headphones for creators that nobody buys",
-    # Curiosity
-    "What happens if you charge your phone all night",
-    "The VR headset that nobody is talking about",
-    "The best tech accessories nobody talks about",
-    # Comparison / contrast
     "Cheap vs expensive phone: the truth nobody shows you",
-    "Wired vs wireless headphones in 2026: you'll be surprised",
-    "USB hub vs dock: the $20 difference that changes everything",
 ]
 
 
 # ── Main script generation ────────────────────────────────────────────────────
 def generate_script(topic: str, attempt: int = 1) -> str | None:
-    """Generate a viral 95-115 word script with hook, loop ending, and CTA."""
+    """Generate a viral 80-95 word script for a 35-40 second video."""
     print(f"🤖 Generating viral script (attempt {attempt}/3)...")
 
     hook = random.choice(HOOK_OPENERS)
@@ -166,69 +121,58 @@ def generate_script(topic: str, attempt: int = 1) -> str | None:
         for ex in EXAMPLE_SCRIPTS
     )
 
-    prompt = f"""You are the scriptwriter for "Tech 8ytees" — a viral tech YouTube Shorts/Instagram Reels channel.
+    prompt = f"""You are the scriptwriter for "Tech 8ytees" — a viral tech YouTube Shorts channel.
 
-MISSION: 96% of viewers scroll away in the first 2 seconds. You must BREAK that pattern.
+CONTEXT: Our videos have an 80% skip rate. Viewers leave at the 2-second mark. You MUST fix this.
 
-STUDY THESE VIRAL EXAMPLES:
+STUDY THESE VIRAL EXAMPLES (notice the short, punchy hooks):
 {examples_text}
 
 =================================================================
-TASK: Write a viral 95-115 word tech SHORT script about: "{topic}"
+TASK: Write a SHORT, PUNCHY, 80-95 word script about: "{topic}"
 =================================================================
 
-TIMING: spoken at ~2.7 words/sec → 100 words ≈ 37 seconds. Max 115 words = 42 seconds.
-The final video MUST stay under 45 seconds.
+CRITICAL TIMING: The final video MUST be 35-40 seconds. NOT longer.
+At ~2.5 words/sec → 80 words = 32s, 95 words = 38s. Stay in this range.
 
-STRUCTURE (follow this exactly):
-1. HOOK (first sentence): Begin with "{hook}"
-   - MUST be under 8 words and spoken in under 2.5 seconds.
-   - Create a "wait, what?" reaction. Use tension, controversy, or a knowledge gap.
-2. BODY (2-3 fast punchy points):
-   - Real brand names, real dollar/percentage numbers, real specs.
-   - Mix sentence lengths: 3-word punches ("Gone. Just like that.") + 12-word details.
-   - Each point escalates — the next one is MORE surprising than the last.
-3. LOOP ENDING: Echo or callback to the hook (makes rewatching feel natural).
-4. CTA (EXACT ending, word-for-word):
+STRUCTURE (follow EXACTLY):
+
+1. HOOK (first 2 seconds — this is LIFE OR DEATH):
+   - Begin with: "{hook}"
+   - MUST be under 6 words. Spoken in under 2 seconds.
+   - The viewer decides to stay or leave in this moment. Make it visceral.
+   - Pattern interrupts that work: bold claims, controversy, direct commands, shocking statements.
+   - BAD hooks: "Hey guys today we're looking at..." / "So I found this cool thing..."
+   - GOOD hooks: "Stop buying AirPods." / "They lied to you." / "Delete this app now."
+
+2. BODY (2 fast points ONLY — no more):
+   - Real brand names. Real dollar amounts. Real specs.
+   - Short sentences. Fragments are good. "Gone. Just like that."
+   - Point 2 must be MORE surprising than point 1 (escalation).
+   - DO NOT ramble. Every single word must earn its place.
+
+3. LOOP ENDING (1 sentence):
+   - Echo the hook so the viewer feels pulled to rewatch.
+
+4. CTA (EXACT words, do not change):
    "Subscribe, send this to a friend, and follow us on Instagram!"
 
-ALGORITHM OPTIMISATION (what makes the algorithm push your video):
-- Pattern interrupt first 3 words → viewer stops scrolling
-- Open loop in hook ("nobody tells you = viewer must stay to find out what)
-- Curiosity gap: tease a payoff, deliver mid-video, then twist at end
-- Contrast / comparison: cheap vs expensive, old vs new, expected vs reality
-- Specific numbers: $47 not "affordable", 40% not "a lot", 3x not "much better"
-- Social proof: "my friend tried", "developer at Google said", "1M+ sold"
-- Name real products: AirPods, Galaxy, ThinkPad, Anker, Nothing, Pixel, Tesla
-- Contractions always: don't, you've, I'm, here's, can't, won't
-- NO filler: never use "basically", "actually", "I wanted to", "today we'll"
-- NO formal language, NO essay structure, NO passive voice
-- NO emojis in script body
-- NO markdown: no **bold**, no *italics*, no _underscores_ — PLAIN TEXT ONLY
+WRITING RULES:
+- Contractions always: don't, you've, I'm, here's, can't
+- Specific numbers: $47 not "affordable", 40% not "a lot"
+- Name real products: AirPods, Galaxy, Anker, Nothing, Pixel
+- NO filler words: never "basically", "actually", "I wanted to", "today we'll", "let me tell you"
+- NO formal language. NO passive voice. NO emojis. NO markdown.
+- Sound like a friend ranting, not a presenter reading a script.
 
-TITLE RULES:
-- Must have 1 number OR 1 question OR 1 emotional trigger word (STOPPED, DESTROYED, KILLED, SECRETLY)
-- ALL CAPS on exactly 2-3 key words: "Why I STOPPED Using AirPods", "This $40 Gadget CHANGED Everything"
-- Max 65 characters
-
-THUMBNAIL_TEXT RULES:
-- Exactly 2-4 ALL CAPS words
-- Must create curiosity or shock: "APPLE LIED?!", "RIP AIRPODS", "BYE MACBOOK", "$30 KING"
-- No full sentences. No lowercase.
-
-CAPTION_HOOK RULES:
-- Single sentence that appears BEFORE the "more" button on Instagram
-- Bold claim or cliffhanger, max 100 chars
-- Must make someone tap "more": "I threw out my AirPods after finding this 👇"
-
-OUTPUT FORMAT (nothing else, no commentary, no extra text):
-TITLE: [max 65 chars, 2-3 words ALL CAPS]
-HOOK_LINE: [the first sentence of the script only]
-SCRIPT: [95-115 words starting with the hook, ending with the CTA]
+OUTPUT FORMAT (nothing else):
+TITLE: [max 60 chars, 2-3 words ALL CAPS]
+HOOK_LINE: [first sentence only, under 6 words]
+SCRIPT: [80-95 words, starting with hook, ending with CTA]
 TAGS: [10 comma-separated tags]
-DESCRIPTION: [2 casual, human sentences — like a comment, not an essay]
-THUMBNAIL_TEXT: [2-4 ALL CAPS words]
-CAPTION_HOOK: [single punchy sentence, max 100 chars]
+DESCRIPTION: [2 casual sentences]
+THUMBNAIL_TEXT: [2-3 ALL CAPS words]
+CAPTION_HOOK: [punchy sentence, max 80 chars]
 """
 
     try:
@@ -239,9 +183,9 @@ CAPTION_HOOK: [single punchy sentence, max 100 chars]
             body = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
             wc = len(body.split())
             print(f"📝 Script: {wc} words")
-            if wc < 75 or wc > 145:
+            if wc < 60 or wc > 120:
                 if attempt < 3:
-                    print(f"⚠️  Out of range ({wc}w). Regenerating...")
+                    print(f"⚠️  Out of range ({wc}w, need 80-95). Regenerating...")
                     return generate_script(topic, attempt + 1)
                 print("⚠️  Accepting despite length — 3 attempts exhausted.")
 
@@ -301,19 +245,18 @@ def _build_fallback_script(topic: str) -> str:
     print("⚠️  Using fallback script (Gemini unavailable).")
     hook = random.choice(HOOK_OPENERS)
     safe = topic[:50]
-    return f"""TITLE: {safe[:55].upper()} — The Truth Nobody Tells You
+    return f"""TITLE: {safe[:55].upper()} — The TRUTH
 HOOK_LINE: {hook}
-SCRIPT: {hook} — {safe} has changed completely in 2026 and most people still don't get it. \
-I've been testing this for weeks and honestly, the results surprised even me. \
-The budget options right now perform as well as expensive ones did two years ago. \
-The gap just doesn't exist anymore. Don't sleep on this category. \
-If you haven't revisited this recently, you're leaving real money on the table. \
+SCRIPT: {hook} {safe} has changed completely in 2026. Most people still don't get it. \
+I've been testing this for weeks. The results surprised even me. \
+Budget options now perform as well as expensive ones did two years ago. The gap? Gone. \
+If you haven't revisited this recently, you're leaving money on the table. \
 And just like I said — {hook.lower()} But now you do. \
 Subscribe, send this to a friend, and follow us on Instagram!
-TAGS: tech, gadgets, review, 2026, shorts, viral, buying guide, budget tech, tech tips, tech news
-DESCRIPTION: Can't believe how much {safe} has changed. Drop your questions below — I read every one.
-THUMBNAIL_TEXT: {safe[:20].upper()} TRUTH
-CAPTION_HOOK: The truth about {safe} that nobody is talking about 👇"""
+TAGS: tech, gadgets, review, 2026, shorts, viral, budget tech, tech tips, tech news, comparison
+DESCRIPTION: Can't believe how much {safe} has changed. Drop your questions below.
+THUMBNAIL_TEXT: {safe[:15].upper()} TRUTH
+CAPTION_HOOK: The truth about {safe} that nobody's talking about 👇"""
 
 
 # ── Script parsing ────────────────────────────────────────────────────────────

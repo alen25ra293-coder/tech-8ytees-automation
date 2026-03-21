@@ -121,9 +121,9 @@ def _try_elevenlabs(script_text: str) -> bool:
             "text": script_text,
             "model_id": "eleven_turbo_v2",   # fastest, most credits-efficient
             "voice_settings": {
-                "stability": 0.45,           # 0.45 = energetic but stable
+                "stability": 0.30,           # lower = more energetic/dynamic
                 "similarity_boost": 0.82,    # high similarity to base voice
-                "style": 0.35,               # adds expressiveness
+                "style": 0.50,               # higher expressiveness for punch
                 "use_speaker_boost": True,
             },
         }
@@ -181,7 +181,7 @@ def _try_kokoro(script_text: str) -> bool:
             try:
                 pipeline = KPipeline(lang_code="a")  # 'a' = American English
                 samples_list = []
-                for _, _, audio in pipeline(script_text, voice=voice, speed=1.05):
+                for _, _, audio in pipeline(script_text, voice=voice, speed=1.2):
                     # audio is a numpy float32 array at 24000 Hz
                     samples_list.append(audio)
 
@@ -225,9 +225,9 @@ def _try_edge_tts(script_file: str) -> bool:
     print("🎙️ Generating voiceover with edge-tts...")
 
     voice_options = [
-        ("en-US-BrianNeural",       "+8%", "+2Hz"),
-        ("en-US-ChristopherNeural", "+5%", "+0Hz"),
-        ("en-US-GuyNeural",         "+5%", "+0Hz"),
+        ("en-US-BrianNeural",       "+18%", "+2Hz"),
+        ("en-US-ChristopherNeural", "+15%", "+0Hz"),
+        ("en-US-GuyNeural",         "+15%", "+0Hz"),
     ]
 
     for voice, rate, pitch in voice_options:

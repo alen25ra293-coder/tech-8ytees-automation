@@ -24,5 +24,3 @@ Pillow==10.3.0           # Thumbnail generation
 # ── Environment / Utils ─────────────────────────────────
 python-dotenv==1.0.1
 
-# ── Instagram Uploader (fallback) ────────────────────────
-instagrapi==2.0.0        # Private API backup (may be IP-blocked on cloud runners)

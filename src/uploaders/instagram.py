@@ -27,12 +27,11 @@ import requests
 
 def upload_to_instagram(video_path, caption):
     """
-    Upload a video as an Instagram Reel.
+    Upload a video as an Instagram Reel using the Official Meta Graph API.
 
     Strategy (tries in order):
       1. Official Graph API  – no IP issues, most stable
-      2. Instagrapi          – private API, may be blocked by GitHub IPs
-      3. Manual fallback     – prints instructions
+      2. Manual fallback     – prints instructions
     """
     print("\n📤 Uploading to Instagram Reels...\n")
 
@@ -40,11 +39,7 @@ def upload_to_instagram(video_path, caption):
         return True
 
     print()
-    if _try_instagrapi(video_path, caption):
-        return True
-
-    print()
-    print("❌ All automated methods failed.")
+    print("❌ Graph API upload failed.")
     print("🔄 Fallback: Manual Upload")
     print(f"   Video ready at: {video_path}")
     print("   You can manually upload to Instagram Reels via the app.")
@@ -252,84 +247,3 @@ def _print_graph_api_hints(error_msg):
     elif "account" in error_lower or "business" in error_lower:
         print("       💡 Hint: IG_BUSINESS_ACCOUNT_ID must be a numeric Instagram Business/Creator ID.")
         print("          Find it: Instagram Settings → Account → Professional Dashboard")
-
-
-# ---------------------------------------------------------------------------
-# Method 2 – Instagrapi (private API, works from residential IPs)
-# ---------------------------------------------------------------------------
-
-def _try_instagrapi(video_path, caption):
-    """
-    Try uploading via Instagrapi.
-    ⚠️  GitHub Actions IPs are often blacklisted by Instagram.
-    This method works best when running from a home/residential IP.
-    """
-    print("   [2/2] Trying Instagrapi (Backup)...")
-
-    try:
-        from instagrapi import Client
-    except ImportError:
-        print("       ❌ instagrapi not installed. Run: pip install instagrapi")
-        return False
-
-    username = (os.environ.get("IG_USERNAME") or os.environ.get("INSTAGRAM_USERNAME", "")).strip()
-    password = (os.environ.get("IG_PASSWORD") or os.environ.get("INSTAGRAM_PASSWORD", "")).strip()
-
-    if not username or not password:
-        print("       ⏭️  Instagrapi credentials not configured.")
-        print("          → Add IG_USERNAME + IG_PASSWORD to GitHub Secrets.")
-        return False
-
-    if not os.path.exists(video_path):
-        print(f"       ❌ Video file not found: {video_path}")
-        return False
-
-    session_file = "ig_session.json"
-    max_retries = 2
-
-    for attempt in range(1, max_retries + 1):
-        try:
-            cl = Client()
-
-            # Reuse session if available (reduces login failures)
-            if os.path.exists(session_file):
-                try:
-                    cl.load_settings(session_file)
-                    cl.login(username, password)
-                except Exception:
-                    # Session stale — do fresh login
-                    cl = Client()
-                    cl.login(username, password)
-            else:
-                cl.login(username, password)
-
-            # Save session for next run
-            cl.dump_settings(session_file)
-
-            clean_caption = _sanitize_caption(caption)
-            print(f"       Uploading clip (attempt {attempt}/{max_retries})...")
-            media = cl.clip_upload(video_path, clean_caption)
-            print(f"       ✅ Instagrapi upload successful!")
-            print(f"           URL: https://www.instagram.com/reel/{media.code}/")
-            return True
-
-        except Exception as e:
-            err = str(e).lower()
-            if "blacklist" in err or "ip" in err or "challenge" in err or "feedback" in err:
-                print(f"       ⚠️  Attempt {attempt}: IP/challenge blocked.")
-                if attempt < max_retries:
-                    wait = 30 * attempt
-                    print(f"          Retrying in {wait}s...")
-                    time.sleep(wait)
-                else:
-                    print("       ❌ IP blacklisted (max retries exceeded).")
-                    print("          Solution: Use the Graph API instead (Method 1).")
-            elif "incorrect" in err or "password" in err or "unauthorized" in err:
-                print("       ❌ Invalid username or password.")
-                return False
-            else:
-                print(f"       ❌ Error (attempt {attempt}): {str(e)[:120]}")
-                if attempt < max_retries:
-                    time.sleep(15)
-
-    return False
