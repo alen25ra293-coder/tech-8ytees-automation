@@ -49,7 +49,7 @@ def main():
         # ── 1. Topic (niched: budget gadgets & hidden gems under $50) ─────
         topic = get_todays_topic()
 
-        # ── 2. Script (60-75 words → 25-30 second video) ─────────────────
+        # ── 2. Script (55-65 words → 23-26 second video) ─────────────────
         raw_script = generate_script(topic)
         parsed = parse_script(raw_script)
 
@@ -58,7 +58,7 @@ def main():
             sys.exit(1)
 
         wc = len(parsed["script"].split())
-        print(f"\n📝 Script: {wc} words  (target: 60-75 for 25-30s)\n")
+        print(f"\n📝 Script: {wc} words  (target: 55-65 for 23-26s)\n")
 
         # ── 3. Niche hashtags (first comment, NOT caption) ────────────────
         hashtags = generate_dynamic_hashtags(topic)
@@ -68,9 +68,9 @@ def main():
             print("❌ Voiceover generation failed. Exiting.")
             sys.exit(1)
 
-        # ── 5. Background clips (12 clips × 3s each = rapid cuts) ────────
+        # ── 5. Background clips (10 clips × 2.5s each = rapid cuts for 23-26s) ────
         product_name = parsed.get("product_name")
-        bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=12)
+        bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=10)
 
         # ── 6. Video composition (title overlay + rapid cuts + subtitles) ─
         video_ok = create_video(

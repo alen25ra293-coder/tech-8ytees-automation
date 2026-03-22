@@ -28,9 +28,9 @@ def create_video(title, video_clips, hook_line=""):
         duration = float(r.stdout.strip())
         video_duration = duration + 1.0  # minimal padding
 
-        MAX_CLIP_DURATION = 3  # seconds per clip — rapid visual change
+        MAX_CLIP_DURATION = 2.5  # seconds per clip — rapid visual change for 23-26s video
 
-        # ── 1. Scale/crop each clip + trim to 3 seconds + color grade ────────
+        # ── 1. Scale/crop each clip + trim to 2.5 seconds + color grade ────────
         scaled_clips = []
         color_grade = (
             "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"

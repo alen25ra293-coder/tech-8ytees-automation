@@ -1,6 +1,6 @@
 """
 Script Generator — Tech 8ytees
-Viral 25-30 second scripts optimized for <20% skip rate.
+Viral 23-26 second scripts optimized for <20% skip rate.
 Niche: Budget gadgets and hidden tech gems under $50 that most people don't know about.
 """
 import os
@@ -144,7 +144,7 @@ HOOK_OPENERS = [
 
 # ── Main script generation ────────────────────────────────────────────────────
 def generate_script(topic: str, attempt: int = 1) -> str | None:
-    """Generate a viral 60-75 word script for a 25-30 second video."""
+    """Generate a viral 55-65 word script for a 23-26 second video."""
     print(f"🤖 Generating viral script (attempt {attempt}/3)...")
 
     hook = random.choice(HOOK_OPENERS)
@@ -168,18 +168,17 @@ Niche: {NICHE}
 Target audience: {TARGET_AUDIENCE}
 Hook formula: {HOOK_FORMULA}
 
-CONTEXT: 80% skip rate. Viewers leave at 2 seconds. Videos must be 25-30 seconds MAX.
+CONTEXT: 80% skip rate. Viewers leave at 2 seconds. Videos must be 23-26 seconds MAX.
 {series_note}
-STUDY THESE EXAMPLES (notice: short, punchy, 60-75 words):
+STUDY THESE EXAMPLES (notice: short, punchy, 55-65 words):
 {examples_text}
 
 =================================================================
-=)
-TASK: Write a 60-75 word script about: "{topic}"
+TASK: Write a 55-65 word script about: "{topic}"
 =================================================================
 
-CRITICAL TIMING: Video MUST be 25-30 seconds. At ~2.5 words/sec → 60 words = 24s, 75 words = 30s.
-NEVER exceed 75 words. Count them. If over 75, cut ruthlessly.
+CRITICAL TIMING: Video MUST be 23-26 seconds. At ~2.5 words/sec → 55 words = 22s, 65 words = 26s.
+NEVER exceed 65 words. Count them. If over 65, cut ruthlessly.
 
 EXACT STRUCTURE (every second planned):
 
@@ -191,23 +190,23 @@ Second 2-5: PROMISE
 - Tell them exactly what they'll get. One sentence.
 - Example: "This 22 dollar gadget has noise cancelling that beats AirPods."
 
-Second 5-20: PROOF + DELIVERY (2 fast facts)
+Second 5-18: PROOF + DELIVERY (2 fast facts)
 - IDENTIFY THE PRODUCT: You MUST name the ACTUAL product (brand + model) within the first 10 seconds.
 - Example: "They're called the QCY T13, and they're on Amazon."
 - Give one specific number (price, review count, battery hours, megapixels).
 - Give one comparison to the expensive alternative.
 - Short sentences. Fragments OK. "Four K. Waterproof. Twelve dollars."
 
-Second 20-25: LOOP BACK
+Second 18-22: LOOP BACK
 - Mention the product name AGAIN.
 - Echo the hook so the brain wants to rewatch.
 - Example: hook was "This costs twelve bucks." → loop: "The T13. Twelve bucks. That's it."
 
-Second 25-30: CTA (use this EXACT text):
-"Save this before you buy your next gadget. What gadget should I test next? Comment below."
+Second 22-26: CTA (use this EXACT text):
+"Save this. What should I test next? Comment."
 
 RULES:
-- MAX 75 words. This is non-negotiable.
+- MAX 65 words. This is non-negotiable.
 - Contractions: don't, you're, it's, can't
 - PRODUCT NAME: You MUST provide a specific, real-world product name (e.g. QCY T13, Anker 521, Baseus 65W, Ugreen Nexode). If the topic is generic, CHOOSE a popular high-rated budget brand and model that fits.
 - Include a specific dollar price comparison ($X vs $Y)
@@ -235,9 +234,9 @@ QUESTION: [1 direct question the viewer can answer in one word]
             body = script_text.split("SCRIPT:")[1].split("TAGS:")[0].strip()
             wc = len(body.split())
             print(f"📝 Script: {wc} words")
-            if wc < 45 or wc > 95:
+            if wc < 45 or wc > 80:
                 if attempt < 3:
-                    print(f"⚠️  Out of range ({wc}w, need 60-75). Regenerating...")
+                    print(f"⚠️  Out of range ({wc}w, need 55-65). Regenerating...")
                     return generate_script(topic, attempt + 1)
                 print("⚠️  Accepting despite length — 3 attempts exhausted.")
 
@@ -300,13 +299,13 @@ def _build_fallback_script(topic: str) -> str:
     print("⚠️  Using fallback script (Gemini unavailable).")
     hook = random.choice(HOOK_OPENERS)
     safe = topic[:50]
-    return f"""TITLE: {safe[:45].upper()} — CHEAP
+    return f"""PRODUCT_NAME: Budget Tech Gadget
+TITLE: {safe[:45].upper()} — CHEAP
 HOOK_LINE: {hook}
 SCRIPT: {hook} This gadget costs under 20 dollars and does what the 300 dollar version does. \
-I found it on Amazon with 40,000 five star reviews. The build quality is insane for the price. \
-I tested it for two months and it outperformed the expensive one every time. \
-Stop overpaying for brand names. {hook.lower()} \
-Save this before you buy your next gadget. What gadget should I test next? Comment below.
+I found it on Amazon with 40,000 five star reviews. The build is insane for the price. \
+I tested it for two months. It outperformed the expensive one every time. \
+Save this. What should I test next? Comment.
 TAGS: budget gadgets, cheap tech, amazon finds, hidden gem, tech deals, affordable tech, gadget review, budget tech, tech tips, cheap gadgets
 DESCRIPTION: This budget gadget just embarrassed a product that costs 10x more 👀
 THUMBNAIL_TEXT: BUDGET BEAST
