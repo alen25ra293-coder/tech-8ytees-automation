@@ -174,6 +174,7 @@ STUDY THESE EXAMPLES (notice: short, punchy, 60-75 words):
 {examples_text}
 
 =================================================================
+=)
 TASK: Write a 60-75 word script about: "{topic}"
 =================================================================
 
@@ -191,14 +192,16 @@ Second 2-5: PROMISE
 - Example: "This 22 dollar gadget has noise cancelling that beats AirPods."
 
 Second 5-20: PROOF + DELIVERY (2 fast facts)
-- Name the ACTUAL product and where to buy it (Amazon, AliExpress).
+- IDENTIFY THE PRODUCT: You MUST name the ACTUAL product (brand + model) within the first 10 seconds.
+- Example: "They're called the QCY T13, and they're on Amazon."
 - Give one specific number (price, review count, battery hours, megapixels).
 - Give one comparison to the expensive alternative.
 - Short sentences. Fragments OK. "Four K. Waterproof. Twelve dollars."
 
 Second 20-25: LOOP BACK
+- Mention the product name AGAIN.
 - Echo the hook so the brain wants to rewatch.
-- Example: hook was "This costs twelve bucks." → loop: "Twelve bucks. That's it."
+- Example: hook was "This costs twelve bucks." → loop: "The T13. Twelve bucks. That's it."
 
 Second 25-30: CTA (use this EXACT text):
 "Save this before you buy your next gadget. What gadget should I test next? Comment below."
@@ -206,16 +209,17 @@ Second 25-30: CTA (use this EXACT text):
 RULES:
 - MAX 75 words. This is non-negotiable.
 - Contractions: don't, you're, it's, can't
-- Real product names when possible (QCY T13, Anker, Baseus, Ugreen)
+- PRODUCT NAME: You MUST provide a specific, real-world product name (e.g. QCY T13, Anker 521, Baseus 65W, Ugreen Nexode). If the topic is generic, CHOOSE a popular high-rated budget brand and model that fits.
 - Include a specific dollar price comparison ($X vs $Y)
 - NO filler: never "basically", "actually", "let me tell you"
 - NO emojis. NO markdown. PLAIN TEXT only.
 - Sound like a friend showing you a deal — not a salesperson.
 
 OUTPUT FORMAT (nothing else):
+PRODUCT_NAME: [The specific brand and model name of the $25 gadget, e.g. QCY T13]
 TITLE: [max 55 chars, 2 words ALL CAPS]
 HOOK_LINE: [first sentence, under 5 words]
-SCRIPT: [60-75 words total, starting with hook, ending with CTA]
+SCRIPT: [60-75 words total, starting with hook, ending with CTA. Mention the PRODUCT_NAME at least twice.]
 TAGS: [10 comma-separated lowercase tags]
 DESCRIPTION: [1 curiosity-gap sentence — must make people tap "more"]
 THUMBNAIL_TEXT: [2-3 ALL CAPS words]
@@ -316,7 +320,7 @@ def parse_script(raw: str) -> dict | None:
     if not raw:
         return None
 
-    fields = ["title", "hook_line", "script", "tags", "description",
+    fields = ["product_name", "title", "hook_line", "script", "tags", "description",
               "thumbnail_text", "caption_hook", "question"]
     data = {f: "" for f in fields}
     current_key = None

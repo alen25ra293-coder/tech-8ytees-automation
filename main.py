@@ -69,7 +69,8 @@ def main():
             sys.exit(1)
 
         # ── 5. Background clips (12 clips × 3s each = rapid cuts) ────────
-        bg_clips = fetch_background_clips(topic, num_clips=12)
+        product_name = parsed.get("product_name")
+        bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=12)
 
         # ── 6. Video composition (title overlay + rapid cuts + subtitles) ─
         video_ok = create_video(

@@ -4,26 +4,35 @@ import requests
 PEXELS_KEY = os.environ.get("PEXELS_API_KEY")
 
 
-def fetch_background_clips(topic, num_clips=12):
+def fetch_background_clips(topic, product_name=None, num_clips=12):
     """
     Fetches 10-15 background video clips from Pexels.
-    Each clip will be trimmed to 3 seconds in the composer.
-    This creates constant visual change — a new scene every 3 seconds.
+    Uses the specific product_name for relevance if available.
     """
-    print(f"🎬 Fetching {num_clips} background clips for rapid-cut editing...")
+    print(f"🎬 Fetching {num_clips} background clips for '{product_name or topic}'...")
     if not PEXELS_KEY:
         print("⚠️ PEXELS_API_KEY is not set.")
         return []
 
-    # Extract clean search terms (remove dollar amounts and stop words)
+    # Extract clean search terms
     import re
-    clean_topic = re.sub(r'\$\d+', '', topic).lower()
-    for stop_word in [" that ", " which ", " beats ", " rivals ", " replaces ", " can't "]:
-        clean_topic = clean_topic.replace(stop_word, " ")
     
-    query = " ".join(clean_topic.split()[:3]).strip()
+    # If we have a specific product name, use it!
+    if product_name and len(product_name) > 2:
+        query = product_name
+    else:
+        clean_topic = re.sub(r'\$\d+', '', topic).lower()
+        for stop_word in [" that ", " which ", " beats ", " rivals ", " replaces ", " can't "]:
+            clean_topic = clean_topic.replace(stop_word, " ")
+        
+        # Remove common competitor names from the visual search
+        for competitor in ["siri", "alexa", "google assistant", "airpods", "iphone", "macbook", "gopro"]:
+            clean_topic = clean_topic.replace(competitor, " ")
+            
+        query = " ".join(clean_topic.split()[:3]).strip()
+
     if not query:
-        query = "tech hidden gem"
+        query = "tech gadget"
 
     headers = {"Authorization": PEXELS_KEY}
     clips_downloaded = []
