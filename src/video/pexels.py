@@ -4,114 +4,172 @@ import re
 
 PEXELS_KEY = os.environ.get("PEXELS_API_KEY")
 
-# Product category to search term mappings for better clip relevance
+# Product category to search term mappings - ONLY use visual search terms that exist on Pexels
+# Brand names like "QCY T13" or "Anker" won't return results - use generic visual descriptions
 PRODUCT_SEARCH_TERMS = {
-    "earbuds": ["wireless earbuds close up", "earbuds in hand", "person wearing earbuds", "earphones tech"],
-    "headphones": ["headphones close up", "person wearing headphones", "audio listening"],
-    "speaker": ["bluetooth speaker", "portable speaker", "speaker close up"],
-    "charger": ["phone charging", "wireless charger", "charging cable", "power bank"],
-    "camera": ["action camera", "camera close up", "photography gadget", "filming setup"],
-    "projector": ["mini projector", "projector screen", "home cinema"],
-    "keyboard": ["mechanical keyboard", "keyboard typing", "gaming keyboard"],
-    "mouse": ["computer mouse", "gaming mouse", "mouse click"],
-    "monitor": ["computer monitor", "portable screen", "display screen"],
-    "light": ["led light", "ring light", "desk lamp", "studio lighting"],
-    "cable": ["usb cable", "charging cable", "cable management"],
-    "hub": ["usb hub", "laptop accessories", "desk setup"],
-    "tripod": ["phone tripod", "selfie stick", "camera stand"],
-    "phone": ["smartphone holding", "phone in hand", "mobile phone"],
-    "laptop": ["laptop close up", "laptop typing", "laptop workspace"],
-    "watch": ["smartwatch", "watch close up", "wrist technology"],
-    "fan": ["portable fan", "handheld fan", "cooling device"],
-    "ssd": ["ssd drive", "data storage", "hard drive"],
-    "webcam": ["webcam close up", "video call", "streaming setup"],
-    "mount": ["phone mount", "car mount", "desk mount"],
-    "plug": ["smart plug", "power outlet", "electrical device"],
-    "remote": ["remote control", "tv remote", "smart home"],
+    "earbuds": ["earbuds", "wireless earbuds", "earphones", "in ear headphones", "airpods"],
+    "headphones": ["headphones", "over ear headphones", "wearing headphones", "listening music headphones"],
+    "speaker": ["bluetooth speaker", "portable speaker", "wireless speaker", "speaker music"],
+    "charger": ["phone charging", "wireless charging", "charging smartphone", "usb charger"],
+    "power bank": ["power bank", "portable charger", "charging phone battery"],
+    "camera": ["action camera", "small camera", "gopro camera", "vlogging camera"],
+    "projector": ["mini projector", "portable projector", "home projector", "projector screen"],
+    "keyboard": ["keyboard typing", "mechanical keyboard", "computer keyboard", "rgb keyboard"],
+    "mouse": ["computer mouse", "gaming mouse", "wireless mouse"],
+    "monitor": ["computer monitor", "portable monitor", "screen display"],
+    "light": ["ring light", "led light", "desk lamp", "studio light"],
+    "lamp": ["desk lamp", "led lamp", "reading lamp"],
+    "cable": ["usb cable", "charging cable", "phone cable"],
+    "hub": ["usb hub", "laptop dock", "tech accessories"],
+    "tripod": ["phone tripod", "selfie stick", "camera tripod"],
+    "phone": ["smartphone", "using phone", "phone in hand", "mobile phone"],
+    "laptop": ["laptop computer", "typing laptop", "laptop desk"],
+    "watch": ["smartwatch", "smart watch", "digital watch", "fitness watch"],
+    "fan": ["portable fan", "handheld fan", "mini fan", "usb fan"],
+    "ssd": ["hard drive", "ssd storage", "computer storage"],
+    "webcam": ["webcam", "video call", "streaming camera"],
+    "mount": ["phone mount", "car phone holder", "phone holder"],
+    "plug": ["smart plug", "electrical outlet", "smart home"],
+    "remote": ["remote control", "smart remote", "tv remote"],
+    "cleaner": ["screen cleaner", "cleaning electronics", "tech cleaning"],
+    "trackpad": ["trackpad", "touchpad", "laptop touchpad"],
+    "adapter": ["phone adapter", "usb adapter", "tech adapter"],
+    "led": ["led strip", "led lights", "rgb lights", "ambient lighting"],
+}
+
+# Expanded keyword detection - more ways to identify the product category
+CATEGORY_KEYWORDS = {
+    "earbuds": ["earbuds", "earbud", "airpods", "buds", "in-ear", "tws"],
+    "headphones": ["headphones", "headphone", "over-ear", "on-ear"],
+    "speaker": ["speaker", "speakers", "soundbar", "boombox"],
+    "charger": ["charger", "charging", "magsafe"],
+    "power bank": ["power bank", "powerbank", "portable charger", "battery pack"],
+    "camera": ["camera", "gopro", "action cam", "dashcam"],
+    "projector": ["projector", "mini projector"],
+    "keyboard": ["keyboard", "keeb", "mechanical"],
+    "mouse": ["mouse", "mice"],
+    "monitor": ["monitor", "screen", "display", "portable monitor"],
+    "light": ["light", "ring light", "led light"],
+    "lamp": ["lamp", "desk lamp"],
+    "tripod": ["tripod", "selfie stick", "stand"],
+    "phone": ["phone", "smartphone", "iphone", "android"],
+    "laptop": ["laptop", "macbook", "notebook"],
+    "watch": ["watch", "smartwatch", "fitness tracker"],
+    "fan": ["fan", "portable fan", "cooling"],
+    "webcam": ["webcam", "web cam", "streaming"],
+    "mount": ["mount", "holder", "stand"],
+    "plug": ["plug", "smart plug", "outlet"],
+    "led": ["led strip", "led lights", "rgb", "strip lights"],
+    "cleaner": ["cleaner", "cleaning kit"],
+    "hub": ["hub", "usb hub", "dock", "docking"],
+    "cable": ["cable", "cord", "wire"],
+    "adapter": ["adapter", "dongle"],
+    "remote": ["remote", "controller"],
+    "ssd": ["ssd", "hard drive", "storage", "portable drive"],
+    "trackpad": ["trackpad", "touchpad"],
 }
 
 
 def _get_product_category(topic: str, product_name: str) -> str:
-    """Extract the product category from topic or product name."""
+    """Extract the product category from topic or product name using keyword matching."""
     combined = f"{topic} {product_name}".lower()
-    for category in PRODUCT_SEARCH_TERMS.keys():
-        if category in combined:
-            return category
+    
+    # Check each category's keywords
+    for category, keywords in CATEGORY_KEYWORDS.items():
+        for keyword in keywords:
+            if keyword in combined:
+                return category
     return None
 
 
 def _build_search_queries(topic: str, product_name: str) -> list:
-    """Build relevant search queries based on the actual product being discussed."""
+    """Build relevant search queries based on the product category.
+    
+    IMPORTANT: Only use visual search terms that exist on Pexels.
+    Brand names like 'QCY T13' or 'Anker' will NOT return results.
+    """
     queries = []
     
-    # Get category-specific search terms
+    # Get category-specific search terms - these are the PRIMARY queries
     category = _get_product_category(topic, product_name)
     if category and category in PRODUCT_SEARCH_TERMS:
-        queries.extend(PRODUCT_SEARCH_TERMS[category][:2])
+        # Use ALL category terms first - these are most relevant
+        queries.extend(PRODUCT_SEARCH_TERMS[category])
+        print(f"   📦 Detected category: {category}")
     
-    # Use specific product name if available
-    if product_name and len(product_name) > 2:
-        # Extract key product words (remove brand specifics that won't match)
-        clean_name = re.sub(r'[A-Z]{2,}\d+', '', product_name)  # Remove model numbers like T13, 521
-        words = [w for w in clean_name.split() if len(w) > 2]
-        if words:
-            queries.insert(0, " ".join(words[:2]))
-    
-    # Add tech-focused fallbacks that match gadget content
+    # Only add generic fallbacks AFTER category terms
     queries.extend([
-        "tech gadget close up",
-        "unboxing product",
-        "hands holding gadget",
-        "tech review setup",
+        "tech gadget",
+        "unboxing",
+        "technology product",
     ])
     
     # Remove duplicates while preserving order
     seen = set()
     unique_queries = []
     for q in queries:
-        if q.lower() not in seen:
-            seen.add(q.lower())
+        q_lower = q.lower().strip()
+        if q_lower and q_lower not in seen:
+            seen.add(q_lower)
             unique_queries.append(q)
     
-    return unique_queries[:6]  # Max 6 different search queries
+    return unique_queries
 
 
 def fetch_background_clips(topic, product_name=None, num_clips=10):
     """
     Fetches background video clips from Pexels that match the content topic.
-    Uses product-specific search terms for better relevance.
+    Uses category-based search terms (NOT brand names) for relevance.
     """
-    print(f"🎬 Fetching {num_clips} background clips for '{product_name or topic}'...")
+    print(f"🎬 Fetching {num_clips} background clips...")
+    print(f"   📝 Topic: {topic}")
+    if product_name:
+        print(f"   🏷️ Product: {product_name}")
+    
     if not PEXELS_KEY:
         print("⚠️ PEXELS_API_KEY is not set.")
         return []
 
     headers = {"Authorization": PEXELS_KEY}
     clips_downloaded = []
+    used_video_ids = set()  # Avoid duplicate videos
     
-    # Build relevant search queries based on the product
+    # Build relevant search queries based on the product CATEGORY
     search_queries = _build_search_queries(topic, product_name or "")
-    print(f"   🔍 Search queries: {search_queries[:3]}...")
+    print(f"   🔍 Searches: {search_queries[:4]}")
 
     for sq in search_queries:
         if len(clips_downloaded) >= num_clips:
             break
+        
+        # How many more clips do we need?
+        needed = num_clips - len(clips_downloaded)
 
-        params = {"query": sq, "per_page": 10, "orientation": "portrait", "size": "medium"}
+        params = {"query": sq, "per_page": min(15, needed + 5), "orientation": "portrait", "size": "medium"}
 
         try:
             r = requests.get("https://api.pexels.com/videos/search",
                              headers=headers, params=params, timeout=10)
             if r.status_code != 200:
+                print(f"   ⚠️ Search '{sq}' returned {r.status_code}")
                 continue
 
             videos = r.json().get("videos", [])
+            if not videos:
+                print(f"   ⚠️ No videos for '{sq}'")
+                continue
 
             for video in videos:
                 if len(clips_downloaded) >= num_clips:
                     break
+                
+                # Skip duplicates
+                video_id = video.get("id")
+                if video_id in used_video_ids:
+                    continue
+                used_video_ids.add(video_id)
 
-                # Find best resolution file
+                # Find best resolution file (prefer 1080p)
                 best_file = None
                 for f in video["video_files"]:
                     if f.get("width") == 1080:
@@ -128,17 +186,17 @@ def fetch_background_clips(topic, product_name=None, num_clips=10):
                 if best_file:
                     try:
                         video_url = best_file["link"]
-                        print(f"   📥 Clip {len(clips_downloaded) + 1}/{num_clips} ({sq[:20]}...)")
+                        print(f"   📥 Clip {len(clips_downloaded) + 1}/{num_clips} from '{sq}'")
                         data = requests.get(video_url, timeout=15).content
                         filename = f"bg_clip_{len(clips_downloaded)}.mp4"
                         with open(filename, "wb") as file:
                             file.write(data)
                         clips_downloaded.append(filename)
                     except Exception as e:
-                        print(f"   ⚠️ Clip download error: {e}")
+                        print(f"   ⚠️ Download error: {e}")
 
         except Exception as e:
             print(f"⚠️ Search '{sq}' failed: {e}")
 
-    print(f"✅ Fetched {len(clips_downloaded)} clips for rapid-cut background.")
+    print(f"✅ Fetched {len(clips_downloaded)} clips matching topic.")
     return clips_downloaded
