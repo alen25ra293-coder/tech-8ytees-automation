@@ -8,7 +8,10 @@ from src.generators.strategy_pipeline import run_full_strategy_pipeline
 
 def main():
     if sys.platform == "win32":
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        elif hasattr(sys.stdout, "buffer"):
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
         
     print("Starting Automated YouTube Strategy Generation...")
     

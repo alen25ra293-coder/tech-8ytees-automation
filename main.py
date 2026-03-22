@@ -38,7 +38,10 @@ def download_impact_sound():
 def main():
     if sys.platform == "win32":
         import io
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        elif hasattr(sys.stdout, "buffer"):
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
     print(f"\n🚀 Tech 8ytees — Budget Gadgets & Hidden Gems — {date.today()}\n{'─' * 48}")
 
@@ -88,6 +91,10 @@ def main():
         # ── 5. Background clips (10 clips × 2.5s each = rapid cuts for 23-26s) ────
         product_name = parsed.get("product_name")
         bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=10)
+
+        if not bg_clips:
+            print("❌ No background clips found. Exiting.")
+            sys.exit(1)
 
         # ── 6. Video composition (title overlay + rapid cuts + subtitles) ─
         video_ok = create_video(
