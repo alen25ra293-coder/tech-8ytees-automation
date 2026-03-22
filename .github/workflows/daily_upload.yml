@@ -3,10 +3,16 @@ name: Tech 8ytees Daily Upload (Fixed)
 on:
   schedule:
     # IST Peak hours: 8:00 AM, 12:00 PM, and 7:00 PM IST
-    - cron: '30 2 * * *'   # 8:00 AM IST  — morning peak
-    - cron: '30 6 * * *'   # 12:00 PM IST — midday peak
-    - cron: '30 13 * * *'  # 7:00 PM IST  — evening peak
+    # Note: GitHub Actions may delay/skip runs during high load
+    - cron: '25 2 * * *'   # 7:55 AM IST  — morning peak (slightly early to account for delays)
+    - cron: '25 6 * * *'   # 11:55 AM IST — midday peak
+    - cron: '25 13 * * *'  # 6:55 PM IST  — evening peak
   workflow_dispatch:        # Manual trigger from GitHub UI
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/daily_upload.yml'  # Trigger on workflow updates to keep repo active
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
