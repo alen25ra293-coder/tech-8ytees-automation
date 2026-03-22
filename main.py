@@ -47,7 +47,24 @@ def main():
         download_impact_sound()
 
         # ── 1. Topic (niched: budget gadgets & hidden gems under $50) ─────
-        topic = get_todays_topic()
+        topic = None
+        weekly_ideas_file = "weekly_ideas.txt"
+        if os.path.exists(weekly_ideas_file):
+            with open(weekly_ideas_file, "r", encoding="utf-8") as f:
+                ideas = [line.strip() for line in f.read().splitlines() if line.strip()]
+            
+            if ideas:
+                topic = ideas.pop(0)
+                print(f"📖 Using Weekly Strategy Idea: {topic}")
+                print(f"   ({len(ideas)} ideas remaining in queue)")
+                
+                # Consumes the idea by re-writing without it
+                with open(weekly_ideas_file, "w", encoding="utf-8") as f:
+                    f.write("\n".join(ideas) + "\n" if ideas else "")
+        
+        if not topic:
+            print("⚠️ Queue empty or missing. Falling back to Reddit scraper for topic.")
+            topic = get_todays_topic()
 
         # ── 2. Script (55-65 words → 23-26 second video) ─────────────────
         raw_script = generate_script(topic)

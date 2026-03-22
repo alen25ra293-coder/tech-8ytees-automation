@@ -103,7 +103,17 @@ jobs:
           retention-days: 5
           if-no-files-found: ignore
 
-      # ── 9. Cleanup ─────────────────────────────────────────
+      # ── 9. Commit Consumed Idea Back to Repo ─────────────
+      - name: 🔄 Commit Consumed Idea
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin main || true
+          git add weekly_ideas.txt || echo "No ideas file to add"
+          git diff --staged --quiet || git commit -m "🤖 Auto-update: Consumed idea for daily upload [skip ci]"
+          git push origin main || echo "Push failed (likely no changes)"
+
+      # ── 10. Cleanup ─────────────────────────────────────────
       - name: 🧹 Clean up temporary files
         if: always()
         run: |

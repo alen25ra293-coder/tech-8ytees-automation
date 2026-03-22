@@ -26,7 +26,7 @@ jobs:
       - name: 📦 Install core dependencies
         run: |
           pip install --upgrade pip
-          pip install google-generativeai python-dotenv
+          pip install -r requirements.txt
 
       # ── 4. Run AI Strategy Pipeline ──────────────────────
       - name: 🚀 Run AI Strategy Generation
@@ -42,4 +42,14 @@ jobs:
           name: strategy-report-week-${{ github.run_number }}
           path: reports/*.md
           retention-days: 14
-          if-no-files-found: error
+          if-no-files-found: ignore
+
+      # ── 6. Commit Weekly Ideas to Repo ───────────────────
+      - name: 🔄 Commit Weekly Ideas
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin main || true
+          git add weekly_ideas.txt reports/ || echo "No files to add"
+          git diff --staged --quiet || git commit -m "🤖 Auto-update: Weekly strategy ideas [skip ci]"
+          git push origin main || echo "Push failed (likely no changes)"

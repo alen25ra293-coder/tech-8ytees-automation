@@ -1,4 +1,5 @@
 import os
+import glob
 from datetime import datetime
 from google import genai
 
@@ -93,6 +94,11 @@ def generate_viral_ideas(competitor_analysis: str) -> str:
     
     COMPETITIVE INSIGHTS:
     {competitor_analysis}
+    
+    CRITICAL: At the very end of your response, output a single line containing exactly: "--- RAW IDEAS FOR AUTOMATION ---"
+    Below that line, provide a clean, bulletless list of just the 30 core concepts for an automated pipeline to read.
+    Each line must follow this format:
+    Title: [working title] - Hook: [core hook]
     """
     return _generate_with_retry(prompt)
 
@@ -120,7 +126,26 @@ def run_full_strategy_pipeline(channel_context: str = "Tech 8ytees channel. 24-2
     script_outlines = generate_script_outlines(script_analysis)
     
     print("\n✅ All AI components generated successfully. Compiling report...")
-    
+
+    # ── Extract actionable ideas for daily automation ──
+    if "--- RAW IDEAS FOR AUTOMATION ---" in ideas:
+        raw_list = ideas.split("--- RAW IDEAS FOR AUTOMATION ---")[-1].strip().split("\n")
+        clean_ideas = [line.strip() for line in raw_list if len(line.strip()) > 10 and not line.strip().startswith("#")]
+        if clean_ideas:
+            with open("weekly_ideas.txt", "w", encoding="utf-8") as f:
+                f.write("\n".join(clean_ideas) + "\n")
+            print(f"✅ Saved {len(clean_ideas)} ideas to weekly_ideas.txt for daily consumption.")
+
+    # ── Cleanup old reports BEFORE creating new one ──
+    os.makedirs("reports", exist_ok=True)
+    old_reports = glob.glob("reports/*.md")
+    for r in old_reports:
+        try:
+            os.remove(r)
+            print(f"🗑️ Deleted old report: {r}")
+        except Exception:
+            pass
+
     # Compile the final document
     report = f"""# Comprehensive YouTube Growth Strategy
 *Generated on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}*
@@ -149,7 +174,6 @@ def run_full_strategy_pipeline(channel_context: str = "Tech 8ytees channel. 24-2
 {script_outlines}
 """
 
-    os.makedirs("reports", exist_ok=True)
     filename = f"reports/strategy_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
     
     with open(filename, "w", encoding="utf-8") as f:
