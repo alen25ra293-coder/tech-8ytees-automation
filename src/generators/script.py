@@ -6,7 +6,7 @@ Niche: Budget gadgets and hidden tech gems under $50 that most people don't know
 import os
 import random
 from datetime import date
-import google.generativeai as genai
+from google import genai
 
 # ── API key rotation ─────────────────────────────────────────────────────────
 _gemini_keys_raw = (
@@ -14,6 +14,7 @@ _gemini_keys_raw = (
 )
 GEMINI_KEYS = [k.strip() for k in _gemini_keys_raw.split(",") if k.strip()]
 _key_index = 0
+_client = None
 
 
 def _next_key():
@@ -25,12 +26,13 @@ def _next_key():
     return key
 
 
-def _get_model():
+def _get_client():
+    global _client
     key = _next_key()
     if not key:
         return None
-    genai.configure(api_key=key)
-    return genai.GenerativeModel("gemini-2.5-flash")
+    _client = genai.Client(api_key=key)
+    return _client
 
 
 # ── Niche constants ──────────────────────────────────────────────────────────
@@ -149,8 +151,8 @@ def generate_script(topic: str, attempt: int = 1) -> str | None:
 
     hook = random.choice(HOOK_OPENERS)
     series = get_series_theme()
-    model = _get_model()
-    if not model:
+    client = _get_client()
+    if not client:
         print("❌ No Gemini API keys. Using fallback.")
         return _build_fallback_script(topic)
 
@@ -227,7 +229,10 @@ QUESTION: [1 direct question the viewer can answer in one word]
 """
 
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
         script_text = response.text.strip()
 
         if "SCRIPT:" in script_text:
@@ -258,9 +263,9 @@ def generate_dynamic_hashtags(topic: str) -> str:
     NEVER use hashtags with over 5M posts.
     """
     print("🏷️ Generating niche hashtags...")
-    model = _get_model()
+    client = _get_client()
 
-    if not model:
+    if not client:
         return _fallback_hashtags(topic)
 
     prompt = f"""Generate exactly 8 Instagram hashtags for a viral tech Reel about: "{topic}"
@@ -277,7 +282,10 @@ STRICT RULES:
 - Output ONLY the hashtags separated by spaces. No other text.
 """
     try:
-        resp = model.generate_content(prompt)
+        resp = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
         tags = resp.text.strip()
         if "#" in tags and len(tags) > 10:
             print(f"✅ Hashtags: {tags}")

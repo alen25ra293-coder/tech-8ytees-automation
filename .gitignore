@@ -12,4 +12,3 @@ temp_audio.m4a
 __pycache__/
 *.pyc
 .venv/
-reports/

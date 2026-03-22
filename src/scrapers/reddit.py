@@ -143,15 +143,14 @@ def _rewrite_topic_viral(topic: str) -> str:
     Falls back to original topic if Gemini is unavailable.
     """
     try:
-        import google.generativeai as genai
+        from google import genai
 
         keys_raw = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY", "")
         keys = [k.strip() for k in keys_raw.split(",") if k.strip()]
         if not keys:
             return topic
 
-        genai.configure(api_key=random.choice(keys))
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        client = genai.Client(api_key=random.choice(keys))
 
         prompt = f"""Rewrite this tech headline into a viral SHORT title — NICHE: budget gadgets & hidden tech gems under $50.
 
@@ -169,7 +168,10 @@ Rules:
   "New smart home hub released" → "$28 smart plug that cut my electricity bill in half"
   "GoPro Hero 13 review" → "$12 action camera that shoots like a $400 GoPro"
 """
-        resp = model.generate_content(prompt)
+        resp = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
         rewritten = resp.text.strip().strip('"').strip("'")
         if rewritten and len(rewritten) > 10:
             print(f'   🔄 Rewrote: "{topic[:40]}..." → "{rewritten}"')

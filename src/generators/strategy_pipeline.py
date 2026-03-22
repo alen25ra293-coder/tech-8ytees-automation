@@ -1,13 +1,29 @@
 import os
 from datetime import datetime
-from src.generators.script import _get_model, NICHE, TARGET_AUDIENCE
+from google import genai
+
+# Re-use key rotation from script.py
+from src.generators.script import GEMINI_KEYS, NICHE, TARGET_AUDIENCE
+
+_key_index = 0
+
+def _get_client():
+    global _key_index
+    if not GEMINI_KEYS:
+        return None
+    key = GEMINI_KEYS[_key_index]
+    _key_index = (_key_index + 1) % len(GEMINI_KEYS)
+    return genai.Client(api_key=key)
 
 def _generate_with_retry(prompt: str, attempt: int = 1) -> str:
-    model = _get_model()
-    if not model:
+    client = _get_client()
+    if not client:
         return "Error: No Gemini model configured or available."
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
         return response.text.strip()
     except Exception as e:
         if attempt <= 3:
