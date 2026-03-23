@@ -5,6 +5,9 @@ Niche: Budget gadgets and hidden tech gems under $50 that most people don't know
 """
 import os
 import random
+import requests
+import time
+from lxml import etree
 from datetime import date
 from google import genai
 
@@ -183,13 +186,13 @@ def generate_script(topic: str, attempt: int = 1, insights: dict = None) -> str 
 
     series_note = ""
     if series:
-        series_note = f'\nToday\'s series theme: "{series["name"]}" — integrate this angle naturally.\n'
+        series_note = f'\nToday\'s series theme: "{series["name"]}"'
 
     # Load dynamic strategy if available
     import json
     import os
-    dynamic_strategy = ""
-    default_structure = """
+    dynamic_strategy_prompt_section = ""
+    default_structure_prompt_section = """
 EXACT STRUCTURE (every second planned):
 Second 0-2: PATTERN INTERRUPT
 - Begin with: "{hook}"
@@ -208,8 +211,8 @@ Second 18-22: LOOP BACK
 - Mention the product name AGAIN.
 - Echo the hook so the brain wants to rewatch.
 
-Second 22-26: CTA (use this EXACT text):
-"Save this, share it, and hit subscribe for more. What’s next? Comment."
+Second 22-26: MANDATORY CTA (use this EXACT text):
+"Drop a like, share this with a tech fan, and hit subscribe for more daily finds! Comment what you want to see next."
 """
     strategy_path = "reports/latest_strategy_context.json"
     if os.path.exists(strategy_path):
@@ -217,7 +220,7 @@ Second 22-26: CTA (use this EXACT text):
             with open(strategy_path, "r", encoding="utf-8") as f:
                 strat = json.load(f)
             if "script_framework" in strat and "script_outlines" in strat:
-                dynamic_strategy = f"""
+                dynamic_strategy_prompt_section = f"""
 = DYNAMIC COMPETITOR FRAMEWORK & OUTLINES =
 Use the following proven structural framework and pacing guidelines derived from recent AI competitor analysis:
 [FRAMEWORK]:
@@ -228,14 +231,14 @@ Use the following proven structural framework and pacing guidelines derived from
 
 CRITICAL: Adapt the above frameworks for "{topic}". Use the dynamic pacing and retention tactics above instead of a generic structure.
 """
-                default_structure = ""
+                default_structure_prompt_section = "" # Clear default if dynamic is used
         except Exception as e:
             print(f"⚠️ Failed to load strategy context: {e}")
 
     prompt = f"""You are the scriptwriter for "Tech 8ytees" — a viral Instagram Reels / YouTube Shorts channel.
 Niche: {NICHE}
 Target audience: {TARGET_AUDIENCE}
-Hook formula: {HOOK_FORMULA}
+Hook formula: {hook}
 
 CONTEXT: 80% skip rate. Viewers leave at 2 seconds. Videos must be 23-26 seconds MAX.
 {series_note}
@@ -248,8 +251,9 @@ TASK: Write a 55-65 word script about: "{topic}"
 
 CRITICAL TIMING: Video MUST be 23-26 seconds. At ~2.5 words/sec → 55 words = 22s, 65 words = 26s.
 NEVER exceed 65 words. Count them. If over 65, cut ruthlessly.
-{default_structure}
-{dynamic_strategy}
+
+{default_structure_prompt_section}
+{dynamic_strategy_prompt_section}
 
 RULES:
 - MAX 65 words. This is non-negotiable.
@@ -259,12 +263,13 @@ RULES:
 - NO filler: never "basically", "actually", "let me tell you"
 - NO emojis. NO markdown. PLAIN TEXT only.
 - Sound like a friend showing you a deal — not a salesperson.
+- MANDATORY CTA at the end: "Drop a like, share this with a tech fan, and hit subscribe for more daily finds! Comment what you want to see next."
 
 OUTPUT FORMAT (nothing else):
 PRODUCT_NAME: [The specific brand and model name of the $25 gadget, e.g. QCY T13]
 TITLE: [max 55 chars, 2 words ALL CAPS]
 HOOK_LINE: [first sentence, under 5 words]
-SCRIPT: [60-75 words total, starting with hook, ending with CTA. Mention the PRODUCT_NAME at least twice.]
+SCRIPT: [The plain text script. No headers. No timestamps. Exactly 55-65 words.]
 TAGS: [10 comma-separated lowercase tags]
 DESCRIPTION: [1 curiosity-gap sentence — must make people tap "more"]
 THUMBNAIL_TEXT: [2-3 ALL CAPS words]
@@ -398,11 +403,10 @@ def parse_script(raw: str) -> dict | None:
         data["thumbnail_text"] = " ".join(data["title"].split()[:3]).upper()
 
     # Auto-append CTA if missing
-    save_cta = "Save this, share it with a friend, and hit subscribe for more hidden gems."
-    question_cta = "What gadget should I test next? Comment below."
-    if data["script"] and "save this" not in data["script"].lower():
-        data["script"] = data["script"].rstrip() + " " + save_cta + " " + question_cta
-        print("ℹ️  CTA auto-appended.")
+    save_cta = "Drop a like, share this with a tech fan, and hit subscribe for more daily finds! Comment what you want to see next."
+    if data["script"] and "subscribe" not in data["script"].lower():
+        data["script"] = data["script"].rstrip() + " " + save_cta
+        print("ℹ️  Mandatory CTA appended to script.")
 
     # Fallback caption hook
     if not data["caption_hook"] and data["title"]:

@@ -7,7 +7,7 @@ import json
 import requests
 import argparse
 from src.scrapers.reddit import get_todays_topic
-from src.generators.script import generate_script, parse_script, generate_dynamic_hashtags, _generate_with_retry
+from src.generators.script import generate_script, parse_script, generate_dynamic_hashtags
 from src.tts.edge_voice import generate_voiceover
 from src.video.pexels import fetch_background_clips
 from src.video.composer import create_video
@@ -75,6 +75,8 @@ def extract_strategy_insights() -> dict:
         }}
         """
         
+        # Use _generate_with_retry from script module if needed, or define locally
+        from src.generators.script import _generate_with_retry
         response_text = _generate_with_retry(prompt)
         
         # Clean markdown wrappers if any
@@ -121,7 +123,12 @@ def main():
                 ideas = [line.strip() for line in f.read().splitlines() if line.strip()]
             
             if ideas:
-                topic = ideas.pop(0)
+                raw_idea = ideas.pop(0)
+                # Clean up "Title: ... - Hook: ..." format
+                topic = raw_idea
+                if "Title:" in raw_idea:
+                    topic = raw_idea.split("Title:")[1].split("- Hook:")[0].strip()
+                
                 print(f"📖 Using Weekly Strategy Idea: {topic}")
                 print(f"   ({len(ideas)} ideas remaining in queue)")
                 

@@ -8,7 +8,9 @@ NOTE: Reddit scraping removed — Reddit blocks GitHub Actions IPs.
 import os
 import requests
 import random
+import time
 import xml.etree.ElementTree as ET
+from google import genai
 
 # ---------------------------------------------------------------------------
 # Niche-specific fallback topics — budget gadgets & hidden gems
@@ -76,6 +78,15 @@ _SKIP_WORDS = {
     "obituary", "rip:", "passed away",
 }
 
+# Topics to explicitly ignore from RSS (for noise reduction)
+IGNORE_KEYWORDS = {
+    "student", "school", "politics", "war", "celebrity", "dating", "attractive",
+    "who is hiring", "launch hn", "tell hn",
+    "podcast", "newsletter", "roundup", "summary",
+    "fundraise", "acqui", "ipo", "earnings",
+    "obituary", "rip:", "passed away",
+}
+
 
 def get_trending_topics_rss() -> list[str]:
     """
@@ -117,12 +128,7 @@ def get_trending_topics_rss() -> list[str]:
                 title = title_elem.text.strip()
 
                 # Filter out low-quality / non-viral titles
-                title_lower = title.lower()
-                if (
-                    title
-                    and 15 < len(title) < 150
-                    and not any(skip in title_lower for skip in _SKIP_WORDS)
-                ):
+                if filter_rss_topic(title):
                     trending.append(title)
 
         except Exception as e:
@@ -135,6 +141,31 @@ def get_trending_topics_rss() -> list[str]:
 
     print("⚠️  RSS feeds unavailable or returned no usable posts.")
     return []
+
+
+def filter_rss_topic(topic: str) -> bool:
+    """Returns True if the topic sounds like a valid tech/gadget news item."""
+    if not topic or len(topic) < 15:
+        return False
+
+    t_lower = topic.lower()
+
+    # Check for ignore keywords
+    if any(k in t_lower for k in IGNORE_KEYWORDS):
+        return False
+
+    tech_keywords = {
+        "gadget", "tech", "iphone", "samsung", "nvidia", "ai", "apple", "google",
+        "amazon", "review", "launch", "release", "leak", "gpu", "cpu", "laptop",
+        "keyboard", "setup", "budget", "find", "hidden", "gem", "deal",
+        "earbuds", "speaker", "headset", "wireless", "phone", "charger", "mount",
+        "selfie", "screen protector", "usb-c", "webcam", "desk lamp", "cable organizer",
+        "action camera", "ring light", "projector", "monitor", "smart plug", "led strip",
+        "smart tv", "smart bulb", "power bank", "fan", "cleaner", "ssd", "travel adapter",
+        "thermal", "bluetooth tracker", "printer", "cooling fan", "vacuum cleaner", "water bottle",
+        "edc", "everyday carry", "retro gaming", "minimalist", "car tech", "charging solution",
+    }
+    return any(k in t_lower for k in tech_keywords)
 
 
 def _rewrite_topic_viral(topic: str) -> str:

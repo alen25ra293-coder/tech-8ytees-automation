@@ -7,10 +7,40 @@ Fallback 3: gTTS        (last resort)
 Subtitles  : openai-whisper → synced .vtt (word-level timestamps)
 """
 import os
+import random
 import re
 import time
 import subprocess
 import json
+import textwrap
+import requests
+from PIL import Image, ImageDraw, ImageFont
+
+# Optional imports for TTS engines (moved to top)
+try:
+    from kokoro import KPipeline
+    import soundfile as sf
+    import numpy as np
+    _KOKORO_AVAILABLE = True
+except ImportError:
+    _KOKORO_AVAILABLE = False
+    KPipeline = None
+    sf = None
+    np = None
+
+try:
+    from gtts import gTTS
+    _GTTS_AVAILABLE = True
+except ImportError:
+    _GTTS_AVAILABLE = False
+    gTTS = None
+
+try:
+    import whisper  # type: ignore
+    _WHISPER_AVAILABLE = True
+except ImportError:
+    _WHISPER_AVAILABLE = False
+    whisper = None
 
 
 # ── Text sanitization (removes markdown that TTS would read aloud) ────────────
@@ -83,7 +113,7 @@ def generate_voiceover(script_text: str) -> bool:
 
     # ── 4. Final fallback: gTTS ───────────────────────────────────────────────
     print("🎙️ Falling back to gTTS...")
-    if _try_gtts(clean_text):
+    if _try_gtts(temp_file): # Changed to pass temp_file
         _generate_subtitles_from_audio("voiceover.mp3", clean_text)
         return True
 
@@ -109,8 +139,6 @@ def _try_elevenlabs(script_text: str) -> bool:
     VOICE_ID = "pNInz6obpgDQGcFmaJgB"
 
     try:
-        import requests  # type: ignore
-
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
         headers = {
             "xi-api-key": api_key,
@@ -148,8 +176,6 @@ def _try_elevenlabs(script_text: str) -> bool:
                 err = resp.text[:200]
             print(f"⚠️  ElevenLabs error {resp.status_code}: {err}")
 
-    except ImportError:
-        print("⚠️  requests not installed — skipping ElevenLabs.")
     except Exception as e:
         print(f"⚠️  ElevenLabs failed: {e}")
 
@@ -166,11 +192,12 @@ def _try_kokoro(script_text: str) -> bool:
     Requires: pip install kokoro>=0.9.4 soundfile numpy
     Models auto-download on first use (~326 MB, cached after).
     """
+    if not _KOKORO_AVAILABLE:
+        print("⚠️  Kokoro not installed — skipping (will try edge-tts next).")
+        return False
+
     try:
         print("🎙️ Generating voiceover with Kokoro TTS (human-quality)...")
-        from kokoro import KPipeline
-        import soundfile as sf
-        import numpy as np
 
         # af_heart = warm American female, very natural
         # am_adam  = natural American male
@@ -210,9 +237,6 @@ def _try_kokoro(script_text: str) -> bool:
 
         return False
 
-    except ImportError:
-        print("⚠️  Kokoro not installed — skipping (will try edge-tts next).")
-        return False
     except Exception as e:
         print(f"⚠️  Kokoro failed: {e}")
         return False
@@ -220,62 +244,83 @@ def _try_kokoro(script_text: str) -> bool:
 
 # ── Edge TTS ───────────────────────────────────────────────────────────────────
 
-def _try_edge_tts(script_file: str) -> bool:
-    """Run edge-tts and return True on success. Tries 3 voices in descending quality."""
-    print("🎙️ Generating voiceover with edge-tts...")
-
-    voice_options = [
-        ("en-US-BrianNeural",       "+18%", "+2Hz"),
-        ("en-US-ChristopherNeural", "+15%", "+0Hz"),
-        ("en-US-GuyNeural",         "+15%", "+0Hz"),
+def get_random_voice() -> tuple[str, str, str]:
+    """Returns a random energetic energetic voice with slightly randomized rate/pitch."""
+    voices = [
+        # US Voices
+        "en-US-BrianNeural",
+        "en-US-ChristopherNeural",
+        "en-US-GuyNeural",
+        "en-US-EricNeural",
+        "en-US-SteffanNeural",
+        # AU/UK Voices (often sound more sophisticated/authoritative)
+        "en-AU-WilliamNeural",
+        "en-GB-RyanNeural",
+        "en-GB-ThomasNeural",
     ]
+    voice = random.choice(voices)
+    
+    # Randomize rate/pitch slightly (approx ±3%)
+    rate_val = 18 + random.randint(-4, 4)
+    pitch_val = random.randint(-2, 2)
+    
+    return voice, f"+{rate_val}%", f"{pitch_val}Hz"
 
-    for voice, rate, pitch in voice_options:
-        cmd = [
-            "edge-tts",
-            "--voice", voice,
-            "--rate",  rate,
-            "--pitch", pitch,
-            "-f", script_file,
-            "--write-media",     "voiceover.mp3",
-            "--write-subtitles", "subtitles.vtt",
-        ]
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-            if result.returncode == 0 and os.path.exists("voiceover.mp3"):
-                size_kb = os.path.getsize("voiceover.mp3") // 1024
-                print(f"✅ edge-tts ready! Voice: {voice} ({size_kb} KB)")
-                return True
-            err = result.stderr.strip()[:200]
-            print(f"⚠️  Voice {voice} failed: {err}")
-        except FileNotFoundError:
-            print("❌ edge-tts not installed.")
-            return False
-        except subprocess.TimeoutExpired:
-            print(f"⏱️  edge-tts timed out for {voice}")
-        except Exception as e:
-            print(f"❌ edge-tts error ({voice}): {e}")
 
-    return False
+def _try_edge_tts(script_file: str) -> bool:
+    """Run edge-tts and return True on success. Randomizes voice for variety."""
+    voice, rate, pitch = get_random_voice()
+    print(f"🎙️ Generating voiceover with edge-tts (Voice: {voice})...")
+
+    cmd = [
+        "edge-tts",
+        "--voice", voice,
+        "--rate",  rate,
+        "--pitch", pitch,
+        "-f", script_file,
+        "--write-media",     "voiceover.mp3",
+        "--write-subtitles", "subtitles.vtt",
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        if result.returncode == 0 and os.path.exists("voiceover.mp3"):
+            size_kb = os.path.getsize("voiceover.mp3") // 1024
+            print(f"✅ edge-tts ready! ({size_kb} KB)")
+            return True
+        
+        # Fallback to a safe voice if random one fails
+        print(f"⚠️  Voice {voice} failed, trying safe fallback...")
+        cmd[2] = "en-US-BrianNeural"
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+        return result.returncode == 0
+    except Exception as e:
+        print(f"❌ edge-tts failed: {e}")
+        return False
 
 
 # ── gTTS fallback ──────────────────────────────────────────────────────────────
 
-def _try_gtts(script_text: str) -> bool:
-    """Last-resort fallback. Creates voiceover.mp3 without subtitles."""
-    try:
-        from gtts import gTTS
-        print("🎙️ Generating voiceover with gTTS fallback...")
-        tts = gTTS(text=script_text, lang="en", slow=False)
-        tts.save("voiceover.mp3")
-        size_kb = os.path.getsize("voiceover.mp3") // 1024
-        print(f"✅ gTTS voiceover saved ({size_kb} KB).")
-        return True
-    except ImportError:
-        print("❌ gTTS not installed.")
+def _try_gtts(script_file: str) -> bool:
+    """Run gTTS (Google TTS) as a last-resort fallback."""
+    if not _GTTS_AVAILABLE:
+        print("⚠️  gTTS not installed — skipping.")
         return False
+
+    print("🎙️ Generating voiceover with gTTS (Fallback)...")
+    try:
+        with open(script_file, "r", encoding="utf-8") as f:
+            text = f.read()
+        
+        tts = gTTS(text=text, lang="en", tld="com")
+        tts.save("voiceover.mp3")
+        
+        # Create a dummy subtitles file for gTTS if it doesn't exist
+        if not os.path.exists("subtitles.vtt"):
+            with open("subtitles.vtt", "w") as f:
+                f.write("WEBVTT\n\n00:00:00.000 --> 00:00:10.000\n(Voiceover)")
+        return True
     except Exception as e:
-        print(f"❌ gTTS failed: {e}")
+        print(f"❌ gTTS error: {e}")
         return False
 
 

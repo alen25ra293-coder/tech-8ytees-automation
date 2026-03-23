@@ -6,6 +6,8 @@ Randomizes accent color & background gradient each run for visual variety.
 import os
 import random
 import textwrap
+import requests
+from PIL import Image, ImageDraw, ImageFont
 
 
 # Palette of vibrant accent color schemes (accent, text, background start, end)
@@ -25,17 +27,42 @@ _COLOR_PALETTES = [
 ]
 
 
+def _fetch_thumbnail_bg_image(topic: str, product_name: str = None) -> str | None:
+    """Fetches a relevant tech-themed background image from Pexels for the thumbnail."""
+    try:
+        from src.video.pexels import _build_search_queries
+        
+        api_key = os.environ.get("PEXELS_API_KEY")
+        if not api_key:
+            return None
+            
+        queries = _build_search_queries(topic, product_name or "")
+        query = queries[0] if queries else "tech gadget"
+        
+        print(f"🔍 Searching Pexels for thumbnail background: '{query}'")
+        headers = {"Authorization": api_key}
+        params = {"query": query, "per_page": 1, "orientation": "landscape", "size": "large"}
+        
+        r = requests.get("https://api.pexels.com/v1/search", headers=headers, params=params, timeout=10)
+        if r.status_code == 200:
+            photos = r.json().get("photos", [])
+            if photos:
+                img_url = photos[0]["src"]["large"]
+                data = requests.get(img_url, timeout=10).content
+                path = "temp_thumb_bg.jpg"
+                with open(path, "wb") as f:
+                    f.write(data)
+                return path
+    except Exception as e:
+        print(f"⚠️ Thumbnail BG fetch failed: {e}")
+    return None
+
+
 def generate_thumbnail(thumbnail_text: str, title: str, style: str = None, output_path: str = "output_thumbnail.jpg") -> str | None:
     """
     Generate a YouTube thumbnail.
     Returns the path to the saved thumbnail, or None on failure.
     """
-    try:
-        from PIL import Image, ImageDraw, ImageFont
-    except ImportError:
-        print("⚠️  Pillow not installed — skipping thumbnail generation.")
-        return None
-
     print("🖼️  Generating YouTube thumbnail...")
 
     try:
@@ -62,29 +89,37 @@ def generate_thumbnail(thumbnail_text: str, title: str, style: str = None, outpu
         bg1     = palette["bg1"]
         bg2     = palette["bg2"]
 
-        # ── Background: dark gradient ──────────────────────────────────────
-        img = Image.new("RGB", (W, H), color=bg1)
+        # ── Background: stock image or dark gradient ────────────────────────
+        bg_img_path = _fetch_thumbnail_bg_image(title, thumbnail_text)
+        if bg_img_path and os.path.exists(bg_img_path):
+            img = Image.open(bg_img_path).convert("RGB")
+            img = img.resize((W, H), Image.Resampling.LANCZOS)
+            # Add a dark overlay to make text pop
+            overlay = Image.new("RGBA", (W, H), (0, 0, 0, 160))
+            img.paste(overlay, (0, 0), overlay)
+            os.remove(bg_img_path)
+        else:
+            img = Image.new("RGB", (W, H), color=bg1)
+            draw = ImageDraw.Draw(img)
+            for y in range(H):
+                ratio = y / H
+                r = int(bg1[0] + ratio * (bg2[0] - bg1[0]))
+                g = int(bg1[1] + ratio * (bg2[1] - bg1[1]))
+                b = int(bg1[2] + ratio * (bg2[2] - bg1[2]))
+                draw.line([(0, y), (W, y)], fill=(r, g, b))
+
         draw = ImageDraw.Draw(img)
 
-        for y in range(H):
-            ratio = y / H
-            r = int(bg1[0] + ratio * (bg2[0] - bg1[0]))
-            g = int(bg1[1] + ratio * (bg2[1] - bg1[1]))
-            b = int(bg1[2] + ratio * (bg2[2] - bg1[2]))
-            draw.line([(0, y), (W, y)], fill=(r, g, b))
-
-        # Accent bars at top and bottom
-        bar_h = 12
+        # Accent bars at top and bottom (more subtle neon glow)
+        bar_h = 15
         draw.rectangle([0, 0, W, bar_h], fill=accent)
         draw.rectangle([0, H - bar_h, W, H], fill=accent)
 
         # ── Load fonts ──────────────────────────────────────────────────────
         font_paths = [
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
-            "/usr/share/fonts/truetype/ubuntu/Ubuntu-Bold.ttf",
             "C:/Windows/Fonts/Impact.ttf",
             "C:/Windows/Fonts/arialbd.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
         ]
 
         def load_font(size: int):
@@ -96,48 +131,49 @@ def generate_thumbnail(thumbnail_text: str, title: str, style: str = None, outpu
                         continue
             return ImageFont.load_default()
 
-        font_main  = load_font(140)
-        font_sub   = load_font(44)
-        font_badge = load_font(36)
+        # Larger, bolder fonts
+        font_main  = load_font(180)
+        font_sub   = load_font(56)
+        font_badge = load_font(42)
 
         # ── Thumbnail text (main big text) ─────────────────────────────────
         clean_main = thumbnail_text.upper().strip()
-        lines = textwrap.wrap(clean_main, width=12)
+        lines = textwrap.wrap(clean_main, width=10)
 
-        text_block_height = len(lines) * 160
-        start_y = max(80, (H * 0.55 - text_block_height) // 2)
+        text_block_height = len(lines) * 190
+        start_y = (H - text_block_height) // 2 - 20
 
         for i, line in enumerate(lines):
-            y = int(start_y + i * 160)
-            # Thick dark outline (draw text 8 times offset for stroke effect)
-            for dx in [-3, 0, 3]:
-                for dy in [-3, 0, 3]:
-                    if dx == 0 and dy == 0:
-                        continue
-                    draw.text((W // 2 + dx, y + dy), line, font=font_main,
-                              fill=(0, 0, 0), anchor="mm")
-            # Main colored text on top
+            y = int(start_y + i * 190) + 100
+            # Thick shadow context
+            for dist in range(1, 10):
+                draw.text((W // 2 + dist, y + dist), line, font=font_main,
+                          fill=(0, 0, 0, 100), anchor="mm")
+            # Main colored text
             draw.text((W // 2, y), line, font=font_main,
                       fill=text_color, anchor="mm")
 
-        # ── Channel badge ──────────────────────────────────────────────────
+        # ── Channel badge (bottom-right) ──────────────────────────────────
         badge_text = "Tech 8ytees"
-        draw.rounded_rectangle([W - 280, H - 75, W - 20, H - 20],
-                                radius=12, fill=accent)
-        # Badge text in dark color
-        badge_fg = (10, 10, 25) if sum(accent) > 400 else (255, 255, 255)
-        draw.text((W - 150, H - 47), badge_text, font=font_badge,
-                  fill=badge_fg, anchor="mm")
+        badge_w, badge_h = 320, 80
+        draw.rounded_rectangle([W - badge_w - 20, H - badge_h - 20, W - 20, H - 20],
+                                radius=15, fill=accent)
+        badge_fg = (0, 0, 0) if sum(accent) > 400 else (255, 255, 255)
+        draw.text((W - (badge_w // 2) - 20, H - (badge_h // 2) - 20), badge_text, 
+                  font=font_badge, fill=badge_fg, anchor="mm")
 
-        # ── Subtitle line (smaller text) ─────────────────────────────────
-        sub_text = title[:55] + ("…" if len(title) > 55 else "")
-        draw.text((W // 2, H - 100), sub_text, font=font_sub,
-                  fill=(210, 210, 210), anchor="mm")
+        # ── Subtitle - PUNCHY top line ─────────────────────────────────
+        sub_text = title.upper()[:45]
+        # Draw on top with backing box for contrast
+        sub_box_h = 80
+        draw.rectangle([0, 40, W, 40 + sub_box_h], fill=(0, 0, 0, 180))
+        draw.text((W // 2, 40 + (sub_box_h // 2)), sub_text, font=font_sub,
+                  fill=accent, anchor="mm")
 
         # ── Save ───────────────────────────────────────────────────────────
         img.save(output_path, "JPEG", quality=95)
         size_kb = os.path.getsize(output_path) // 1024
-        print(f"✅ Thumbnail saved: {output_path} ({size_kb} KB)")
+        print(f"✅ Enhanced Thumbnail saved: {output_path} ({size_kb} KB)")
         return output_path
 
     except Exception as e:
