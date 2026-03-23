@@ -144,26 +144,36 @@ def create_video(title, video_clips, hook_line=""):
 
         vf_filter = ",".join(vf_parts) if vf_parts else None
 
-        # ── 6. Build audio filter (voiceover + optional impact sound + optional BGM) ──
+        # ── 5c. Stitch API Subscribe Card ────────────────────────────────────
+        subscribe_card = "subscribe_card.png"
+        try:
+            from src.generators.stitch_client import generate_ui_image
+            generate_ui_image("A sleek, dark-mode glassmorphism UI card asking the viewer to Like, Share, and Subscribe to Tech 8ytees", subscribe_card)
+        except Exception:
+            pass
+
+        # ── 6. Build ffmpeg command and filters ──────────────────────────────
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
+        
+        sub_card_idx = -1
+        if os.path.exists(subscribe_card):
+            main_cmd.extend(["-i", subscribe_card])
+            sub_card_idx = 2
+
+        audio_input_idx = 3 if sub_card_idx != -1 else 2
         audio_inputs = []
 
-        # Check for impact/whoosh sound effect
         impact_file = None
-        for candidate in ["assets/impact_sound.mp3", "assets/whoosh.mp3", "assets/impact.mp3",
-                          "impact_sound.mp3", "whoosh.mp3"]:
+        for candidate in ["assets/impact_sound.mp3", "assets/whoosh.mp3", "assets/impact.mp3", "impact_sound.mp3", "whoosh.mp3"]:
             if os.path.exists(candidate):
                 impact_file = candidate
                 break
 
-        # Check for background music
         bgm_file = None
         for candidate in ["bgm.mp3", "bgm.wav", "bgm.m4a"]:
             if os.path.exists(candidate):
                 bgm_file = candidate
                 break
-
-        audio_input_idx = 2  # next input after bg (0) and voiceover (1)
 
         if impact_file:
             main_cmd.extend(["-i", impact_file])
@@ -177,28 +187,41 @@ def create_video(title, video_clips, hook_line=""):
             audio_inputs.append(("bgm", audio_input_idx, 0.10))
             audio_input_idx += 1
 
-        # Build audio mix
+        fc_parts = []
+        final_v = "0:v"
+        final_a = "1:a"
+
+        # Video filters
+        if sub_card_idx != -1:
+            t_start = max(0, video_duration - 4)
+            if vf_filter:
+                fc_parts.append(f"[0:v]{vf_filter}[vbase]")
+                in_v = "[vbase]"
+            else:
+                in_v = "0:v"
+            fc_parts.append(f"[{sub_card_idx}:v]scale='min(iw,800)':-1[sub]")
+            fc_parts.append(f"{in_v}[sub]overlay=(W-w)/2:(H-h)/2+250:enable='between(t,{t_start},999)'[vout]")
+            final_v = "[vout]"
+            print("   🪄 Subscribe Card will overlay in the last 4 seconds")
+        elif vf_filter:
+            fc_parts.append(f"[0:v]{vf_filter}[vout]")
+            final_v = "[vout]"
+
+        # Audio filters
         if audio_inputs:
-            # Mix voiceover + extras
-            filter_parts = [f"[1:a]volume=1.0[vo]"]
+            fc_parts.append(f"[1:a]volume=1.0[vo]")
             mix_inputs = ["[vo]"]
             for name, idx, vol in audio_inputs:
-                filter_parts.append(f"[{idx}:a]volume={vol}[{name}]")
+                fc_parts.append(f"[{idx}:a]volume={vol}[{name}]")
                 mix_inputs.append(f"[{name}]")
             mix_count = len(mix_inputs)
-            weights = " ".join(["1"] + ["0.3"] * (mix_count - 1))
-            filter_parts.append(
-                f"{''.join(mix_inputs)}amix=inputs={mix_count}:duration=first[aout]"
-            )
-            af_filter = ";".join(filter_parts)
+            fc_parts.append(f"{''.join(mix_inputs)}amix=inputs={mix_count}:duration=first[aout]")
+            final_a = "[aout]"
 
-            if vf_filter:
-                main_cmd.extend(["-vf", vf_filter])
-            main_cmd.extend(["-filter_complex", af_filter, "-map", "0:v", "-map", "[aout]"])
-        else:
-            if vf_filter:
-                main_cmd.extend(["-vf", vf_filter])
-            main_cmd.extend(["-map", "0:v", "-map", "1:a"])
+        if fc_parts:
+            main_cmd.extend(["-filter_complex", ";".join(fc_parts)])
+
+        main_cmd.extend(["-map", final_v, "-map", final_a])
 
         main_cmd.extend([
             "-c:v", "libx264", "-preset", "fast",

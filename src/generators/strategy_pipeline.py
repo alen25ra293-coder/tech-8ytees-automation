@@ -1,5 +1,6 @@
 import os
 import glob
+import json
 from datetime import datetime
 from google import genai
 
@@ -138,13 +139,27 @@ def run_full_strategy_pipeline(channel_context: str = "Tech 8ytees channel. 24-2
 
     # ── Cleanup old reports BEFORE creating new one ──
     os.makedirs("reports", exist_ok=True)
-    old_reports = glob.glob("reports/*.md")
+    old_reports = glob.glob("reports/*.md") + glob.glob("reports/*.json")
     for r in old_reports:
         try:
             os.remove(r)
             print(f"🗑️ Deleted old report: {r}")
         except Exception:
             pass
+
+    # ── Export structured JSON for daily consumption ──
+    strategy_dict = {
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "channel_audit": audit,
+        "competitor_analysis": comp_analysis,
+        "thumbnail_strategy": thumbnails,
+        "script_framework": script_analysis,
+        "script_outlines": script_outlines
+    }
+    json_path = "reports/latest_strategy_context.json"
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(strategy_dict, f, indent=2)
+    print(f"✅ Saved strategy context JSON to: {json_path}")
 
     # Compile the final document
     report = f"""# Comprehensive YouTube Growth Strategy

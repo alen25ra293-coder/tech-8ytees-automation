@@ -144,13 +144,33 @@ HOOK_OPENERS = [
 ]
 
 
+def _generate_with_retry(prompt: str, model: str = "gemini-2.0-flash", attempt: int = 1) -> str:
+    """Helper to generate content with key rotation and basic retry."""
+    client = _get_client()
+    if not client:
+        return ""
+    try:
+        response = client.models.generate_content(model=model, contents=prompt)
+        return response.text.strip()
+    except Exception as e:
+        if attempt < len(GEMINI_KEYS):
+            return _generate_with_retry(prompt, model, attempt + 1)
+        raise e
+
+
 # ── Main script generation ────────────────────────────────────────────────────
-def generate_script(topic: str, attempt: int = 1) -> str | None:
+def generate_script(topic: str, attempt: int = 1, insights: dict = None) -> str | None:
     """Generate a viral 55-65 word script for a 23-26 second video."""
     print(f"🤖 Generating viral script (attempt {attempt}/3)...")
 
-    hook = random.choice(HOOK_OPENERS)
+    insights = insights or {}
+    hook = insights.get("hook_formula") or random.choice(HOOK_OPENERS)
     series = get_series_theme()
+    
+    # Log if using dynamic strategy
+    if insights:
+        print("   ✅ Using dynamic insights for script generation.")
+
     client = _get_client()
     if not client:
         print("❌ No Gemini API keys. Using fallback.")
@@ -164,6 +184,53 @@ def generate_script(topic: str, attempt: int = 1) -> str | None:
     series_note = ""
     if series:
         series_note = f'\nToday\'s series theme: "{series["name"]}" — integrate this angle naturally.\n'
+
+    # Load dynamic strategy if available
+    import json
+    import os
+    dynamic_strategy = ""
+    default_structure = """
+EXACT STRUCTURE (every second planned):
+Second 0-2: PATTERN INTERRUPT
+- Begin with: "{hook}"
+- Under 5 words. Shocking. Viewer stops scrolling.
+
+Second 2-5: PROMISE
+- Tell them exactly what they'll get. One sentence.
+
+Second 5-18: PROOF + DELIVERY (2 fast facts)
+- IDENTIFY THE PRODUCT: You MUST name the ACTUAL product (brand + model) within the first 10 seconds.
+- Give one specific number (price, review count, battery hours).
+- Give one comparison to the expensive alternative.
+- Short sentences. Fragments OK.
+
+Second 18-22: LOOP BACK
+- Mention the product name AGAIN.
+- Echo the hook so the brain wants to rewatch.
+
+Second 22-26: CTA (use this EXACT text):
+"Save this, share it, and hit subscribe for more. What’s next? Comment."
+"""
+    strategy_path = "reports/latest_strategy_context.json"
+    if os.path.exists(strategy_path):
+        try:
+            with open(strategy_path, "r", encoding="utf-8") as f:
+                strat = json.load(f)
+            if "script_framework" in strat and "script_outlines" in strat:
+                dynamic_strategy = f"""
+= DYNAMIC COMPETITOR FRAMEWORK & OUTLINES =
+Use the following proven structural framework and pacing guidelines derived from recent AI competitor analysis:
+[FRAMEWORK]:
+{strat['script_framework']}
+
+[OUTLINES TO REFERENCE]:
+{strat['script_outlines']}
+
+CRITICAL: Adapt the above frameworks for "{topic}". Use the dynamic pacing and retention tactics above instead of a generic structure.
+"""
+                default_structure = ""
+        except Exception as e:
+            print(f"⚠️ Failed to load strategy context: {e}")
 
     prompt = f"""You are the scriptwriter for "Tech 8ytees" — a viral Instagram Reels / YouTube Shorts channel.
 Niche: {NICHE}
@@ -181,31 +248,8 @@ TASK: Write a 55-65 word script about: "{topic}"
 
 CRITICAL TIMING: Video MUST be 23-26 seconds. At ~2.5 words/sec → 55 words = 22s, 65 words = 26s.
 NEVER exceed 65 words. Count them. If over 65, cut ruthlessly.
-
-EXACT STRUCTURE (every second planned):
-
-Second 0-2: PATTERN INTERRUPT
-- Begin with: "{hook}"
-- Under 5 words. Shocking. Viewer stops scrolling.
-
-Second 2-5: PROMISE
-- Tell them exactly what they'll get. One sentence.
-- Example: "This 22 dollar gadget has noise cancelling that beats AirPods."
-
-Second 5-18: PROOF + DELIVERY (2 fast facts)
-- IDENTIFY THE PRODUCT: You MUST name the ACTUAL product (brand + model) within the first 10 seconds.
-- Example: "They're called the QCY T13, and they're on Amazon."
-- Give one specific number (price, review count, battery hours, megapixels).
-- Give one comparison to the expensive alternative.
-- Short sentences. Fragments OK. "Four K. Waterproof. Twelve dollars."
-
-Second 18-22: LOOP BACK
-- Mention the product name AGAIN.
-- Echo the hook so the brain wants to rewatch.
-- Example: hook was "This costs twelve bucks." → loop: "The T13. Twelve bucks. That's it."
-
-Second 22-26: CTA (use this EXACT text):
-"Save this. What should I test next? Comment."
+{default_structure}
+{dynamic_strategy}
 
 RULES:
 - MAX 65 words. This is non-negotiable.
@@ -313,7 +357,7 @@ HOOK_LINE: {hook}
 SCRIPT: {hook} This gadget costs under 20 dollars and does what the 300 dollar version does. \
 I found it on Amazon with 40,000 five star reviews. The build is insane for the price. \
 I tested it for two months. It outperformed the expensive one every time. \
-Save this. What should I test next? Comment.
+Save this, share it, and hit subscribe for more. What should I test next? Comment.
 TAGS: budget gadgets, cheap tech, amazon finds, hidden gem, tech deals, affordable tech, gadget review, budget tech, tech tips, cheap gadgets
 DESCRIPTION: This budget gadget just embarrassed a product that costs 10x more 👀
 THUMBNAIL_TEXT: BUDGET BEAST
@@ -354,7 +398,7 @@ def parse_script(raw: str) -> dict | None:
         data["thumbnail_text"] = " ".join(data["title"].split()[:3]).upper()
 
     # Auto-append CTA if missing
-    save_cta = "Save this before you buy your next gadget."
+    save_cta = "Save this, share it with a friend, and hit subscribe for more hidden gems."
     question_cta = "What gadget should I test next? Comment below."
     if data["script"] and "save this" not in data["script"].lower():
         data["script"] = data["script"].rstrip() + " " + save_cta + " " + question_cta

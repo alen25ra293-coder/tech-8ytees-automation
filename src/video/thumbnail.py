@@ -25,7 +25,7 @@ _COLOR_PALETTES = [
 ]
 
 
-def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "output_thumbnail.jpg") -> str | None:
+def generate_thumbnail(thumbnail_text: str, title: str, style: str = None, output_path: str = "output_thumbnail.jpg") -> str | None:
     """
     Generate a YouTube thumbnail.
     Returns the path to the saved thumbnail, or None on failure.
@@ -39,6 +39,20 @@ def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "outp
     print("🖼️  Generating YouTube thumbnail...")
 
     try:
+        # ── 0. Optional: Stitch API Thumbnail ──────────────────────────────
+        try:
+            from src.generators.stitch_client import generate_ui_image
+            if style:
+                prompt = f"A high-performing YouTube Shorts thumbnail that perfectly matches this specific visual style: '{style}', and features bold text saying '{thumbnail_text}'"
+            else:
+                prompt = f"A high-contrast YouTube Shorts thumbnail with a glowing price tag, neon border, and bold text saying '{thumbnail_text}'"
+            
+            stitch_out = generate_ui_image(prompt, output_path)
+            if stitch_out:
+                return stitch_out
+        except Exception as e:
+            print(f"⚠️  Stitch API generation failed: {e}")
+
         W, H = 1280, 720
 
         # Pick a random color palette each run for variety

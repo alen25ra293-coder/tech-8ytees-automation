@@ -2,13 +2,25 @@
 .env
 token.json
 client_secret.json
+
+# Media and temporary files
 *.mp4
 *.mp3
-voiceover.mp3
-bg_video.mp4
-temp_audio.m4a
+*.m4a
+*.jpg
+*.png
+*.vtt
+*.txt
+dry_run_log.txt
+out.txt
+
+# Strategy and reports
+reports/strategy_report_*.md
+!reports/latest_strategy_context.json
 
 # Python
 __pycache__/
 *.pyc
 .venv/
+.pytest_cache/
+.mypy_cache/
