@@ -87,6 +87,9 @@ jobs:
           # Voiceover
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
 
+          # Google Stitch API (Thumbnails & UI Overlays)
+          STITCH_API_KEY: ${{ secrets.STITCH_API_KEY }}
+
           # Misc
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
         run: python main.py
