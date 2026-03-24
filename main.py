@@ -172,10 +172,8 @@ def main():
         # ── 5. Background clips (10 clips × 2.5s each = rapid cuts for 23-26s) ────
         product_name = parsed.get("product_name")
         bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=10)
-
         if not bg_clips:
-            print("❌ No background clips found. Exiting.")
-            sys.exit(1)
+            print("⚠️ No background clips found. Composer will use its built-in dark fallback background.")
 
         # ── 6. Video composition (title overlay + rapid cuts + subtitles) ─
         video_ok = create_video(
@@ -234,4 +232,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
