@@ -20,5 +20,8 @@ openai-whisper>=20231117
 # ── Image / Video ───────────────────────────────────────
 Pillow==10.3.0           # Thumbnail generation
 
+# ── XML Processing ──────────────────────────────────────
+lxml>=4.9.0              # XML parsing for script generation
+
 # ── Environment / Utils ─────────────────────────────────
 python-dotenv==1.0.1
