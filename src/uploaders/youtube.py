@@ -28,8 +28,12 @@ def upload_to_youtube(title: str, description: str, tags: str,
                 parsed_token = json.loads(token_json_env)
                 with open("token.json", "w", encoding="utf-8") as token_file:
                     json.dump(parsed_token, token_file)
+                try:
+                    os.chmod("token.json", 0o600)
+                except OSError:
+                    pass
                 print("✅ token.json created from YOUTUBE_TOKEN_JSON.")
-            except Exception as e:
+            except (json.JSONDecodeError, OSError) as e:
                 print(f"⚠️  Invalid YOUTUBE_TOKEN_JSON value ({e}) — skipping YouTube upload.")
                 print(f"   (Video is ready at: {video_file})")
                 return None

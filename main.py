@@ -173,7 +173,7 @@ def main():
         product_name = parsed.get("product_name")
         bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=10)
         if not bg_clips:
-            print("⚠️ No background clips found. Continuing with fallback background.")
+            print("⚠️ No background clips found. Composer will use its built-in dark fallback background.")
 
         # ── 6. Video composition (title overlay + rapid cuts + subtitles) ─
         video_ok = create_video(
