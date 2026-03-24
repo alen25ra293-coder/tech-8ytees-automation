@@ -22,9 +22,21 @@ def upload_to_youtube(title: str, description: str, tags: str,
         return None
 
     if not os.path.exists("token.json"):
-        print("⚠️  No token.json found — skipping YouTube upload.")
-        print(f"   (Video is ready at: {video_file})")
-        return None
+        token_json_env = os.environ.get("YOUTUBE_TOKEN_JSON", "").strip()
+        if token_json_env:
+            try:
+                parsed_token = json.loads(token_json_env)
+                with open("token.json", "w", encoding="utf-8") as token_file:
+                    json.dump(parsed_token, token_file)
+                print("✅ token.json created from YOUTUBE_TOKEN_JSON.")
+            except Exception as e:
+                print(f"⚠️  Invalid YOUTUBE_TOKEN_JSON value ({e}) — skipping YouTube upload.")
+                print(f"   (Video is ready at: {video_file})")
+                return None
+        else:
+            print("⚠️  No token.json found — skipping YouTube upload.")
+            print(f"   (Video is ready at: {video_file})")
+            return None
 
     try:
         print("📤 Uploading to YouTube Shorts...")

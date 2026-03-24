@@ -108,14 +108,16 @@ def generate_voiceover(script_text: str) -> bool:
         print(f"⚠️  edge-tts attempt {attempt} failed. Retrying in 3s...")
         time.sleep(3)
 
-    if os.path.exists(temp_file):
-        os.remove(temp_file)
-
     # ── 4. Final fallback: gTTS ───────────────────────────────────────────────
     print("🎙️ Falling back to gTTS...")
-    if _try_gtts(temp_file): # Changed to pass temp_file
+    if _try_gtts(clean_text):
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
         _generate_subtitles_from_audio("voiceover.mp3", clean_text)
         return True
+
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
 
     return False
 
@@ -300,7 +302,7 @@ def _try_edge_tts(script_file: str) -> bool:
 
 # ── gTTS fallback ──────────────────────────────────────────────────────────────
 
-def _try_gtts(script_file: str) -> bool:
+def _try_gtts(script_text: str) -> bool:
     """Run gTTS (Google TTS) as a last-resort fallback."""
     if not _GTTS_AVAILABLE:
         print("⚠️  gTTS not installed — skipping.")
@@ -308,10 +310,7 @@ def _try_gtts(script_file: str) -> bool:
 
     print("🎙️ Generating voiceover with gTTS (Fallback)...")
     try:
-        with open(script_file, "r", encoding="utf-8") as f:
-            text = f.read()
-        
-        tts = gTTS(text=text, lang="en", tld="com")
+        tts = gTTS(text=script_text, lang="en", tld="com")
         tts.save("voiceover.mp3")
         
         # Create a dummy subtitles file for gTTS if it doesn't exist
