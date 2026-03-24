@@ -4,16 +4,72 @@ import time
 import json
 import base64
 
+
+def check_stitch_project(project_id: str = "tech-8ytees-shorts") -> bool:
+    """
+    Quick check if Stitch project exists and API key is valid.
+    Returns True if project is accessible, False otherwise.
+    """
+    api_key = os.environ.get("STITCH_API_KEY", "").strip()
+    if not api_key:
+        return False
+    
+    endpoint = "https://stitch.googleapis.com/mcp"
+    headers = {
+        "X-Goog-Api-Key": api_key,
+        "Content-Type": "application/json"
+    }
+    
+    # Try to get project details
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 0,
+        "method": "tools/call",
+        "params": {
+            "name": "get_project",
+            "arguments": {
+                "name": f"projects/{project_id}"
+            }
+        }
+    }
+    
+    try:
+        response = requests.post(endpoint, json=payload, headers=headers, timeout=30)
+        if response.status_code == 200:
+            data = response.json()
+            if "error" not in data:
+                return True
+            error_msg = data.get("error", {}).get("message", "")
+            if "not found" in error_msg.lower():
+                print(f"⚠️  Stitch project '{project_id}' not found.")
+                print(f"   Create it at: https://stitch.withgoogle.com/")
+                return False
+            elif "permission" in error_msg.lower() or "auth" in error_msg.lower():
+                print(f"⚠️  Stitch API key invalid or lacks permissions.")
+                print(f"   Check your API key at: https://stitch.withgoogle.com/settings")
+                return False
+    except Exception as e:
+        print(f"⚠️  Could not connect to Stitch API: {e}")
+    
+    return False
+
+
 def generate_ui_image(prompt: str, output_path: str = "output_ui.jpg") -> str | None:
     """
     Calls the Google Stitch API via MCP to generate a UI / screenshot.
     Returns the path to the saved image, or None if it fails.
     
     Docs: https://stitch.withgoogle.com/docs/mcp/setup
+    
+    Prerequisites:
+    1. STITCH_API_KEY environment variable must be set
+    2. Project "tech-8ytees-shorts" must exist in your Stitch account
+       (Create it at https://stitch.withgoogle.com/ if needed)
     """
     api_key = os.environ.get("STITCH_API_KEY", "").strip()
     if not api_key:
         print("⚠️  STITCH_API_KEY not found in environment. Skipping Stitch generation.")
+        print("   Get your API key at: https://stitch.withgoogle.com/settings")
         return None
 
     print(f"🪄  Prompting Stitch API: '{prompt[:60]}...'")
@@ -21,6 +77,8 @@ def generate_ui_image(prompt: str, output_path: str = "output_ui.jpg") -> str | 
     # Correct endpoint from official docs
     endpoint = "https://stitch.googleapis.com/mcp"
     project_id = "tech-8ytees-shorts"
+    
+    print(f"   Using project: {project_id}")
     
     # 1. Generate screen from text using correct tool name
     create_payload = {
@@ -53,8 +111,14 @@ def generate_ui_image(prompt: str, output_path: str = "output_ui.jpg") -> str | 
             
         data = response.json()
         if "error" in data:
-            print(f"❌ Stitch API error: {data['error']}")
+            error_info = data.get("error", {})
+            error_msg = error_info.get("message", str(error_info))
+            print(f"❌ Stitch API error: {error_msg}")
+            print(f"   Full error: {json.dumps(error_info, indent=2)}")
             return None
+        
+        # Debug: Print full response to understand format
+        print(f"📋 Stitch response: {json.dumps(data, indent=2)[:800]}")
             
         # Parse the response to extract screen resource name
         screen_name = None
@@ -97,7 +161,11 @@ def generate_ui_image(prompt: str, output_path: str = "output_ui.jpg") -> str | 
             print(f"Response preview: {json.dumps(data, indent=2)[:500]}")
         
         if not screen_name:
-            print("⚠️ No screen created or response format changed.")
+            print("⚠️ No screen name found in response.")
+            print(f"   Response structure: result keys = {list(result.keys())}")
+            print(f"   Content items: {len(content)} items")
+            if content:
+                print(f"   First content item type: {content[0].get('type') if content else 'N/A'}")
             return None
         
         print(f"✅ Screen created: {screen_name}")
