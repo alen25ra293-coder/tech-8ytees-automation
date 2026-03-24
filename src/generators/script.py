@@ -103,8 +103,7 @@ EXAMPLE_SCRIPTS = [
             "a scam. They're called QCY T13. Six million sold. I tested them for 3 months "
             "and I haven't touched my AirPods since. Apple charges you 250 bucks for a "
             "brand name. Stop falling for it. "
-            "Save this before you buy your next gadget. "
-            "What gadget should I test next? Comment below."
+            "Drop a like if this helped! Hit subscribe for daily tech finds. Comment what gadget I should test next!"
         ),
     },
     {
@@ -116,8 +115,7 @@ EXAMPLE_SCRIPTS = [
             "I took it surfing, hiking, and biking. The footage? People thought it was a "
             "GoPro Hero 12. That costs 400 dollars. This costs 12. Same shots. "
             "Your expensive camera is a waste of money. "
-            "Save this before you buy your next gadget. "
-            "Which overpriced gadget should I expose next? Comment below."
+            "Drop a like if this helped! Hit subscribe for daily tech finds. Comment what gadget I should test next!"
         ),
     },
 ]
@@ -263,7 +261,7 @@ RULES:
 - NO filler: never "basically", "actually", "let me tell you"
 - NO emojis. NO markdown. PLAIN TEXT only.
 - Sound like a friend showing you a deal — not a salesperson.
-- MANDATORY CTA at the end: "Drop a like, share this with a tech fan, and hit subscribe for more daily finds! Comment what you want to see next."
+- MANDATORY CTA at the end (MUST INCLUDE): "Drop a like if this helped! Hit subscribe for daily tech finds. Comment what gadget I should test next!" - This MUST be in the script verbatim.
 
 OUTPUT FORMAT (nothing else):
 PRODUCT_NAME: [The specific brand and model name of the $25 gadget, e.g. QCY T13]
@@ -402,11 +400,17 @@ def parse_script(raw: str) -> dict | None:
     if not data["thumbnail_text"] and data["title"]:
         data["thumbnail_text"] = " ".join(data["title"].split()[:3]).upper()
 
-    # Auto-append CTA if missing
-    save_cta = "Drop a like, share this with a tech fan, and hit subscribe for more daily finds! Comment what you want to see next."
-    if data["script"] and "subscribe" not in data["script"].lower():
-        data["script"] = data["script"].rstrip() + " " + save_cta
-        print("ℹ️  Mandatory CTA appended to script.")
+    # Auto-append CTA if missing (ENFORCE IT)
+    save_cta = "Drop a like if this helped! Hit subscribe for daily tech finds. Comment what gadget I should test next!"
+    if data["script"]:
+        # Check if ANY CTA keywords exist
+        has_cta = any(keyword in data["script"].lower() for keyword in ["subscribe", "like", "comment", "share", "follow"])
+        
+        if not has_cta:
+            data["script"] = data["script"].rstrip() + " " + save_cta
+            print("ℹ️  Mandatory CTA appended to script.")
+        else:
+            print("✅ CTA found in script.")
 
     # Fallback caption hook
     if not data["caption_hook"] and data["title"]:

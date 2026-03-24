@@ -144,13 +144,82 @@ def create_video(title, video_clips, hook_line=""):
 
         vf_filter = ",".join(vf_parts) if vf_parts else None
 
-        # ── 5c. Stitch API Subscribe Card ────────────────────────────────────
+        # ── 5c. Subscribe Card (Stitch API or Pillow fallback) ───────────────
         subscribe_card = "subscribe_card.png"
+        
+        # Try Stitch first
+        stitch_success = False
         try:
             from src.generators.stitch_client import generate_ui_image
-            generate_ui_image("A sleek, dark-mode glassmorphism UI card asking the viewer to Like, Share, and Subscribe to Tech 8ytees", subscribe_card)
-        except Exception:
-            pass
+            result = generate_ui_image(
+                "A sleek, dark-mode glassmorphism UI card asking the viewer to Like, Share, and Subscribe to Tech 8ytees",
+                subscribe_card
+            )
+            if result:
+                stitch_success = True
+                print("   ✅ Stitch subscribe card generated")
+        except Exception as e:
+            print(f"   ⚠️ Stitch subscribe card failed: {e}")
+        
+        # Fallback: Create simple Pillow subscribe card
+        if not stitch_success:
+            try:
+                from PIL import Image, ImageDraw, ImageFont
+                
+                # Create 1080x800 card
+                card = Image.new("RGBA", (1080, 800), (0, 0, 0, 0))
+                draw = ImageDraw.Draw(card)
+                
+                # Dark background with transparency
+                bg_box = Image.new("RGBA", (1000, 700), (15, 15, 35, 230))
+                card.paste(bg_box, (40, 50), bg_box)
+                
+                # Add glow border
+                border_color = (255, 200, 0, 255)  # Gold
+                draw.rounded_rectangle([45, 55, 1035, 745], radius=20, outline=border_color, width=5)
+                
+                # Load fonts
+                font_paths = [
+                    "C:/Windows/Fonts/arialbd.ttf",
+                    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                ]
+                
+                def load_font_fallback(size: int):
+                    for path in font_paths:
+                        if os.path.exists(path):
+                            try:
+                                return ImageFont.truetype(path, size)
+                            except:
+                                continue
+                    return ImageFont.load_default()
+                
+                font_large = load_font_fallback(80)
+                font_medium = load_font_fallback(50)
+                font_small = load_font_fallback(40)
+                
+                # Text content
+                y_pos = 150
+                
+                # "LIKE" icon + text
+                draw.text((540, y_pos), "👍", font=font_large, anchor="mm")
+                draw.text((540, y_pos + 100), "LIKE", font=font_medium, fill=(255, 255, 255), anchor="mm")
+                
+                # "SHARE" icon + text
+                draw.text((540, y_pos + 200), "📤", font=font_large, anchor="mm")
+                draw.text((540, y_pos + 300), "SHARE", font=font_medium, fill=(255, 255, 255), anchor="mm")
+                
+                # "SUBSCRIBE" - emphasized
+                draw.rounded_rectangle([200, y_pos + 380, 880, y_pos + 480], radius=15, fill=(255, 0, 0))
+                draw.text((540, y_pos + 430), "SUBSCRIBE", font=font_medium, fill=(255, 255, 255), anchor="mm")
+                
+                # Channel name
+                draw.text((540, y_pos + 540), "Tech 8ytees", font=font_small, fill=(255, 200, 0), anchor="mm")
+                
+                # Save
+                card.save(subscribe_card, "PNG")
+                print("   ✅ Fallback subscribe card created with Pillow")
+            except Exception as e:
+                print(f"   ⚠️ Could not create subscribe card: {e}")
 
         # ── 6. Build ffmpeg command and filters ──────────────────────────────
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
