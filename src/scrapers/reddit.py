@@ -1,7 +1,8 @@
 """
-Topic Scraper — NICHE: Budget Gadgets & Hidden Tech Gems Under $50
+Topic Scraper — NICHE: Budget Gadgets & Hidden Tech Gems Under ₹2000 / $25
 Fetches today's tech topic from RSS feeds, then rewrites through the
 "cheap gadget beats expensive one" lens. Falls back to a curated niche list.
+Includes deduplication: topics already used are skipped.
 
 NOTE: Reddit scraping removed — Reddit blocks GitHub Actions IPs.
 """
@@ -14,47 +15,54 @@ import xml.etree.ElementTree as ET
 # Niche-specific fallback topics — budget gadgets & hidden gems
 # ---------------------------------------------------------------------------
 GADGET_TOPICS = [
-    # Audio
-    "$22 earbuds that rival $250 AirPods Pro noise cancelling",
-    "$15 Bluetooth speaker that sounds like a $300 JBL Charge",
-    "$30 gaming headset that beats $150 HyperX models",
-    "$18 wireless earbuds with 40hr battery nobody talks about",
-    "$25 bone conduction headphones that beat $130 Shokz",
+    # Audio — Indian ₹ pricing
+    "₹1,799 earbuds with noise cancelling that rivals ₹20,000 AirPods Pro",
+    "₹999 Bluetooth speaker that sounds like a ₹8,000 JBL Charge",
+    "₹1,499 gaming headset that beats ₹5,000 HyperX Cloud",
+    "₹800 wireless earbuds with 40hr battery nobody talks about",
+    "₹1,299 bone conduction headphones that beat ₹9,000 Shokz",
+    "₹999 open-ear earbuds that let you hear your surroundings",
     # Phone accessories
-    "$20 phone camera lens kit that replaces $800 DSLR",
-    "$12 wireless charger that beats $50 Apple MagSafe",
-    "$18 magnetic phone mount better than any car mount",
-    "$14 selfie stick tripod that every creator needs",
-    "$8 screen protector that's better than $40 ones",
+    "₹999 phone camera lens kit that replaces a ₹50,000 DSLR",
+    "₹499 wireless charger faster than ₹3,500 Apple MagSafe",
+    "₹699 magnetic phone mount that beats every car mount",
+    "₹399 selfie stick tripod every creator needs under ₹500",
+    "₹299 screen protector better than ₹1,200 branded ones",
+    "₹599 phone cooling fan for gaming that actually works",
+    "₹799 foldable phone stand better than ₹2,500 premium stands",
     # Desktop / Productivity
-    "$10 USB-C hub that does what a $100 docking station does",
-    "$35 keyboard that types better than $200 mechanicals",
-    "$22 webcam that beats $100 Logitech models",
-    "$20 desk lamp with wireless charging nobody knows about",
-    "$8 cable organizer that fixes your messy desk forever",
+    "₹999 USB-C hub that does what a ₹6,000 docking station does",
+    "₹1,799 keyboard that types better than ₹12,000 mechanicals",
+    "₹1,299 webcam that beats ₹7,000 Logitech C920",
+    "₹899 desk lamp with wireless charging nobody knows about",
+    "₹299 cable organizer that fixes your messy desk forever",
+    "₹799 ergonomic mouse that beats ₹5,000 Logitech MX Master",
     # Video / Cameras
-    "$12 action camera that shoots 4K like a $400 GoPro",
-    "$30 ring light that makes you look like a studio setup",
-    "$25 mini projector that replaces your bedroom TV",
-    "$15 portable monitor that turns your phone into a laptop",
+    "₹1,499 action camera that shoots 4K like a ₹30,000 GoPro",
+    "₹1,999 ring light that makes you look like a studio setup",
+    "₹2,499 mini projector that replaces your bedroom TV",
+    "₹1,699 portable monitor that turns your tablet into a laptop",
+    "₹999 smartphone microphone that records studio-quality audio",
     # Smart Home
-    "$28 smart plug that cuts your electricity bill in half",
-    "$18 LED strip lights that transform any room instantly",
-    "$15 Smart TV remote that controls everything in your house",
-    "$20 smart bulbs cheaper and better than Philips Hue",
+    "₹699 smart plug that cuts your electricity bill in half",
+    "₹499 LED strip lights that transform any room instantly",
+    "₹799 smart bulb cheaper and better than Philips Hue",
+    "₹999 smart IR remote that controls every device at home",
+    "₹1,499 robot vacuum cleaner under ₹1,500 that actually works",
     # Portable / Travel
-    "$30 power bank that charges 3 devices simultaneously",
-    "$35 handheld fan that's basically portable AC",
-    "$10 screen cleaner kit that brings old screens back to life",
-    "$28 portable SSD faster than most laptop internal drives",
-    "$25 travel adapter that works in every country",
-    # Random hidden gems
-    "$15 thermal phone case that stops overheating",
-    "$20 Bluetooth tracker that beats $30 AirTag",
-    "$22 portable Bluetooth printer for instant photos",
-    "$12 phone cooling fan for gaming that actually works",
-    "$18 mini vacuum cleaner for your keyboard and desk",
-    "$25 smart water bottle that reminds you to drink",
+    "₹1,299 power bank that charges 3 devices at 65W",
+    "₹999 handheld fan that's basically portable AC",
+    "₹1,999 portable SSD faster than most laptop internal drives",
+    "₹599 Bluetooth tracker that beats ₹3,500 AirTag",
+    "₹799 travel adapter with 4 USB ports for every country",
+    # Hidden gems
+    "₹699 mini thermal printer for instant sticker photos",
+    "₹499 mini vacuum cleaner for keyboard and desk",
+    "₹799 smart water bottle with hydration reminders",
+    "₹1,299 lap desk with built-in wireless charger",
+    "₹599 magnetic cable organizer that keeps your desk perfect",
+    "₹1,199 folding keyboard that fits in your pocket",
+    "₹899 UV sanitizer box that kills phone germs in 3 minutes",
 ]
 
 
@@ -180,21 +188,68 @@ Rules:
     return topic
 
 
+def _load_used_set() -> set:
+    """Load the set of previously used topics from used_topics.json."""
+    used_file = "used_topics.json"
+    if not os.path.exists(used_file):
+        return set()
+    try:
+        import json
+        with open(used_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return set(data.get("topics", []))
+    except Exception:
+        return set()
+
+
+def _topic_is_used(topic: str, used: set) -> bool:
+    """Check if topic or a close variant has already been used."""
+    t = topic.strip().lower()
+    if t in used:
+        return True
+    words = t.split()
+    for i in range(max(0, len(words) - 3)):
+        chunk = " ".join(words[i:i+4])
+        if any(chunk in u for u in used):
+            return True
+    return False
+
+
+def mark_topic_used(topic: str):
+    """Persist a topic to used_topics.json to prevent future repetition."""
+    import json
+    used_file = "used_topics.json"
+    used = _load_used_set()
+    used.add(topic.strip().lower())
+    try:
+        with open(used_file, "w", encoding="utf-8") as f:
+            json.dump({"topics": sorted(used)}, f, indent=2)
+    except Exception as e:
+        print(f"⚠️  Could not save used_topics.json: {e}")
+
+
 def get_todays_topic() -> str:
     """
     Pick today's topic.
     Prefers RSS trending topics (rewritten for virality); falls back to curated list.
-    Uses true randomness so each run picks a unique topic.
+    Deduplicates against used_topics.json.
     """
+    used = _load_used_set()
     trending = get_trending_topics_rss()
 
     if trending:
-        # Pick a random trending topic and rewrite it for viral phrasing
-        topic = random.choice(trending)
+        # Filter out already-used topics
+        fresh_trending = [t for t in trending if not _topic_is_used(t, used)]
+        pool = fresh_trending if fresh_trending else trending
+        topic = random.choice(pool)
         topic = _rewrite_topic_viral(topic)
         print(f"📌 Today's trending topic: {topic}")
     else:
-        topic = random.choice(GADGET_TOPICS)
+        fresh_curated = [t for t in GADGET_TOPICS if not _topic_is_used(t, used)]
+        if not fresh_curated:
+            print("⚠️  All curated topics used — resetting pool.")
+            fresh_curated = GADGET_TOPICS
+        topic = random.choice(fresh_curated)
         print(f"📌 Today's fallback topic: {topic}")
 
     return topic
