@@ -40,23 +40,52 @@ def _sanitize_for_tts(text: str) -> str:
 
 def _normalize_numbers(text: str) -> str:
     """
-    Normalize currency and large numbers for TTS:
-    1. Replace '₹' with 'Rs. ' (better for English TTS)
-    2. Add commas to all numbers with 4+ digits (e.g., 15000 -> 15,000)
-       This forces TTS engines to read 'fifteen thousand' instead of digits.
+    Normalize currency and large numbers for TTS so they read naturally.
+    ₹15000  ->  '15,000 rupees'   (NOT 'Rs. 15,000' which TTS reads as 'R S')
+    ₹1,799  ->  '1,799 rupees'
+    15000   ->  '15,000'          (bare numbers also get commas)
     """
-    # Replace Rupee symbol with 'Rs.'
-    text = text.replace('₹', 'Rs. ')
-    
-    # Add commas to 4+ digit numbers using regex
-    # e.g., 'Spending Rs. 15000' -> 'Spending Rs. 15,000'
-    def _add_commas(match):
-        num = match.group(0)
-        return "{:,}".format(int(num))
-        
+    def _currency_replace(m):
+        # Grab the number part, strip any existing commas, reformat with commas
+        num_str = m.group(1).replace(',', '')
+        try:
+            formatted = "{:,}".format(int(num_str))
+        except ValueError:
+            formatted = num_str
+        return f"{formatted} rupees"
+
+    # Replace ₹NUMBER (with optional commas) → 'NUMBER rupees'
+    text = re.sub(r'₹([\d,]+)', _currency_replace, text)
+
+    # Add commas to any remaining bare 4+ digit numbers (no currency prefix)
+    def _add_commas(m):
+        num = m.group(0).replace(',', '')
+        try:
+            return "{:,}".format(int(num))
+        except ValueError:
+            return m.group(0)
+
     text = re.sub(r'\b\d{4,}\b', _add_commas, text)
-    
+
     return text
+
+
+def _post_process_vtt(vtt_path: str):
+    """
+    Restore '15,000 rupees' back to '₹15,000' in the final subtitle file.
+    Because TTS engines spoke '15,000 rupees', Whisper/Edge-TTS wrote that in the VTT.
+    We want the clean symbol format on screen.
+    """
+    if not os.path.exists(vtt_path):
+        return
+    with open(vtt_path, "r", encoding="utf-8") as f:
+        text = f.read()
+
+    # Revert 'NUMBER rupees' back to '₹NUMBER' case-insensitively
+    text = re.sub(r'\b([\d,]+)\s+rupees\b', r'₹\1', text, flags=re.IGNORECASE)
+
+    with open(vtt_path, "w", encoding="utf-8") as f:
+        f.write(text)
 
 
 # ── Public entry-point ────────────────────────────────────────────────────────
@@ -71,35 +100,36 @@ def generate_voiceover(script_text: str) -> bool:
         return False
 
     # Sanitize markdown formatting that TTS would read literally
-    # e.g., "**entire**" → "entire" (not "asterisk asterisk entire asterisk asterisk")
     clean_text = _sanitize_for_tts(script_text)
     
-    # Normalize currency and large numbers (e.g., 15000 -> 15,000)
-    # This prevents TTS from reading digits (one five zero zero zero)
-    clean_text = _normalize_numbers(clean_text)
+    # Normalize currency for TTS engines so they don't read digits
+    spoken_text = _normalize_numbers(clean_text)
     
-    if clean_text != script_text:
-        print("🧹 Cleaned & normalized script text for TTS.")
+    if spoken_text != clean_text:
+        print("🧹 Normalized script text for TTS audio.")
 
     # ── 1. ElevenLabs (best: indistinguishable from human) ───────────────────
-    if _try_elevenlabs(clean_text):
+    if _try_elevenlabs(spoken_text):
         _generate_subtitles_from_audio("voiceover.mp3", clean_text)
+        _post_process_vtt("subtitles.vtt")
         return True
 
     # ── 2. Kokoro TTS (offline, excellent quality) ───────────────────────────
-    if _try_kokoro(clean_text):
+    if _try_kokoro(spoken_text):
         _generate_subtitles_from_audio("voiceover.mp3", clean_text)
+        _post_process_vtt("subtitles.vtt")
         return True
 
     # ── 3. edge-tts (may be blocked on GitHub Actions) ───────────────────────
     temp_file = "temp_script.txt"
     with open(temp_file, "w", encoding="utf-8") as f:
-        f.write(clean_text)
+        f.write(spoken_text)
 
     for attempt in range(1, 4):
         if _try_edge_tts(temp_file):
             if os.path.exists(temp_file):
                 os.remove(temp_file)
+            _post_process_vtt("subtitles.vtt")
             return True
         print(f"⚠️  edge-tts attempt {attempt} failed. Retrying in 3s...")
         time.sleep(3)
@@ -109,8 +139,9 @@ def generate_voiceover(script_text: str) -> bool:
 
     # ── 4. Final fallback: gTTS ───────────────────────────────────────────────
     print("🎙️ Falling back to gTTS...")
-    if _try_gtts(clean_text):
+    if _try_gtts(spoken_text):
         _generate_subtitles_from_audio("voiceover.mp3", clean_text)
+        _post_process_vtt("subtitles.vtt")
         return True
 
     return False

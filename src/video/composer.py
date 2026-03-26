@@ -283,7 +283,8 @@ def _vtt_to_srt(vtt_path: str, srt_path: str):
             if "-->" in line:
                 ts_line = line
             elif line and not line.startswith("WEBVTT") and not line.isdigit() and not line.startswith("NOTE"):
-                text_lines.append(line)
+                # Viral subtitles are ALWAYS uppercase
+                text_lines.append(line.upper())
 
         if not ts_line or not text_lines:
             continue
@@ -333,12 +334,12 @@ def _style_ass(src: str, dst: str):
     else:
         content = content.replace("PlayResX: 1080", "PlayResX: 1080\nPlayResY: 1920", 1)
 
-    # ASS style: Impact 65, white, thick black outline, bottom-third above UI
+    # ASS style: Impact 65, bold yellow, thick black outline, bottom-third above UI
     new_style = (
         "Style: Default,"
         "Impact,"                # Bold, punchy font
         "65,"                    # Fontsize (large for mobile)
-        "&H00FFFFFF,"            # PrimaryColour: White
+        "&H0000FFFF,"            # PrimaryColour: Vibrant Yellow (BGR)
         "&H000000FF,"            # SecondaryColour: Red (unused)
         "&H00000000,"            # OutlineColour: Black
         "&H80000000,"            # BackColour: 50% transparent shadow
@@ -347,8 +348,8 @@ def _style_ass(src: str, dst: str):
         "0,"                     # Spacing
         "0,"                     # Angle
         "1,"                     # BorderStyle: Outline + shadow
-        "4,"                     # Outline thickness
-        "2,"                     # Shadow distance
+        "8,"                     # Outline thickness (thick for contrast)
+        "4,"                     # Shadow distance
         "2,"                     # Alignment: Bottom-Centre
         "20,20,280,0"            # MarginL, MarginR, MarginV=280 (above UI), Encoding
     )
