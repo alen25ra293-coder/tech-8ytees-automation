@@ -115,8 +115,13 @@ Niche: cheap gadgets (under ₹2000 / $25) that replace expensive products
 Target: 16-35 Indian tech-curious viewers who love saving money
 Today's date: {date.today()}
 
-ALREADY USED TOPICS (avoid these or anything too similar):
+ALREADY USED TOPICS (avoid these or anything conceptually similar):
 {used_str}
+
+CRITICAL RULE: Do NOT generate topics that are conceptually identical to ANY of the used topics above. 
+For example, if a "₹1500 smartwatch replacing an Apple Watch" was used, DO NOT generate another smartwatch video, 
+even if you change the price or the exact words. Pick entirely different product categories (e.g., streaming sticks, 
+projectors, earbuds, keyboards, power banks). 
 
 TASK: Generate exactly 5 UNIQUE video ideas — one for each hook style:
 {hook_styles_str}

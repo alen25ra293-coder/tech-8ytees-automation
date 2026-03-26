@@ -283,6 +283,12 @@ def _vtt_to_srt(vtt_path: str, srt_path: str):
             if "-->" in line:
                 ts_line = line
             elif line and not line.startswith("WEBVTT") and not line.isdigit() and not line.startswith("NOTE"):
+                # Clean up missing spaces after punctuation (e.g. .THAT -> . THAT) and leading punctuation
+                import re as _re
+                line = _re.sub(r'([.,?!])([^\s])', r'\1 \2', line)
+                line = line.replace(' ,', ',').replace(' .', '.')
+                line = _re.sub(r'^[,.]\s*', '', line)
+                
                 # Viral subtitles are ALWAYS uppercase
                 text_lines.append(line.upper())
 

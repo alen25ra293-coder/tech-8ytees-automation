@@ -61,6 +61,12 @@ def main():
             print("❌ Failed to generate script. Exiting.")
             sys.exit(1)
 
+        # Format numbers in the title for YouTube metadata (e.g., 15000 -> 15,000)
+        import re as _re
+        def _fmt_nums(s: str) -> str:
+            return _re.sub(r'\b(\d{1,3})(\d{3})\b', lambda m: m.group(1) + ',' + m.group(2), s)
+        parsed["title"] = _fmt_nums(parsed.get("title", topic))
+
         wc = len(parsed["script"].split())
         hook_style = parsed.get("hook_style", "unknown")
         print(f"\n📝 Script: {wc} words  (target: 50-70 for 23-26s) | Hook style: {hook_style}")

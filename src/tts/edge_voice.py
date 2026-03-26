@@ -81,8 +81,13 @@ def _post_process_vtt(vtt_path: str):
     with open(vtt_path, "r", encoding="utf-8") as f:
         text = f.read()
 
-    # Revert 'NUMBER rupees' back to '₹NUMBER' case-insensitively
-    text = re.sub(r'\b([\d,]+)\s+rupees\b', r'₹\1', text, flags=re.IGNORECASE)
+    # Revert 'NUMBER rupees' back to '₹NUMBER' case-insensitively, handling internal spaces from Whisper
+    import re as _re
+    def _revert_currency(m):
+        num_str = m.group(1).replace(' ', '')
+        return f"₹{num_str}"
+        
+    text = _re.sub(r'\b([\d,\s]+)\s+rupees\b', _revert_currency, text, flags=_re.IGNORECASE)
 
     with open(vtt_path, "w", encoding="utf-8") as f:
         f.write(text)
