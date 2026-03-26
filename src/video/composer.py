@@ -122,19 +122,38 @@ def create_video(title, video_clips, hook_line=""):
         vf_parts = []
 
         # 5a. Title text overlay on first 3 seconds (ALL CAPS, Glass box)
-        safe_title = title[:30].upper().replace("'", "").replace('"', '').replace(':', ' ').replace('\\', '')
+        # Format numbers with commas (1800 -> 1,800) before rendering
+        import re as _re
+        def _fmt_nums(s: str) -> str:
+            return _re.sub(r'\b(\d{1,3})(\d{3})\b', lambda m: m.group(1) + ',' + m.group(2), s)
+
+        # Smart word-boundary truncation — never cuts mid-word
+        raw_title = _fmt_nums(title).upper().replace("'", "").replace('"', '').replace(':', '-').replace('\\', '')
+        # Truncate at word boundary to fit ~32 chars
+        if len(raw_title) > 32:
+            words = raw_title.split()
+            truncated = ""
+            for w in words:
+                candidate = (truncated + " " + w).strip()
+                if len(candidate) <= 32:
+                    truncated = candidate
+                else:
+                    break
+            safe_title = truncated or raw_title[:32]
+        else:
+            safe_title = raw_title
+
         if safe_title:
-            # Use drawtext — available on all ffmpeg builds
             title_overlay = (
                 f"drawtext=text='{safe_title}':"
-                f"fontsize=75:"
-                f"fontcolor=yellow:"
-                f"box=1:boxcolor=black@0.65:boxborderw=15:"
-                f"x=(w-text_w)/2:y=200:"
+                f"fontsize=48:"
+                f"fontcolor=white:"
+                f"box=1:boxcolor=black@0.7:boxborderw=12:"
+                f"x=(w-text_w)/2:y=80:"
                 f"enable='between(t,0,3)'"
             )
             vf_parts.append(title_overlay)
-            print("   🎨 Title overlay: first 3 seconds")
+            print(f"   🎨 Title overlay: '{safe_title}' (first 3 sec)")
 
         # 5c. CTA text overlay on last 2 seconds (FOLLOW FOR MORE / SAVE THIS)
         cta_text = random.choice(["FOLLOW FOR MORE", "SAVE THIS"])
