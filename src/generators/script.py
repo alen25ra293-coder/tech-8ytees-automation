@@ -158,26 +158,23 @@ def get_series_theme():
 EXAMPLE_SCRIPTS = [
     {
         "topic": "₹1,799 earbuds that rival ₹20,000 AirPods Pro",
-        "title": "₹1,799 Earbuds Beat AirPods Pro",
+        "title": "₹1,799 EARBUDS VS AIRPODS",
         "script": (
             "Don't buy AirPods yet. "  # HOOK
             "Most people spend ₹20,000 on earbuds just for the logo. "  # PROBLEM
             "These QCY T13s cost ₹1,799 and have noise cancelling, 30-hour battery, "
             "and sound that's genuinely hard to tell apart from AirPods Pro. "  # SOLUTION + DEMO
-            "Six million sold. I've used them for 3 months. Never touched my AirPods since. "  # PAYOFF
-            "Save this. What should I test next? Comment."  # CTA
+            "Six million sold. I've used them for 3 months. Never touched my AirPods since… "
+            "follow for more like this."  # PAYOFF + CTA
         ),
-    },
-    {
-        "topic": "₹1,499 action camera that shoots 4K like a ₹30,000 GoPro",
-        "title": "₹1,499 Camera vs ₹30,000 GoPro",
-        "script": (
-            "Before you buy a GoPro — stop. "  # HOOK
-            "₹30,000 for a camera most people use once is a bad deal. "  # PROBLEM
-            "This ₹1,499 SJCAM C300 shoots 4K, is waterproof, and fits in your pocket. "  # SOLUTION
-            "I took it to Goa. People thought the footage was from a Hero 12. It wasn't. "  # DEMO
-            "Same shots. One-twentieth of the price. "  # PAYOFF
-            "Save this. What should I test next? Comment."  # CTA
+        "visual_instructions": (
+            "[Don't buy AirPods yet] -> Visual: Person holding AirPods Pro, 'X' over them, blurry tech background\n"
+            "[Most people spend ₹20,000 on earbuds just for the logo] -> Visual: Apple logo close-up, text '₹20,000' flashing\n"
+            "[These QCY T13s cost ₹1,799] -> Visual: QCY T13 earbuds box being unboxed, fast hands motion\n"
+            "[Noise cancelling, 30-hour battery] -> Visual: Finger tapping earbuds side, 'ANC ON' graphic\n"
+            "[Sound that's hard to tell apart] -> Visual: Person wearing QCY T13s, shocked expression, shaking head in disbelief\n"
+            "[Six million sold] -> Visual: Amazon page showing 4.5 stars and '60,000+ sold' text\n"
+            "[Follow for more like this] -> Visual: Overlay 'FOLLOW FOR MORE' in bold yellow letters"
         ),
     },
 ]
@@ -187,9 +184,9 @@ FIVE_VIDEO_IDEAS = """
 Video 1 — Hook Style: WARNING
 Topic: Don't buy a ₹50,000 camera yet — this ₹1,499 gadget shoots the same 4K.
 Titles:
-  1. This ₹1,499 Camera Replaced My ₹50,000 Setup
-  2. Stop Buying Expensive Cameras — Use This Instead
-  3. I Tested the Cheapest Alternative to GoPro
+  1. ₹1,499 CAMERA VS ₹50,000 SETUP
+  2. CHEAP 4K CAMERA ALTERNATIVE
+  3. BEST GOPRO ALTERNATIVE FOR ₹1,499
 Hook Line: Don't buy a GoPro yet.
 Script:
   HOOK: Don't buy a GoPro yet.
@@ -202,9 +199,9 @@ Hashtags: #BudgetCamera #CheapGadgets #TechFinds #GadgetReview #AffordableTech
 Video 2 — Hook Style: CURIOSITY
 Topic: I found a cheaper way to get studio-quality sound at home.
 Titles:
-  1. This ₹999 Mic Replaced My ₹8,000 Studio Setup
-  2. Stop Overspending on Audio — Use This Instead
-  3. I Tested the Cheapest Microphone That Actually Works
+  1. ₹999 MIC VS ₹8,000 STUDIO MIC
+  2. STOP OVERSPENDING ON AUDIO
+  3. CHEAPEST STUDIO MIC TESTED
 Hook Line: Nobody told me this mic existed.
 Script:
   HOOK: Nobody told me this mic existed.
@@ -217,9 +214,9 @@ Hashtags: #BudgetMic #CheapTech #HomeStudio #AmazonFind #AffordableTech
 Video 3 — Hook Style: COMPARISON
 Topic: ₹499 vs ₹3,500 — both charge your phone. One wins by a lot.
 Titles:
-  1. This ₹499 Charger Is Faster Than Apple MagSafe
-  2. Stop Buying Expensive Chargers — Use This Instead
-  3. I Tested the Cheapest Wireless Charger vs MagSafe
+  1. ₹499 CHARGER VS ₹3,500 APPLE
+  2. STOP BUYING OVERPRICED CHARGERS
+  3. CHEAPEST WIRELESS CHARGER TEST
 Hook Line: ₹499 vs ₹3,500. Same speed.
 Script:
   HOOK: ₹499 versus ₹3,500. Same result.
@@ -232,9 +229,9 @@ Hashtags: #CheapVsExpensive #WirelessCharger #BudgetTech #TechDeals #AmazonIndia
 Video 4 — Hook Style: DISCOVERY
 Topic: Nobody is talking about this ₹799 smart plug that cut my electricity bill.
 Titles:
-  1. This ₹799 Smart Plug Cut My Bill By 30%
-  2. The Gadget That Pays for Itself in One Month
-  3. Hidden Smart Home Gem Nobody Knows About
+  1. ₹799 PLUG SAVED MY BILL
+  2. ONE GADGET PAYS FOR ITSELF
+  3. HIDDEN SMART HOME GEM
 Hook Line: Nobody is talking about this gadget.
 Script:
   HOOK: Nobody is talking about this gadget. But they should be.
@@ -247,9 +244,9 @@ Hashtags: #SmartHome #TechFinds #SaveMoney #BudgetGadgets #HiddenGem
 Video 5 — Hook Style: CHALLENGE
 Topic: Can this ₹1,799 keyboard replace a ₹15,000 mechanical?
 Titles:
-  1. ₹1,799 Keyboard vs ₹15,000 Mechanical — Who Wins?
-  2. I Challenged a Cheap Keyboard to Beat an Expensive One
-  3. Is This the Best Budget Keyboard Under ₹2,000?
+  1. ₹1,799 VS ₹15,000 KEYBOARD
+  2. CHEAP KEYBOARD VS EXPENSIVE
+  3. BEST BUDGET MECHANICAL KEYBOARD
 Hook Line: Can the cheapest keyboard actually win?
 Script:
   HOOK: Can a ₹1,799 keyboard beat a ₹15,000 one? I tested it.
@@ -289,52 +286,48 @@ Today's hook style: {hook_style}
 
 CONTEXT: 80% skip rate. Viewers decide in 2 seconds. Videos must be 23-26 seconds MAX.
 {series_note}
-⚠️ ABSOLUTE RULES — VIOLATING ANY OF THESE IS UNACCEPTABLE:
+⚠️ ABSOLUTE RULES — VISUAL ACCURACY SYSTEM:
+1. Every script line MUST have a matching visual instruction.
+2. Direct Match: If current line mentions a product (e.g., 'ring light'), instructions MUST show it being used.
+3. Specificity: Include [Object], [Action], and [Context] (e.g., 'small LED ring light clipped to phone', 'turning on, brightness increasing', 'low-light room before/after comparison').
+4. DEMO visuals MUST show BEFORE/AFTER results clearly.
+5. First 2 seconds MUST show product immediately with motion (hands using/turning on).
+
+⚠️ ABSOLUTE RULES — CALL TO ACTION (CTA) SYSTEM:
+1. Blend CTA into the PAYOFF (no separation).
+2. Allowed formats: 'Follow for more like this', 'Save this before you buy one', 'Follow for daily tech finds'.
+3. NO 'like, share, subscribe'.
+4. Short, natural (<2 seconds).
+
+⚠️ GENERAL RULES:
 1. BANNED WORDS — NEVER USE: "destroys", "shames", "embarrasses", "you won't believe", "will blow your mind"
 2. MAX 70 WORDS. Count them. Cut ruthlessly if over.
-3. Product name MUST appear within first 10 seconds of script.
-4. Prices MUST be in ₹ (Indian Rupees). Example: "₹1,499" or "₹30,000".
-5. NO filler: never "basically", "actually", "let me tell you", "so guys"
-6. NO emojis. NO markdown. PLAIN TEXT only.
-7. Sound like a friend showing a deal — not a salesperson or influencer.
+3. Prices MUST be in ₹ (Indian Rupees).
+4. Sound like a friend showing a deal.
 
-STUDY THESE EXAMPLES (5-section structure, punchy, 55-65 words):
+STUDY THESE EXAMPLES:
 {examples_text}
 
 =================================================================
 TASK: Write a 50-70 word script about: "{topic}"
-Hook style this video: {hook_style} → start with something like: "{hook_opener}"
+Use {hook_style} hook: "{hook_opener}"
 =================================================================
 
-MANDATORY 5-SECTION STRUCTURE (every section needed):
-
-SECTION 1 — HOOK (0-2 sec, max 5 words):
-Pattern interrupt. Viewer STOPS scrolling. Use the {hook_style} hook style.
-
-SECTION 2 — PROBLEM (2-5 sec):
-Call out the specific pain point. Why do people overpay for this?
-
-SECTION 3 — SOLUTION (5-12 sec):
-Name the ACTUAL product (brand + model). State the price. One specific spec.
-
-SECTION 4 — DEMO/RESULT (12-20 sec):
-One specific test or result. A number, a comparison, a moment. Benefit > feature.
-
-SECTION 5 — PAYOFF + CTA (20-26 sec):
-Strong close. Echo the hook. End with: "Save this. What should I test next? Comment."
-
-OUTPUT FORMAT (nothing else, exactly these fields):
-PRODUCT_NAME: [specific brand and model, e.g. QCY T13]
-TITLE: [max 55 chars, punchy, no banned words]
-HOOK_LINE: [first sentence only, under 5 words]
+OUTPUT FORMAT:
+PRODUCT_NAME: [specific brand and model]
+TITLE: [MAX 30 CHARS, ALL CAPS, punchy]
+HOOK_LINE: [first sentence, under 5 words]
 HOOK_STYLE: [{hook_style}]
-SCRIPT: [50-70 words, 5-section structure, plain text]
-VISUAL_INSTRUCTIONS: [5 lines, one per section: e.g. "HOOK: Zoom in fast on product box | PROBLEM: Cut to confused face | SOLUTION: Show product close-up | DEMO: Side-by-side comparison | PAYOFF: Slow zoom out, text overlay"]
-TAGS: [exactly 6 comma-separated lowercase hashtags — 2 niche, 2 mid, 2 broad]
-DESCRIPTION: [1 curiosity-gap sentence under 100 chars — makes people tap "more"]
+SCRIPT: [50-70 words, 5-section structure, CTA blended into payoff]
+VISUAL_INSTRUCTIONS:
+[Line 1] -> Visual: [Specific Object, Action, Context]
+[Line 2] -> Visual: [Specific Object, Action, Context]
+... [one per line of script]
+TAGS: [6 comma-separated hashtags]
+DESCRIPTION: [1 curiosity-gap sentence]
 THUMBNAIL_TEXT: [2-3 ALL CAPS words]
-CAPTION_HOOK: [1 bold sentence under 80 chars, curiosity gap, no banned words]
-QUESTION: [1 direct question viewer can answer in 1-2 words]
+CAPTION_HOOK: [1 bold sentence]
+QUESTION: [1 direct question]
 """
 
     try:
@@ -424,7 +417,7 @@ def _build_fallback_script(topic: str) -> str:
     hook_opener, hook_style = _pick_hook_opener()
     safe = topic[:50]
     return f"""PRODUCT_NAME: Budget Tech Gadget
-TITLE: {safe[:45]} — Under ₹2000
+TITLE: {safe[:10].upper()} — UNDER ₹2000
 HOOK_LINE: Stop. Look at this.
 HOOK_STYLE: {hook_style}
 SCRIPT: Stop. Look at this. This gadget costs under ₹1,500 and does what the ₹15,000 version does. Found it on Amazon with 40,000 five-star reviews. The build quality is insane for the price. I tested it for two months — it outperformed the expensive one every single time. Save this. What should I test next? Comment.
@@ -456,7 +449,9 @@ def parse_script(raw: str) -> dict | None:
         for key in fields:
             if line.upper().startswith(key.upper() + ":"):
                 if current_key:
-                    data[current_key] = " ".join(buffer).strip()
+                    # Preserve newlines for visual_instructions, join others with space
+                    sep = "\n" if current_key == "visual_instructions" else " "
+                    data[current_key] = sep.join(buffer).strip()
                 current_key = key
                 buffer = [line.split(":", 1)[-1].strip()]
                 matched = True
@@ -465,7 +460,8 @@ def parse_script(raw: str) -> dict | None:
             buffer.append(line.strip())
 
     if current_key:
-        data[current_key] = " ".join(buffer).strip()
+        sep = "\n" if current_key == "visual_instructions" else " "
+        data[current_key] = sep.join(buffer).strip()
 
     # ── Fallbacks ─────────────────────────────────────────────────────────────
     if not data["thumbnail_text"] and data["title"]:
@@ -485,8 +481,13 @@ def parse_script(raw: str) -> dict | None:
         )
 
     # ── Auto-append CTA if missing ────────────────────────────────────────────
-    save_cta = "Save this. What should I test next? Comment."
-    if data["script"] and "save this" not in data["script"].lower():
+    # Only append if a natural CTA is not already present in payload
+    natural_ctas = ["follow for more", "follow for daily", "save this"]
+    script_content = data["script"].lower()
+    has_natural_cta = any(cta in script_content for cta in natural_ctas)
+
+    if data["script"] and not has_natural_cta:
+        save_cta = "Save this. What should I test next? Comment."
         data["script"] = data["script"].rstrip() + " " + save_cta
         print("ℹ️  CTA auto-appended.")
 

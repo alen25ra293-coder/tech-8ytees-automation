@@ -1,3 +1,4 @@
+import random
 import os
 import re
 import shutil
@@ -120,21 +121,35 @@ def create_video(title, video_clips, hook_line=""):
         import platform
         vf_parts = []
 
-        # 5a. Title text overlay on first 3 seconds (bright yellow, bold)
-        safe_title = title[:35].replace("'", "").replace('"', '').replace(':', ' ').replace('\\', '')
+        # 5a. Title text overlay on first 3 seconds (ALL CAPS, Glass box)
+        safe_title = title[:30].upper().replace("'", "").replace('"', '').replace(':', ' ').replace('\\', '')
         if safe_title:
             # Use drawtext — available on all ffmpeg builds
             title_overlay = (
                 f"drawtext=text='{safe_title}':"
-                f"fontsize=65:"
-                f"fontcolor=yellow:bordercolor=black:borderw=4:"
-                f"x=(w-text_w)/2:y=250:"
+                f"fontsize=75:"
+                f"fontcolor=yellow:"
+                f"box=1:boxcolor=black@0.65:boxborderw=15:"
+                f"x=(w-text_w)/2:y=200:"
                 f"enable='between(t,0,3)'"
             )
             vf_parts.append(title_overlay)
             print("   🎨 Title overlay: first 3 seconds")
 
-        # 5b. Subtitle burn-in
+        # 5c. CTA text overlay on last 2 seconds (FOLLOW FOR MORE / SAVE THIS)
+        cta_text = random.choice(["FOLLOW FOR MORE", "SAVE THIS"])
+        cta_overlay = (
+            f"drawtext=text='{cta_text}':"
+            f"fontsize=80:"
+            f"fontcolor=yellow:"
+            f"box=1:boxcolor=black@0.65:boxborderw=20:"
+            f"x=(w-text_w)/2:y=(h-text_h)/2:"  # Center of screen
+            f"enable='between(t,{duration-2},{duration})'"
+        )
+        vf_parts.append(cta_overlay)
+        print(f"   🎨 CTA overlay: last 2 seconds ({cta_text})")
+
+        # 5c. Subtitle burn-in
         if ass_file and os.path.exists(ass_file):
             esc = ass_file.replace("\\", "/")
             if platform.system() == "Windows" and len(esc) > 1 and esc[1] == ":":

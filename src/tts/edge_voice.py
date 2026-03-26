@@ -38,6 +38,27 @@ def _sanitize_for_tts(text: str) -> str:
     return text.strip()
 
 
+def _normalize_numbers(text: str) -> str:
+    """
+    Normalize currency and large numbers for TTS:
+    1. Replace '₹' with 'Rs. ' (better for English TTS)
+    2. Add commas to all numbers with 4+ digits (e.g., 15000 -> 15,000)
+       This forces TTS engines to read 'fifteen thousand' instead of digits.
+    """
+    # Replace Rupee symbol with 'Rs.'
+    text = text.replace('₹', 'Rs. ')
+    
+    # Add commas to 4+ digit numbers using regex
+    # e.g., 'Spending Rs. 15000' -> 'Spending Rs. 15,000'
+    def _add_commas(match):
+        num = match.group(0)
+        return "{:,}".format(int(num))
+        
+    text = re.sub(r'\b\d{4,}\b', _add_commas, text)
+    
+    return text
+
+
 # ── Public entry-point ────────────────────────────────────────────────────────
 
 def generate_voiceover(script_text: str) -> bool:
@@ -52,8 +73,13 @@ def generate_voiceover(script_text: str) -> bool:
     # Sanitize markdown formatting that TTS would read literally
     # e.g., "**entire**" → "entire" (not "asterisk asterisk entire asterisk asterisk")
     clean_text = _sanitize_for_tts(script_text)
+    
+    # Normalize currency and large numbers (e.g., 15000 -> 15,000)
+    # This prevents TTS from reading digits (one five zero zero zero)
+    clean_text = _normalize_numbers(clean_text)
+    
     if clean_text != script_text:
-        print("🧹 Cleaned markdown from script text for TTS.")
+        print("🧹 Cleaned & normalized script text for TTS.")
 
     # ── 1. ElevenLabs (best: indistinguishable from human) ───────────────────
     if _try_elevenlabs(clean_text):

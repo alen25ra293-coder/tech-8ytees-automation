@@ -81,6 +81,8 @@ def main():
 
         # ── 5. Background clips (10 clips × 2.5s = rapid cuts for 23-26s) ─
         product_name = parsed.get("product_name")
+        print(f"🎬 Hook Style: {parsed['hook_style']} | Title: {parsed['title']}")
+        print(f"🎥 Visual Instructions:\n{parsed['visual_instructions']}\n")
         bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=10)
 
         # ── 6. Video composition (title overlay + rapid cuts + subtitles) ──
