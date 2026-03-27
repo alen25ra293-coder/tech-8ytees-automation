@@ -17,6 +17,8 @@ try:
 except ImportError:
     requests = None
 
+import random
+
 
 # ── Text sanitization (removes markdown that TTS would read aloud) ────────────
 
@@ -159,19 +161,31 @@ def generate_voiceover(script_text: str) -> bool:
 
 # ── ElevenLabs TTS ────────────────────────────────────────────────────────────
 
+def _get_elevenlabs_key() -> str | None:
+    """Get next ElevenLabs API key from rotation pool."""
+    keys_raw = os.environ.get("ELEVENLABS_API_KEYS") or os.environ.get("ELEVENLABS_API_KEY", "")
+    if not keys_raw:
+        return None
+    keys = [k.strip() for k in keys_raw.split(",") if k.strip()]
+    if not keys:
+        return None
+    return random.choice(keys)
+
+
 def _try_elevenlabs(script_text: str) -> bool:
     """
-    ElevenLabs free tier: 10,000 characters/month.
+    ElevenLabs free tier: 10,000 characters/month per key.
+    For quota management, supports multiple keys via ELEVENLABS_API_KEYS (comma-separated).
     Voice: Adam (voice_id = pNInz6obpgDQGcFmaJgB) — natural American male.
-    Requires: ELEVENLABS_API_KEY env var set in GitHub secrets.
+    Requires: ELEVENLABS_API_KEY or ELEVENLABS_API_KEYS env var.
     """
     if requests is None:
         print("⚠️  requests not installed — skipping ElevenLabs.")
         return False
     
-    api_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    api_key = _get_elevenlabs_key()
     if not api_key:
-        print("⚠️  ELEVENLABS_API_KEY not set — skipping ElevenLabs.")
+        print("⚠️  ELEVENLABS_API_KEYS not set — skipping ElevenLabs.")
         return False
 
     print("🎙️ Generating voiceover with ElevenLabs (human-quality)...")
@@ -210,7 +224,7 @@ def _try_elevenlabs(script_text: str) -> bool:
             print("❌ ElevenLabs: invalid API key or key has leading/trailing whitespace.")
             _log_response_error(resp, "401 Unauthorized")
         elif resp.status_code == 429:
-            print("⚠️  ElevenLabs: quota exceeded — falling back.")
+            print("⚠️  ElevenLabs: rate limited — falling back.")
         else:
             error_msg = _parse_response_error(resp)
             print(f"⚠️  ElevenLabs error {resp.status_code}: {error_msg}")
