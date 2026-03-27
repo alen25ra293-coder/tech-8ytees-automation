@@ -13,12 +13,10 @@ from src.uploaders.youtube import upload_to_youtube
 
 
 def download_impact_sound():
-    """Automatically downloads a free cinematic impact sound for the audio hook."""
     target = "assets/impact_sound.mp3"
     if os.path.exists(target):
         return True
-
-    print("🔊 Downloading cinematic impact sound effect...")
+    print("🔊 Downloading impact sound...")
     os.makedirs("assets", exist_ok=True)
     url = "https://assets.mixkit.co/active_storage/sfx/1143/1143.mp3"
     try:
@@ -28,10 +26,9 @@ def download_impact_sound():
                 f.write(resp.content)
             print(f"   ✅ Saved to {target}")
             return True
-        else:
-            print(f"   ⚠️ Download failed with status {resp.status_code}")
+        print(f"   ⚠️  Download failed: {resp.status_code}")
     except Exception as e:
-        print(f"   ⚠️ Could not download impact sound: {e}")
+        print(f"   ⚠️  Could not download: {e}")
     return False
 
 
@@ -40,20 +37,21 @@ def main():
         import io
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8")
 
-    print(f"\n🚀 Tech 8ytees — Budget Gadgets & Hidden Gems — {date.today()}\n{'─' * 52}")
+    print(f"\n🚀 Tech 8ytees — {date.today()}\n{'─' * 52}")
 
-    topic = None  # track for deduplication after upload
+    topic = None
+    category = None
 
     try:
-        # ── 0. Assets ────────────────────────────────────────────────────
+        # ── 0. Assets ────────────────────────────────────────────────────────
         download_impact_sound()
 
-        # ── 1. Topic via Idea Bank (AI-powered, deduplicated) ─────────────
-        # Idea Bank generates 5 ideas, self-rates for virality (1-10),
-        # skips already-used topics, and returns the best fresh idea.
-        topic = get_best_idea()
+        # ── 1. Topic (returns topic + category for diversity enforcement) ────
+        # idea_bank now returns (topic, category) to prevent same-category
+        # videos back to back. Category is saved to used_topics.json.
+        topic, category = get_best_idea()
 
-        # ── 2. Script (50-70 words → 23-26 second video) ──────────────────
+        # ── 2. Script ────────────────────────────────────────────────────────
         raw_script = generate_script(topic)
         parsed = parse_script(raw_script)
 
@@ -61,37 +59,34 @@ def main():
             print("❌ Failed to generate script. Exiting.")
             sys.exit(1)
 
-        # Format numbers in the title for YouTube metadata (e.g., 15000 -> 15,000)
+        # Format numbers in title (15000 → 15,000)
         import re as _re
         def _fmt_nums(s: str) -> str:
             return _re.sub(r'\b(\d{1,3})(\d{3})\b', lambda m: m.group(1) + ',' + m.group(2), s)
         parsed["title"] = _fmt_nums(parsed.get("title", topic))
 
         wc = len(parsed["script"].split())
-        hook_style = parsed.get("hook_style", "unknown")
-        print(f"\n📝 Script: {wc} words  (target: 50-70 for 23-26s) | Hook style: {hook_style}")
+        print(f"\n📝 Script: {wc} words | Structure: {parsed.get('hook_style','?')}")
+        print(f"📢 Hook: {parsed.get('hook_line','')}")
 
-        # Show visual instructions for reference/debugging
         if parsed.get("visual_instructions"):
             print(f"🎥 Visuals: {parsed['visual_instructions'][:120]}...")
-
         print()
 
-        # ── 3. Niche hashtags (first comment, NOT caption) ─────────────────
+        # ── 3. Hashtags ──────────────────────────────────────────────────────
         hashtags = generate_dynamic_hashtags(topic)
 
-        # ── 4. Voiceover (+18% speed for energy) ──────────────────────────
+        # ── 4. Voiceover ─────────────────────────────────────────────────────
         if not generate_voiceover(parsed["script"]):
-            print("❌ Voiceover generation failed. Exiting.")
+            print("❌ Voiceover failed. Exiting.")
             sys.exit(1)
 
-        # ── 5. Background clips (10 clips × 2.5s = rapid cuts for 23-26s) ─
+        # ── 5. Background clips ───────────────────────────────────────────────
         product_name = parsed.get("product_name")
-        print(f"🎬 Hook Style: {parsed['hook_style']} | Title: {parsed['title']}")
-        print(f"🎥 Visual Instructions:\n{parsed['visual_instructions']}\n")
+        print(f"🎬 Fetching clips for: {parsed['title']}")
         bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=10)
 
-        # ── 6. Video composition (title overlay + rapid cuts + subtitles) ──
+        # ── 6. Video composition ──────────────────────────────────────────────
         video_ok = create_video(
             title=parsed["title"],
             video_clips=bg_clips,
@@ -101,13 +96,13 @@ def main():
             print("❌ Video assembly failed. Exiting.")
             sys.exit(1)
 
-        # ── 7. Thumbnail ───────────────────────────────────────────────────
+        # ── 7. Thumbnail ──────────────────────────────────────────────────────
         thumbnail_path = generate_thumbnail(
             thumbnail_text=parsed.get("thumbnail_text", topic[:20]),
             title=parsed["title"]
         )
 
-        # ── 8. YouTube upload ──────────────────────────────────────────────
+        # ── 8. YouTube upload ─────────────────────────────────────────────────
         upload_to_youtube(
             title=parsed["title"],
             description=parsed["description"],
@@ -116,28 +111,24 @@ def main():
             thumbnail_path=thumbnail_path,
         )
 
-        # ── 9. Instagram upload ────────────────────────────────────────────
-        # Caption: curiosity-gap hook only (NO hashtags in caption body)
-        # Hashtags: posted as first comment (Instagram confirmed better reach)
-        caption_hook = parsed.get("caption_hook", "")
-        if not caption_hook:
-            caption_hook = "This gadget costs less than lunch but beats ₹15,000 products 👀"
-
+        # ── 9. Instagram upload ───────────────────────────────────────────────
+        caption_hook = parsed.get("caption_hook") or "This gadget costs less than lunch but beats ₹15,000 products 👀"
         ig_caption = f"{caption_hook}\n\n{parsed['description']}"
 
         upload_to_instagram(
             video_path="output.mp4",
             caption=ig_caption,
             hashtags=hashtags,
-            question=parsed.get("question", "What overpriced gadget should I expose next?"),
+            question=parsed.get("question", "What overpriced gadget should I test next?"),
         )
 
-        # ── 10. Mark topic as used (deduplication) ─────────────────────────
+        # ── 10. Archive topic + category ─────────────────────────────────────
+        # Category saved so next run avoids same product category
         if topic:
-            mark_topic_used(topic)
-            print(f"✅ Topic archived to used_topics.json")
+            mark_topic_used(topic, category=category)
+            print(f"✅ Archived: {topic[:60]} | Category: {category}")
 
-        print(f"\n🎉 Done! Video published for: {topic[:60]}")
+        print(f"\n🎉 Done! Published: {topic[:60]}")
 
     except Exception as e:
         print(f"❌ Unexpected error: {e}")

@@ -7,12 +7,13 @@ import subprocess
 
 def create_video(title, video_clips, hook_line=""):
     """
-    Composes the final video optimized for <20% skip rate:
-    1. Scales/crops background clips to 1080x1920, each trimmed to 3s max
-    2. Concatenates into seamless background with constant visual change
-    3. Burns bold title text overlay on first 3 seconds (bright yellow)
-    4. Burns word-level subtitles (size 65, white + yellow keywords, bottom third above UI)
-    5. Adds impact/whoosh sound on first frame for audio hook
+    Composes final video optimized for retention:
+    1. Dynamic clip duration based on video length (not fixed 2.5s)
+    2. Title overlay: smaller, bottom-third, persists longer (not just 3s)
+    3. Progress bar: thin bar at bottom — rewards viewers for watching
+    4. CTA overlay: last 2 seconds
+    5. Word-level subtitles (Impact font, yellow, bottom-third)
+    6. Impact sound on first frame
     """
     print("🎞️ Assembling final video with FFmpeg...")
 
@@ -27,27 +28,37 @@ def create_video(title, video_clips, hook_line=""):
             "-of", "default=noprint_wrappers=1:nokey=1", "voiceover.mp3"
         ], capture_output=True, text=True, timeout=10)
         duration = float(r.stdout.strip())
-        video_duration = duration + 1.0  # minimal padding
+        video_duration = duration + 0.8  # tight padding — don't pad too much
 
-        MAX_CLIP_DURATION = 2.5  # seconds per clip — rapid visual change for 23-26s video
+        # ── Dynamic clip duration ────────────────────────────────────────────
+        # For shorter videos (under 20s): 2s cuts feel fast
+        # For longer videos (25s+): 3s cuts give viewer time to process product
+        if duration <= 20:
+            MAX_CLIP_DURATION = 2.0
+        elif duration <= 25:
+            MAX_CLIP_DURATION = 2.5
+        else:
+            MAX_CLIP_DURATION = 3.0
 
-        # ── 1. Scale/crop each clip + trim to 2.5 seconds + color grade ────────
+        print(f"⏱️  Video: {duration:.1f}s audio → {video_duration:.1f}s total | Clip length: {MAX_CLIP_DURATION}s")
+
+        # ── 1. Scale/crop + color grade each clip ────────────────────────────
         scaled_clips = []
         color_grade = (
             "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
-            "setsar=1,eq=contrast=1.2:brightness=0.04:saturation=1.3:gamma=0.92"
+            "setsar=1,eq=contrast=1.15:brightness=0.02:saturation=1.2:gamma=0.95"
         )
+        # Slightly reduced from original — over-saturated video looks cheap
 
         if video_clips:
-            print(f"🎬 Standardizing {len(video_clips)} clips (max {MAX_CLIP_DURATION}s each)...")
+            print(f"🎬 Standardizing {len(video_clips)} clips ({MAX_CLIP_DURATION}s each)...")
             for i, clip in enumerate(video_clips):
                 if not os.path.exists(clip):
                     continue
                 out = f"scaled_{i}.mp4"
                 res = subprocess.run([
-                    "ffmpeg", "-y",
-                    "-i", clip,
-                    "-t", str(MAX_CLIP_DURATION),  # trim to 3 seconds
+                    "ffmpeg", "-y", "-i", clip,
+                    "-t", str(MAX_CLIP_DURATION),
                     "-vf", color_grade,
                     "-pix_fmt", "yuv420p", "-r", "30",
                     "-c:v", "libx264", "-an", "-preset", "ultrafast", out
@@ -66,19 +77,18 @@ def create_video(title, video_clips, hook_line=""):
                     if res2.returncode == 0 and os.path.exists(out):
                         scaled_clips.append(out)
 
-        # ── 2. Concatenate background (loop to fill duration) ────────────────
+        # ── 2. Concatenate background ────────────────────────────────────────
         bg = ""
         if scaled_clips:
             try:
                 with open("clips.txt", "w") as f:
-                    # Each clip is ~3s. Need ceil(duration/3) + buffer clips.
                     repeats = int(video_duration / (len(scaled_clips) * MAX_CLIP_DURATION)) + 3
                     for _ in range(repeats):
                         for c in scaled_clips:
                             abs_path = os.path.abspath(c).replace('\\', '/')
                             f.write(f"file '{abs_path}'\n")
 
-                print("🎬 Concatenating rapid-cut background...")
+                print("🎬 Concatenating background...")
                 res = subprocess.run([
                     "ffmpeg", "-y", "-f", "concat", "-safe", "0",
                     "-i", "clips.txt", "-c", "copy", "bg_looped.mp4"
@@ -87,9 +97,9 @@ def create_video(title, video_clips, hook_line=""):
                 if res.returncode == 0 and os.path.exists("bg_looped.mp4"):
                     bg = "bg_looped.mp4"
                 else:
-                    print(f"⚠️ Concat failed: {res.stderr[:200]}")
+                    print(f"⚠️  Concat failed: {res.stderr[:200]}")
             except Exception as e:
-                print(f"⚠️ Concat setup failed: {e}")
+                print(f"⚠️  Concat setup failed: {e}")
 
         # ── 3. Fallback: solid dark background ───────────────────────────────
         if not bg:
@@ -113,76 +123,88 @@ def create_video(title, video_clips, hook_line=""):
                 if ass_result.returncode == 0 and os.path.exists("subtitles_raw.ass"):
                     _style_ass("subtitles_raw.ass", "subtitles.ass")
                     ass_file = os.path.abspath("subtitles.ass")
-                    print(f"✅ Subtitle ASS ready")
+                    print("✅ Subtitles ready")
             except Exception as sub_err:
-                print(f"⚠️ Subtitle conversion failed: {sub_err}")
+                print(f"⚠️  Subtitle conversion failed: {sub_err}")
 
         # ── 5. Build video filter chain ──────────────────────────────────────
         import platform
+        import re as _re
         vf_parts = []
 
-        # 5a. Title text overlay on first 3 seconds (ALL CAPS, Glass box)
-        # Format numbers with commas (1800 -> 1,800) before rendering
-        import re as _re
         def _fmt_nums(s: str) -> str:
             return _re.sub(r'\b(\d{1,3})(\d{3})\b', lambda m: m.group(1) + ',' + m.group(2), s)
 
-        # Smart word-boundary truncation — never cuts mid-word
+        # ── 5a. Title overlay ─────────────────────────────────────────────────
+        # CHANGED: Smaller font, bottom-third position (not top), stays for first 5s
+        # Rationale: Top title blocks the product reveal in first frame.
+        # Bottom-third keeps product visible while title still shows.
         raw_title = _fmt_nums(title).upper().replace("'", "").replace('"', '').replace(':', '-').replace('\\', '')
-        # Truncate at word boundary to fit ~32 chars
-        if len(raw_title) > 32:
+        if len(raw_title) > 28:
             words = raw_title.split()
             truncated = ""
             for w in words:
                 candidate = (truncated + " " + w).strip()
-                if len(candidate) <= 32:
+                if len(candidate) <= 28:
                     truncated = candidate
                 else:
                     break
-            safe_title = truncated or raw_title[:32]
+            safe_title = truncated or raw_title[:28]
         else:
             safe_title = raw_title
 
         if safe_title:
             title_overlay = (
                 f"drawtext=text='{safe_title}':"
-                f"fontsize=48:"
-                f"fontcolor=white:"
-                f"box=1:boxcolor=black@0.7:boxborderw=12:"
-                f"x=(w-text_w)/2:y=80:"
-                f"enable='between(t,0,3)'"
+                f"fontsize=40:"           # Smaller than before (was 48)
+                f"fontcolor=yellow:"      # Yellow for readability
+                f"box=1:boxcolor=black@0.75:boxborderw=10:"
+                f"x=(w-text_w)/2:"
+                f"y=h-text_h-320:"        # Bottom-third (above subtitles area)
+                f"enable='between(t,0,5)'"  # Stays 5s instead of 3s
             )
             vf_parts.append(title_overlay)
-            print(f"   🎨 Title overlay: '{safe_title}' (first 3 sec)")
+            print(f"   🎨 Title: '{safe_title}' (0-5s, bottom-third)")
 
-        # 5c. CTA text overlay on last 2 seconds (FOLLOW FOR MORE / SAVE THIS)
+        # ── 5b. Progress bar ──────────────────────────────────────────────────
+        # Thin bar at very bottom. Grows as video plays.
+        # Psychology: viewers watch longer when they can see how close they are to the end.
+        progress_bar = (
+            f"drawbox="
+            f"x=0:y=h-8:w=w*t/{video_duration:.3f}:h=8:"
+            f"color=yellow@0.9:t=fill"
+        )
+        vf_parts.append(progress_bar)
+        print("   📊 Progress bar: enabled")
+
+        # ── 5c. CTA overlay: last 2 seconds ──────────────────────────────────
         cta_text = random.choice(["FOLLOW FOR MORE", "SAVE THIS"])
+        cta_start = max(duration - 2.5, duration * 0.75)  # at least 75% through
         cta_overlay = (
             f"drawtext=text='{cta_text}':"
-            f"fontsize=80:"
+            f"fontsize=72:"
             f"fontcolor=yellow:"
-            f"box=1:boxcolor=black@0.65:boxborderw=20:"
-            f"x=(w-text_w)/2:y=(h-text_h)/2:"  # Center of screen
-            f"enable='between(t,{duration-2},{duration})'"
+            f"box=1:boxcolor=black@0.65:boxborderw=18:"
+            f"x=(w-text_w)/2:y=(h-text_h)/2:"
+            f"enable='between(t,{cta_start:.2f},{duration:.2f})'"
         )
         vf_parts.append(cta_overlay)
-        print(f"   🎨 CTA overlay: last 2 seconds ({cta_text})")
+        print(f"   🎨 CTA: '{cta_text}' (last ~2.5s)")
 
-        # 5c. Subtitle burn-in
+        # ── 5d. Subtitle burn-in ──────────────────────────────────────────────
         if ass_file and os.path.exists(ass_file):
             esc = ass_file.replace("\\", "/")
             if platform.system() == "Windows" and len(esc) > 1 and esc[1] == ":":
                 esc = esc[0] + "\\:" + esc[2:]
             vf_parts.append(f"ass='{esc}'")
-            print("   📝 Subtitle burn-in: word-level, bottom-third")
+            print("   📝 Subtitles: word-level, bottom-third")
 
         vf_filter = ",".join(vf_parts) if vf_parts else None
 
-        # ── 6. Build audio filter (voiceover + optional impact sound + optional BGM) ──
+        # ── 6. Build audio mix ───────────────────────────────────────────────
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
         audio_inputs = []
 
-        # Check for impact/whoosh sound effect
         impact_file = None
         for candidate in ["assets/impact_sound.mp3", "assets/whoosh.mp3", "assets/impact.mp3",
                           "impact_sound.mp3", "whoosh.mp3"]:
@@ -190,14 +212,13 @@ def create_video(title, video_clips, hook_line=""):
                 impact_file = candidate
                 break
 
-        # Check for background music
         bgm_file = None
         for candidate in ["bgm.mp3", "bgm.wav", "bgm.m4a"]:
             if os.path.exists(candidate):
                 bgm_file = candidate
                 break
 
-        audio_input_idx = 2  # next input after bg (0) and voiceover (1)
+        audio_input_idx = 2
 
         if impact_file:
             main_cmd.extend(["-i", impact_file])
@@ -211,16 +232,13 @@ def create_video(title, video_clips, hook_line=""):
             audio_inputs.append(("bgm", audio_input_idx, 0.10))
             audio_input_idx += 1
 
-        # Build audio mix
         if audio_inputs:
-            # Mix voiceover + extras
-            filter_parts = [f"[1:a]volume=1.0[vo]"]
+            filter_parts = ["[1:a]volume=1.0[vo]"]
             mix_inputs = ["[vo]"]
             for name, idx, vol in audio_inputs:
                 filter_parts.append(f"[{idx}:a]volume={vol}[{name}]")
                 mix_inputs.append(f"[{name}]")
             mix_count = len(mix_inputs)
-            weights = " ".join(["1"] + ["0.3"] * (mix_count - 1))
             filter_parts.append(
                 f"{''.join(mix_inputs)}amix=inputs={mix_count}:duration=first[aout]"
             )
@@ -242,12 +260,12 @@ def create_video(title, video_clips, hook_line=""):
             "output.mp4"
         ])
 
-        print(f"🎬 Rendering final video ({video_duration:.1f}s target)...")
+        print(f"🎬 Rendering ({video_duration:.1f}s)...")
         res = subprocess.run(main_cmd, capture_output=True, text=True, timeout=600)
         if res.returncode != 0:
             print(f"❌ Render failed: {res.stderr[-800:]}")
             return False
-        print(f"✅ Final video ready: output.mp4 ({video_duration:.1f}s)")
+        print(f"✅ output.mp4 ready ({video_duration:.1f}s)")
 
         # ── 7. Cleanup ───────────────────────────────────────────────────────
         for f in scaled_clips + (video_clips or []):
@@ -266,7 +284,8 @@ def create_video(title, video_clips, hook_line=""):
         return False
 
 
-# ── VTT → SRT converter ─────────────────────────────────────────────────────
+# ── VTT → SRT ────────────────────────────────────────────────────────────────
+
 def _vtt_to_srt(vtt_path: str, srt_path: str):
     with open(vtt_path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -283,13 +302,10 @@ def _vtt_to_srt(vtt_path: str, srt_path: str):
             if "-->" in line:
                 ts_line = line
             elif line and not line.startswith("WEBVTT") and not line.isdigit() and not line.startswith("NOTE"):
-                # Clean up missing spaces after punctuation (e.g. .THAT -> . THAT) and leading punctuation
                 import re as _re
                 line = _re.sub(r'([.,?!])([^\s])', r'\1 \2', line)
                 line = line.replace(' ,', ',').replace(' .', '.')
                 line = _re.sub(r'^[,.]\s*', '', line)
-                
-                # Viral subtitles are ALWAYS uppercase
                 text_lines.append(line.upper())
 
         if not ts_line or not text_lines:
@@ -312,24 +328,15 @@ def _vtt_to_srt(vtt_path: str, srt_path: str):
 
     with open(srt_path, "w", encoding="utf-8") as f:
         f.write("\n".join(srt_lines))
+    print(f"   SRT: {idx - 1} cues")
 
-    print(f"   SRT written: {idx - 1} cues")
 
+# ── Styled ASS subtitles ──────────────────────────────────────────────────────
 
-# ── Styled ASS subtitles (viral style) ───────────────────────────────────────
 def _style_ass(src: str, dst: str):
-    """
-    Viral subtitle style:
-    - Canvas: 1080x1920 (9:16)
-    - Font: Impact Bold, size 65 (big, readable)
-    - White text with thick black outline
-    - Bottom third, above UI elements (MarginV=280)
-    - Max 3 words at a time
-    """
     with open(src, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # Force PlayRes to match 1080x1920
     if "PlayResX" in content:
         content = re.sub(r"PlayResX:\s*\d+", "PlayResX: 1080", content)
     else:
@@ -340,24 +347,23 @@ def _style_ass(src: str, dst: str):
     else:
         content = content.replace("PlayResX: 1080", "PlayResX: 1080\nPlayResY: 1920", 1)
 
-    # ASS style: Impact 65, bold yellow, thick black outline, bottom-third above UI
     new_style = (
         "Style: Default,"
-        "Impact,"                # Bold, punchy font
-        "65,"                    # Fontsize (large for mobile)
-        "&H0000FFFF,"            # PrimaryColour: Vibrant Yellow (BGR)
-        "&H000000FF,"            # SecondaryColour: Red (unused)
-        "&H00000000,"            # OutlineColour: Black
-        "&H80000000,"            # BackColour: 50% transparent shadow
-        "-1,0,0,0,"              # Bold=Yes
-        "100,100,"               # ScaleX, ScaleY
-        "0,"                     # Spacing
-        "0,"                     # Angle
-        "1,"                     # BorderStyle: Outline + shadow
-        "8,"                     # Outline thickness (thick for contrast)
-        "4,"                     # Shadow distance
-        "2,"                     # Alignment: Bottom-Centre
-        "20,20,280,0"            # MarginL, MarginR, MarginV=280 (above UI), Encoding
+        "Impact,"
+        "65,"
+        "&H0000FFFF,"
+        "&H000000FF,"
+        "&H00000000,"
+        "&H80000000,"
+        "-1,0,0,0,"
+        "100,100,"
+        "0,"
+        "0,"
+        "1,"
+        "8,"
+        "4,"
+        "2,"
+        "20,20,320,0"   # MarginV=320 — slightly higher to avoid progress bar
     )
 
     if "Style: Default," in content:
@@ -369,9 +375,9 @@ def _style_ass(src: str, dst: str):
         f.write(content)
 
 
-# ── VTT word-splitter ────────────────────────────────────────────────────────
+# ── VTT word-splitter ─────────────────────────────────────────────────────────
+
 def _split_vtt_to_words(src: str, dst: str, max_words: int = 3):
-    """Re-chunk VTT so each cue contains at most max_words words."""
     try:
         with open(src, "r", encoding="utf-8") as f:
             content = f.read()
@@ -439,10 +445,9 @@ def _split_vtt_to_words(src: str, dst: str, max_words: int = 3):
 
         with open(dst, "w", encoding="utf-8") as f:
             f.write("\n".join(new_cues))
-
         print(f"✅ Subtitles split: {cue_index - 1} word-level cues.")
     except Exception as e:
-        print(f"⚠️ VTT split failed ({e}) — using original.")
+        print(f"⚠️  VTT split failed ({e}) — using original.")
         shutil.copy(src, dst)
 
 
