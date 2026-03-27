@@ -167,15 +167,9 @@ def create_video(title, video_clips, hook_line=""):
             print(f"   🎨 Title: '{safe_title}' (0-5s, bottom-third)")
 
         # ── 5b. Progress bar ──────────────────────────────────────────────────
-        # Thin bar at very bottom. Grows as video plays.
-        # Psychology: viewers watch longer when they can see how close they are to the end.
-        progress_bar = (
-            f"drawbox="
-            f"x=0:y=h-8:w=w*t/{video_duration:.3f}:h=8:"
-            f"color=yellow@0.9:t=fill"
-        )
-        vf_parts.append(progress_bar)
-        print("   📊 Progress bar: enabled")
+        # Disabled: FFmpeg drawbox doesn't support dynamic width based on time
+        # (would require timeline-based rendering which is complex)
+        # Removed to fix render failures
 
         # ── 5c. CTA overlay: last 2 seconds ──────────────────────────────────
         cta_text = random.choice(["FOLLOW FOR MORE", "SAVE THIS"])
