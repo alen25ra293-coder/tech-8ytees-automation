@@ -12,6 +12,11 @@ import time
 import subprocess
 import json
 
+try:
+    import requests
+except ImportError:
+    requests = None
+
 
 # ── Text sanitization (removes markdown that TTS would read aloud) ────────────
 
@@ -160,7 +165,11 @@ def _try_elevenlabs(script_text: str) -> bool:
     Voice: Adam (voice_id = pNInz6obpgDQGcFmaJgB) — natural American male.
     Requires: ELEVENLABS_API_KEY env var set in GitHub secrets.
     """
-    api_key = os.environ.get("ELEVENLABS_API_KEY", "")
+    if requests is None:
+        print("⚠️  requests not installed — skipping ElevenLabs.")
+        return False
+    
+    api_key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
     if not api_key:
         print("⚠️  ELEVENLABS_API_KEY not set — skipping ElevenLabs.")
         return False
@@ -171,8 +180,6 @@ def _try_elevenlabs(script_text: str) -> bool:
     VOICE_ID = "pNInz6obpgDQGcFmaJgB"
 
     try:
-        import requests  # type: ignore
-
         url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
         headers = {
             "xi-api-key": api_key,
@@ -200,22 +207,47 @@ def _try_elevenlabs(script_text: str) -> bool:
             return True
 
         elif resp.status_code == 401:
-            print("❌ ElevenLabs: invalid API key.")
+            print("❌ ElevenLabs: invalid API key or key has leading/trailing whitespace.")
+            _log_response_error(resp, "401 Unauthorized")
         elif resp.status_code == 429:
             print("⚠️  ElevenLabs: quota exceeded — falling back.")
         else:
-            try:
-                err = resp.json().get("detail", {}).get("message", resp.text[:200])
-            except Exception:
-                err = resp.text[:200]
-            print(f"⚠️  ElevenLabs error {resp.status_code}: {err}")
+            error_msg = _parse_response_error(resp)
+            print(f"⚠️  ElevenLabs error {resp.status_code}: {error_msg}")
 
-    except ImportError:
-        print("⚠️  requests not installed — skipping ElevenLabs.")
     except Exception as e:
         print(f"⚠️  ElevenLabs failed: {e}")
 
     return False
+
+
+def _parse_response_error(resp) -> str:
+    """Extract error message from ElevenLabs response with fallback handling."""
+    try:
+        data = resp.json()
+        if isinstance(data, dict):
+            # Try multiple error message paths
+            error = (
+                data.get("detail", {}).get("message") or
+                data.get("message") or
+                data.get("error") or
+                str(data)[:200]
+            )
+            return error
+    except Exception:
+        pass
+    return resp.text[:300]
+
+
+def _log_response_error(resp, prefix: str = ""):
+    """Log full response for debugging."""
+    try:
+        body = resp.json()
+    except Exception:
+        body = resp.text
+    if prefix:
+        print(f"   {prefix} response: {body}")
+
 
 
 
