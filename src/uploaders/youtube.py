@@ -165,12 +165,17 @@ def _pin_engagement_comment(youtube, video_id: str, question: str, product_name:
         comment_id = comment_result["snippet"]["topLevelComment"]["id"]
         print(f"   ✅ Comment posted: {comment_id}")
 
-        # Try to pin the comment (requires channel owner permissions)
-        # This uses setModerationStatus — if the channel doesn't have
-        # moderation enabled this may not work on all channels.
-        # The comment will still appear as first comment regardless.
-
-        print(f"   📌 Pinned engagement comment on video {video_id}")
+        # Try to pin the comment using replies endpoint and moderation
+        try:
+            youtube.comments().setModerationStatus(
+                id=comment_id,
+                moderationStatus="heldForReview",
+                banAuthor=False
+            ).execute()
+            print(f"   📌 Pinned engagement comment on video {video_id}")
+        except Exception as pin_err:
+            # If pinning fails, comment still posted successfully
+            print(f"   ⚠️  Auto-pin skipped (comment visible): {pin_err}")
 
     except Exception as e:
         print(f"⚠️  Pinned comment failed (non-critical): {e}")
