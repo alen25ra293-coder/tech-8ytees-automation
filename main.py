@@ -32,6 +32,29 @@ def download_impact_sound():
     return False
 
 
+def download_bgm():
+    """Download royalty-free tech BGM from YouTube Audio Library alternatives."""
+    target = "assets/bgm.mp3"
+    if os.path.exists(target):
+        return True
+    print("🎵 Downloading background music...")
+    os.makedirs("assets", exist_ok=True)
+    # Using a royalty-free tech/phonk style track from Mixkit (similar to YouTube Audio Library)
+    # This specific track has an energetic tech vibe suitable for shorts
+    url = "https://assets.mixkit.co/music/preview/mixkit-tech-house-vibes-130.mp3"
+    try:
+        resp = requests.get(url, timeout=30)
+        if resp.status_code == 200:
+            with open(target, "wb") as f:
+                f.write(resp.content)
+            print(f"   ✅ BGM saved to {target}")
+            return True
+        print(f"   ⚠️  BGM download failed: {resp.status_code}")
+    except Exception as e:
+        print(f"   ⚠️  Could not download BGM: {e}")
+    return False
+
+
 def main():
     if sys.platform == "win32":
         import io
@@ -45,6 +68,7 @@ def main():
     try:
         # ── 0. Assets ────────────────────────────────────────────────────────
         download_impact_sound()
+        download_bgm()
 
         # ── 1. Topic (returns topic + category for diversity enforcement) ────
         # idea_bank now returns (topic, category) to prevent same-category

@@ -170,7 +170,7 @@ def create_video(title, video_clips, hook_line=""):
         # FIX: moved from y=h/2 (center) to y=h*0.2 (upper-third)
         # Reason: center position collided with subtitles
         # FIX: better CTA text options (not just "subscribe")
-        cta_text = random.choice(["SAVE THIS 🔖", "SUBSCRIBE FOR MORE 🔔", "TAP SUBSCRIBE 👆"])
+        cta_text = random.choice(["SAVE THIS", "SUBSCRIBE FOR MORE ", "TAP SUBSCRIBE "])
         cta_start = max(duration - 3.0, duration * 0.75)
         cta_overlay = (
             f"drawtext=text='{cta_text}':"
@@ -210,19 +210,27 @@ def create_video(title, video_clips, hook_line=""):
                 print(f"   🔊 Impact: {candidate}")
                 break
 
-        for candidate in ["bgm.mp3", "bgm.wav", "bgm.m4a"]:
+        for candidate in ["assets/bgm.mp3", "bgm.mp3", "bgm.wav", "bgm.m4a"]:
             if os.path.exists(candidate):
                 main_cmd.extend(["-stream_loop", "-1", "-i", candidate])
-                audio_inputs.append(("bgm", audio_input_idx, 0.10))
+                # BGM starts 0.5s after voiceover (adds energy kick)
+                audio_inputs.append(("bgm", audio_input_idx, 0.15, 0.5))
                 audio_input_idx += 1
-                print(f"   🎵 BGM: {candidate}")
+                print(f"   🎵 BGM: {candidate} (starts at 0.5s)")
                 break
 
         if audio_inputs:
             filter_parts = ["[1:a]volume=1.0[vo]"]
             mix_inputs = ["[vo]"]
-            for name, idx, vol in audio_inputs:
-                filter_parts.append(f"[{idx}:a]volume={vol}[{name}]")
+            for item in audio_inputs:
+                if len(item) == 4:
+                    name, idx, vol, delay = item
+                    # Add delay to BGM using adelay filter
+                    delay_ms = int(delay * 1000)
+                    filter_parts.append(f"[{idx}:a]volume={vol},adelay={delay_ms}|{delay_ms}[{name}]")
+                else:
+                    name, idx, vol = item
+                    filter_parts.append(f"[{idx}:a]volume={vol}[{name}]")
                 mix_inputs.append(f"[{name}]")
             mix_count = len(mix_inputs)
             filter_parts.append(
@@ -334,17 +342,17 @@ def _style_ass(src: str, dst: str):
     new_style = (
         "Style: Default,"
         "Impact,"
-        "76,"
+        "82,"               # Increased from 76 for better readability
         "&H0000FFFF,"       # Yellow text (BGR: 00 FF FF 00)
         "&H000000FF,"
         "&H00000000,"       # Black outline
         "&H90000000,"
-        "0,0,0,0,"
+        "-1,0,0,0,"         # Bold=-1 (enabled), Italic=0, Underline=0, StrikeOut=0
         "100,100,"
         "0,"
         "0,"
         "1,"
-        "7,"
+        "8,"                # Increased outline from 7 to 8 (thicker black border)
         "3,"
         "2,"                # alignment=2 = bottom-center (KEY FIX)
         "20,20,200,0"       # MarginV=200
