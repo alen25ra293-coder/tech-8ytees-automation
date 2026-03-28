@@ -65,6 +65,7 @@ def _normalize_numbers(text: str) -> str:
     ₹15000  ->  '15,000 rupees'   (NOT 'Rs. 15,000' which TTS reads as 'R S')
     ₹1,799  ->  '1,799 rupees'
     15000   ->  '15,000'          (bare numbers also get commas)
+    15W     ->  '15 watt'         (so TTS says 'watt' not 'W')
     """
     def _currency_replace(m):
         # Grab the number part, strip any existing commas, reformat with commas
@@ -87,6 +88,17 @@ def _normalize_numbers(text: str) -> str:
             return m.group(0)
 
     text = re.sub(r'\b\d{4,}\b', _add_commas, text)
+    
+    # Expand abbreviations so TTS pronounces them correctly
+    # 15W, 15w, 15 W, 15-W → '15 watt' (TTS will say "fifteen watt")
+    text = re.sub(r'\b(\d+)\s*-?\s*W\b', r'\1 watt', text, flags=re.IGNORECASE)
+    
+    # Also handle when W appears without number (rare but possible)
+    # "a 15W charger" or "15W fast" → "15 watt"
+    text = re.sub(r'\b(\d+)W\b', r'\1 watt', text, flags=re.IGNORECASE)
+    
+    # 5000mAh, 5000 mAh, 5000-mAh → '5000 milliamp hours' (more natural than spelling)
+    text = re.sub(r'\b(\d+)\s*-?\s*mAh\b', r'\1 milliamp hours', text, flags=re.IGNORECASE)
 
     return text
 
@@ -96,6 +108,7 @@ def _post_process_vtt(vtt_path: str):
     Restore '15,000 rupees' back to '₹15,000' in the final subtitle file.
     Because TTS engines spoke '15,000 rupees', Whisper/Edge-TTS wrote that in the VTT.
     We want the clean symbol format on screen.
+    Also fixes common transcription errors like '15 w' → '15W' or '15 watt'
     """
     if not os.path.exists(vtt_path):
         return
@@ -104,11 +117,35 @@ def _post_process_vtt(vtt_path: str):
 
     # Revert 'NUMBER rupees' back to '₹NUMBER' case-insensitively, handling internal spaces from Whisper
     import re as _re
+    
     def _revert_currency(m):
-        num_str = m.group(1).replace(' ', '')
-        return f"₹{num_str}"
+        # Check if there's a leading space
+        prefix = m.group(1) if m.group(1) else ''
+        num_str = m.group(2).replace(' ', '').replace(',', '').strip()
+        # Add commas back if needed
+        try:
+            formatted = "{:,}".format(int(num_str))
+        except ValueError:
+            formatted = num_str
+        return f"{prefix}₹{formatted}"
         
-    text = _re.sub(r'\b([\d,\s]+)\s+r(?:upees|upies)\b', _revert_currency, text, flags=_re.IGNORECASE)
+    text = _re.sub(r'(\s?)([\d,\s]+)\s+r(?:upees|upies)\b', _revert_currency, text, flags=_re.IGNORECASE)
+    
+    # Fix common abbreviation issues from TTS/Whisper
+    # '15 w' or '15w' → '15W' (keep it concise for subtitle readability)
+    text = _re.sub(r'\b(\d+)\s*w\b', r'\1W', text, flags=_re.IGNORECASE)
+    
+    # Fix 'watt' and 'watts' to 'W' when after numbers for brevity in subtitles
+    text = _re.sub(r'\b(\d+)\s*watts?\b', r'\1W', text, flags=_re.IGNORECASE)
+    
+    # Fix 'mah' or 'mAh' or 'm A h' or 'milliamp hours' variations to 'mAh'
+    text = _re.sub(r'\bm\s*a\s*h\b', 'mAh', text, flags=_re.IGNORECASE)
+    text = _re.sub(r'\bmilliamp\s*hours?\b', 'mAh', text, flags=_re.IGNORECASE)
+    text = _re.sub(r'\bmilli\s*amp\s*hours?\b', 'mAh', text, flags=_re.IGNORECASE)
+    
+    # Restore proper spacing around numbers with commas (Whisper sometimes adds spaces)
+    # '20 , 000' → '20,000'
+    text = _re.sub(r'(\d+)\s*,\s*(\d+)', r'\1,\2', text)
 
     with open(vtt_path, "w", encoding="utf-8") as f:
         f.write(text)
@@ -132,7 +169,12 @@ def generate_voiceover(script_text: str) -> bool:
     spoken_text = _normalize_numbers(clean_text)
     
     if spoken_text != clean_text:
-        print("🧹 Normalized script text for TTS audio.")
+        print("🧹 Normalized script text for TTS audio:")
+        # Show a sample of changes (first 200 chars of differences)
+        if len(spoken_text) < 300:
+            print(f"   TTS will speak: {spoken_text}")
+        else:
+            print(f"   Sample: {spoken_text[:200]}...")
 
     # ── 1. ElevenLabs (best: indistinguishable from human) ───────────────────
     if _try_elevenlabs(spoken_text):
@@ -438,24 +480,46 @@ def _whisper_result_to_vtt(result: dict, out_path: str):
             lines.append(f"{idx}\n{_vtt_time(s)} --> {_vtt_time(e)}\n{text}\n")
             idx += 1
             continue
-        # 1–3 words per cue
+        # 1–3 words per cue, but keep numbers together to avoid splitting "20,000"
         chunk: list = []
         chunk_start = words[0]["start"]
-        for w in words:
-            chunk.append(w["word"].strip())
+        for i, w in enumerate(words):
+            word_text = w["word"].strip()
+            chunk.append(word_text)
+            
+            # Check if we should break the chunk
+            should_break = False
             if len(chunk) >= 3:
+                # Don't break if next word is part of a number/currency expression
+                if i + 1 < len(words):
+                    next_word = words[i + 1]["word"].strip()
+                    # Keep numbers together: "20" + "," + "000" or "15" + "W"
+                    if not (_is_number_part(word_text) and _is_number_part(next_word)):
+                        should_break = True
+                else:
+                    should_break = True
+            
+            if should_break:
                 chunk_end = w["end"]
                 lines.append(f"{idx}\n{_vtt_time(chunk_start)} --> {_vtt_time(chunk_end)}\n{' '.join(chunk)}\n")
                 idx += 1
                 chunk = []
-                if words.index(w) + 1 < len(words):
-                    chunk_start = words[words.index(w) + 1]["start"]
+                if i + 1 < len(words):
+                    chunk_start = words[i + 1]["start"]
+        
         if chunk:
             lines.append(f"{idx}\n{_vtt_time(chunk_start)} --> {_vtt_time(words[-1]['end'])}\n{' '.join(chunk)}\n")
             idx += 1
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
+
+
+def _is_number_part(word: str) -> bool:
+    """Check if a word is part of a number expression (digit, comma, currency, units)."""
+    word_lower = word.lower()
+    # Match digits, commas, currency symbols, units (w, mah, rupees, etc.)
+    return bool(re.match(r'^[\d,₹$]+$|^[wm]ah$|^rupees?$|^w$|^percent$|^%$', word_lower))
 
 
 def _script_to_vtt(audio_path: str, text: str, out_path: str):
