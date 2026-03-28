@@ -211,10 +211,10 @@ ABSOLUTE RULES:
 8. FIRST FRAME RULE: The very first visual MUST show the product result/payoff
    immediately — a glowing screen, a side-by-side price comparison, hands holding
    the product. NOT a setup, NOT text, NOT a black screen.
-9. LOOP TRICK: The last sentence should naturally connect back to the opening.
-   Example: If you open with "₹499 vs ₹3,500" and end with "Save this" —
-   change the ending to loop: "...and it starts at just ₹499."
-   This makes viewers rewatch, boosting retention above 100%.
+9. LOOP TRICK: The last sentence should naturally connect back to the opening but before looping, you MUST include the engagement hack exactly:
+   "Check the first comment for the link! [Controversial Question e.g. Android or iPhone]? Comment below!"
+   End the script with this CTA.
+   This makes viewers rewatch and signals high engagement to the algorithm.
 
 VISUAL INSTRUCTIONS — be VERY specific:
 - Bad: "Show the product"
@@ -223,9 +223,10 @@ VISUAL INSTRUCTIONS — be VERY specific:
 - FIRST VISUAL must be the "payoff" — the product in action, not a setup.
 
 TITLE RULES:
-- MAX 5 WORDS total. The core subject (e.g., "iPhone", "Jio") must be the 1st or 2nd word.
-- USE NEGATIVE HOOKS: "Stop", "Don't Buy", "Warning", "Fake", "Dead?".
-- exactly ONE high-contrast emoji at the very end (🛑, 💀, 🤯, 🚀).
+- FIRST WORD MUST BE: "STOP", "WAIT", or "WARNING".
+- MAX 5 WORDS total. The core subject (e.g., "iPhone") must be the 2nd or 3rd word.
+- PRICE IN TITLE: You MUST mention ₹ (Rupees) in the title (e.g., "WAIT! ₹499 Earbuds...").
+- exactly ONE emoji at the very end: it MUST be the 🛑 emoji to build the brand signature.
 - NO hashtags in title (they go in description only)
 - NO sensational positive verbs (see banned list above)
 

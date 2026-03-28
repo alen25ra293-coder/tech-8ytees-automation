@@ -3,28 +3,10 @@ name: Tech 8ytees Daily Upload
 on:
   schedule:
     # ── Day-specific optimal posting times for Indian tech audience ──────
-    # Strategy: 1 upload/day at peak engagement slot for that day (IST).
-    # Algorithm rewards high retention per video, not volume.
-    #
-    # Day of week    | Cron (UTC)          | IST equivalent | Reason
-    # ────────────────────────────────────────────────────────────────────
-    # Sunday (0)     | 30 7  * * 0         | 1:00 PM IST    | Leisure scrolling
-    # Monday (1)     | 30 14 * * 1         | 8:00 PM IST    | Post-work catch-up
-    # Tuesday (2)    | 30 13 * * 2         | 7:00 PM IST    | After-work + lunch spike
-    # Wednesday (3)  | 30 13 * * 3         | 7:00 PM IST    | Peak midweek engagement
-    # Thursday (4)   | 30 13 * * 4         | 7:00 PM IST    | Weekend anticipation
-    # Friday (5)     | 30 12 * * 5         | 6:00 PM IST    | "Viral window" — weekend mode
-    # Saturday (6)   | 30 5  * * 6         | 11:00 AM IST   | Late wake-up, leisure scroll
-    #
-    # NOTE: Times are scheduled ~60 min early to account for GitHub Actions delays.
-
-    - cron: '30 7  * * 0'   # Sunday    → 1:00 PM IST (leisure scrolling)
-    - cron: '30 14 * * 1'   # Monday    → 8:00 PM IST (post-work catch-up)
-    - cron: '30 13 * * 2'   # Tuesday   → 7:00 PM IST (after work)
-    - cron: '30 13 * * 3'   # Wednesday → 7:00 PM IST (peak midweek)
-    - cron: '30 13 * * 4'   # Thursday  → 7:00 PM IST (weekend anticipation)
-    - cron: '30 12 * * 5'   # Friday    → 6:00 PM IST (viral window)
-    - cron: '30 5  * * 6'   # Saturday  → 11:00 AM IST (late wake-up scroll)
+    # Strategy: 1 upload/day exactly at 7:00 PM IST.
+    # Time: 7:00 PM IST = 1:30 PM UTC.
+    
+    - cron: '30 13 * * *'   # Every day → 7:00 PM IST (1:30 PM UTC)
 
   workflow_dispatch:        # Manual trigger from GitHub UI
   push:

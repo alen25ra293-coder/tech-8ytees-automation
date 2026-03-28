@@ -59,15 +59,33 @@ def upload_to_youtube(title: str, description: str, tags: str,
         # ── Clean title: strip hashtag spam, keep only #Shorts ────────────
         upload_title = _clean_title(title)
 
-        # ── Build description: curiosity-gap lead, not boilerplate ────────
-        # First line is keyword-rich (YouTube uses it in Google SGE results)
-        # Keep description lean — boilerplate kills CTR
+        # ── Extract dynamic prices for Budget CTA ────────────
+        # Search title and original description/question for any rupee values
+        price_search_text = f"{title} {question} {description}"
+        raw_prices = re.findall(r'₹\s*([0-9,kK]+)', price_search_text)
+        
+        unique_prices = []
+        for p in raw_prices:
+            if p not in unique_prices:
+                unique_prices.append(p)
+                
+        if len(unique_prices) >= 2:
+            price_1, price_2 = unique_prices[0], unique_prices[1]
+        elif len(unique_prices) == 1:
+            price_1 = unique_prices[0]
+            digits = price_1.replace(',', '')
+            price_2 = str(int(digits) * 10) if digits.isdigit() else "5000"
+        else:
+            price_1, price_2 = "500", "5000"
+
+        # ── Build description: Metadata Reinforcement Template ────────────
+        # First line is keyword-rich title sync (YouTube algorithm 2026)
         upload_description = (
-            f"{description}\n\n"
-            f"💰 Budget gadgets that work just as well as ₹15,000+ alternatives.\n"
-            f"🔔 Subscribe — I test a new one every day.\n"
-            f"📱 Instagram: @Tech8ytees\n\n"
-            f"#Shorts #BudgetGadgets #TechFinds #GadgetReview #Tech8ytees"
+            f"{upload_title} 🛑\n"
+            f"Looking for the best tech in India? 🇮🇳 In this video, we explore {upload_title} to see if it is a total paisa-vasool deal! 💸\n"
+            f"👇 COMMENT YOUR BUDGET BELOW! (₹{price_1} or ₹{price_2}?)\n"
+            f"Subscribe for daily hidden tech finds! 🔔 @Tech8ytees\n\n"
+            f"#TechIndia #BudgetGadgets #SmartHomeIndia #TechTricks #AmazonFinds #GadgetReview"
         )
 
         # ── Tags: keep 8-10 niche-specific, remove generic spam ──────────
@@ -79,8 +97,13 @@ def upload_to_youtube(title: str, description: str, tags: str,
         # Filter: keep only meaningful tags, skip ultra-generic ones
         generic_skip = {"tech", "viral", "shorts", "fyp", "trending", "reels", "foryou"}
         tag_list = [t for t in tag_list if t.lower() not in generic_skip]
+        
+        # Append 4 title/topic related keywords to the bottom of the description
+        added_tags = " ".join([f"#{t}" for t in tag_list[:4]])
+        if added_tags:
+            upload_description += f" {added_tags}"
 
-        # Add channel + niche tags
+        # Add channel + niche tags for YouTube backend
         base_tags = ["Tech8ytees", "BudgetGadgets", "TechFinds", "GadgetReview",
                      "BudgetTech", "AmazonIndia"]
         tag_list = list(dict.fromkeys(tag_list + base_tags))[:10]
