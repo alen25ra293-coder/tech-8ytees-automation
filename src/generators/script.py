@@ -229,12 +229,17 @@ TITLE RULES:
 - NO hashtags in title (they go in description only)
 - NO sensational positive verbs (see banned list above)
 
+PRODUCT_NAME RULE:
+- Identify the specific brand and model from the topic (e.g., "Portronics PAT", "OnePlus 13", "Samsung Galaxy Buds").
+- The product name MUST be mentioned explicitly in the SCRIPT — viewers need to know WHAT they're hearing about.
+- Example: "This ₹499 Portronics charger..." or "OnePlus 13's camera..."
+
 OUTPUT FORMAT (exact keys, no extra text):
 PRODUCT_NAME: [specific brand and model name]
 TITLE: [MAX 5 WORDS, NEGATIVE HOOK, 1 EMOJI AT END]
 HOOK_LINE: [first sentence only, under 6 words, negative tone, NO banned verbs]
 HOOK_STYLE: [{structure_name}]
-SCRIPT: [50-65 words, follow the structure template above]
+SCRIPT: [50-65 words, INCLUDE PRODUCT NAME, follow the structure template above]
 VISUAL_INSTRUCTIONS:
 [Script line 1] -> Visual: [Specific Object + Action + Context]
 [Script line 2] -> Visual: [Specific Object + Action + Context]

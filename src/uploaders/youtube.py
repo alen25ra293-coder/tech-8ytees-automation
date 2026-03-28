@@ -47,8 +47,10 @@ def upload_to_youtube(title: str, description: str, tags: str,
     try:
         print("📤 Uploading to YouTube Shorts...")
 
-        # Load and optionally refresh credentials
-        creds = Credentials.from_authorized_user_file("token.json")
+        # Load and optionally refresh credentials (handle UTF-8 BOM)
+        with open("token.json", "r", encoding="utf-8-sig") as f:
+            cred_data = json.load(f)
+        creds = Credentials(**cred_data)
         if creds.expired and creds.refresh_token:
             creds.refresh(Request())
 

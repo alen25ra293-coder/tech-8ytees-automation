@@ -170,7 +170,7 @@ def create_video(title, video_clips, hook_line=""):
         # FIX: moved from y=h/2 (center) to y=h*0.2 (upper-third)
         # Reason: center position collided with subtitles
         # FIX: better CTA text options (not just "subscribe")
-        cta_text = random.choice(["SAVE THIS 🔖", "FOLLOW FOR MORE 🔔", "TAP FOLLOW 👆"])
+        cta_text = random.choice(["SAVE THIS 🔖", "SUBSCRIBE FOR MORE 🔔", "TAP SUBSCRIBE 👆"])
         cta_start = max(duration - 3.0, duration * 0.75)
         cta_overlay = (
             f"drawtext=text='{cta_text}':"
