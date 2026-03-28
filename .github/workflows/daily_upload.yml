@@ -87,11 +87,15 @@ jobs:
       - name: 🔑 Write YouTube token.json
         run: |
           python3 -c "
-          import json, os
-          # Strip UTF-8 BOM if present
+          import json, os, re
+          # Get secret and clean it
           token_str = os.environ['YOUTUBE_TOKEN_JSON']
+          # Strip BOM
           if token_str.startswith('\ufeff'):
               token_str = token_str[1:]
+          # Remove any newlines, tabs, or control characters within the JSON
+          token_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', token_str)
+          # Parse and rewrite cleanly
           token_data = json.loads(token_str)
           with open('token.json', 'w', encoding='utf-8') as f:
               json.dump(token_data, f, indent=2)
