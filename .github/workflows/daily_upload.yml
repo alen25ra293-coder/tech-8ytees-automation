@@ -88,7 +88,11 @@ jobs:
         run: |
           python3 -c "
           import json, os
-          token_data = json.loads(os.environ['YOUTUBE_TOKEN_JSON'])
+          # Strip UTF-8 BOM if present
+          token_str = os.environ['YOUTUBE_TOKEN_JSON']
+          if token_str.startswith('\ufeff'):
+              token_str = token_str[1:]
+          token_data = json.loads(token_str)
           with open('token.json', 'w', encoding='utf-8') as f:
               json.dump(token_data, f, indent=2)
           "
