@@ -249,10 +249,17 @@ VISUAL_INSTRUCTIONS:
 [Script line 2] -> Visual: [Specific Object + Action + Context]
 [continue for every line]
 TAGS: [6 hashtags — 2 niche, 2 medium, 2 broad. No tags over 5M posts.]
-DESCRIPTION: [1 curiosity-gap sentence that makes people click, NO boilerplate]
+DESCRIPTION: [Generate a FULL YouTube description for this specific video. Follow this EXACT structure:
+Line 1: The video title (without hashtags or emoji) — for Metadata Reinforcement.
+Line 2: A HUMAN sentence about THIS specific product and its price. Sound like a real person, NOT marketing copy. Example: "In this video, we test this ₹1,299 car vacuum to see if it actually works or if it is just a waste of money."
+Line 3: A fun, topic-relevant engagement question using the ACTUAL price from the video. Example for car vacuum: "₹1,299 for this, or just use a cloth? 😂 Tell me your car cleaning hack! 👇" — The question MUST be about THIS product's category, NOT random.
+Line 4: "Subscribe — I find these hidden tech gems every day! 🔔 @Tech8ytees"
+Line 5: #TechIndia #BudgetGadgets #SmartHomeIndia #TechTricks #AmazonFinds #GadgetReview plus 4 TOPIC-SPECIFIC hashtags relevant to THIS video.
+NO #Shorts anywhere in the description. NO robotic text. NO boilerplate.]
 THUMBNAIL_TEXT: [2-3 words ALL CAPS — comparison or price gap]
 CAPTION_HOOK: [1 punchy sentence for Instagram]
-QUESTION: [1 controversial/opinionated question relevant to THIS specific product to drive comments]
+PINNED_COMMENT: [A "Price vs. Value War" comment relevant to THIS product. Format: "Is ₹[PRICE] too much for this [PRODUCT CATEGORY]? Or is it a total Paisa-Vasool deal? 👇\nSubscribe — I find these hidden tech gems every day! 🔔" — The price and product category MUST match the video topic exactly.]
+QUESTION: [1 controversial/opinionated question relevant to THIS specific product to drive comments. Must be about the product's category — e.g. for a car vacuum: "Vacuum or cloth for your car interior?" NOT random like "Petrol or Diesel?"]
 """
 
     try:
@@ -387,7 +394,7 @@ def parse_script(raw: str) -> dict | None:
     fields = [
         "product_name", "title", "hook_line", "hook_style", "script",
         "visual_instructions", "tags", "description",
-        "thumbnail_text", "caption_hook", "question"
+        "thumbnail_text", "caption_hook", "pinned_comment", "question"
     ]
     data = {f: "" for f in fields}
     current_key = None
@@ -398,7 +405,7 @@ def parse_script(raw: str) -> dict | None:
         for key in fields:
             if line.upper().startswith(key.upper() + ":"):
                 if current_key:
-                    sep = "\n" if current_key == "visual_instructions" else " "
+                    sep = "\n" if current_key in ("visual_instructions", "description", "pinned_comment") else " "
                     data[current_key] = sep.join(buffer).strip()
                 current_key = key
                 buffer = [line.split(":", 1)[-1].strip()]
@@ -408,7 +415,7 @@ def parse_script(raw: str) -> dict | None:
             buffer.append(line.strip())
 
     if current_key:
-        sep = "\n" if current_key == "visual_instructions" else " "
+        sep = "\n" if current_key in ("visual_instructions", "description", "pinned_comment") else " "
         data[current_key] = sep.join(buffer).strip()
 
     # ── Fallbacks ─────────────────────────────────────────────────────────────
