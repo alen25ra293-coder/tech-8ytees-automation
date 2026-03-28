@@ -85,7 +85,15 @@ jobs:
 
       # ── 6. Write YouTube OAuth token ─────────────────────
       - name: 🔑 Write YouTube token.json
-        run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > token.json
+        run: |
+          python3 -c "
+          import json, os
+          token_data = json.loads(os.environ['YOUTUBE_TOKEN_JSON'])
+          with open('token.json', 'w', encoding='utf-8') as f:
+              json.dump(token_data, f, indent=2)
+          "
+        env:
+          YOUTUBE_TOKEN_JSON: ${{ secrets.YOUTUBE_TOKEN_JSON }}
 
       # ── 7. Run automation ─────────────────────────────────
       - name: 🚀 Run Tech 8ytees automation
