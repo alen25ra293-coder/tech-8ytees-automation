@@ -91,17 +91,19 @@ def _build_search_queries(topic: str, product_name: str) -> list:
     """
     queries = []
     
-    # Priority 1: Exact product name with "holding"
+    # Priority 1: Exact product name with raw desk/hand terms
     if product_name:
-        queries.append(f"holding {product_name.lower()}")
-        queries.append(f"using {product_name.lower()}")
+        queries.append(f"hand holding {product_name.lower()}")
+        queries.append(f"{product_name.lower()} unboxing")
+        queries.append(f"broken {product_name.lower()}")
     
-    # Priority 2: Category with "holding"
+    # Priority 2: Category with raw terms
     category = _get_product_category(topic, product_name)
     if category and category in PRODUCT_SEARCH_TERMS:
-        queries.append(f"holding {category}")
-        queries.append(f"using {category}")
-        # Priority 3: All category visual terms
+        queries.append(f"hand holding {category}")
+        queries.append(f"{category} unboxing")
+        queries.append(f"broken {category}")
+        # Priority 3: All category visual terms (with 'holding' appended where possible, but we'll leave as is to be safe)
         queries.extend(PRODUCT_SEARCH_TERMS[category])
         print(f"   📦 Detected category: {category}")
         
@@ -109,9 +111,9 @@ def _build_search_queries(topic: str, product_name: str) -> list:
     if product_name:
         queries.append(product_name.lower())
     
-    # ONLY if we still have absolutely nothing do we use the topic
+    # Priority 5: Raw generic tech terms to avoid clean studio shots
     if not queries:
-        queries.append(topic)
+        queries.extend(["hand holding phone", "broken phone screen", "phone unboxing desk"])
     
     # Remove duplicates while preserving order
     seen = set()

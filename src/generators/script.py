@@ -223,16 +223,16 @@ VISUAL INSTRUCTIONS — be VERY specific:
 - FIRST VISUAL must be the "payoff" — the product in action, not a setup.
 
 TITLE RULES:
-- MAX 28 characters, ALL CAPS
-- Lead with price or comparison ("₹499 VS ₹3,500" not "Amazing Charger")
+- MAX 5 WORDS total. The core subject (e.g., "iPhone", "Jio") must be the 1st or 2nd word.
+- USE NEGATIVE HOOKS: "Stop", "Don't Buy", "Warning", "Fake", "Dead?".
+- exactly ONE high-contrast emoji at the very end (🛑, 💀, 🤯, 🚀).
 - NO hashtags in title (they go in description only)
-- NO sensational verbs (see banned list above)
-- Use specific numbers: "SAME 15W SPEED" not "BETTER THAN"
+- NO sensational positive verbs (see banned list above)
 
 OUTPUT FORMAT (exact keys, no extra text):
 PRODUCT_NAME: [specific brand and model name]
-TITLE: [MAX 28 CHARS, ALL CAPS, NO HASHTAGS, lead with price or comparison]
-HOOK_LINE: [first sentence only, under 6 words, NO banned verbs]
+TITLE: [MAX 5 WORDS, NEGATIVE HOOK, 1 EMOJI AT END]
+HOOK_LINE: [first sentence only, under 6 words, negative tone, NO banned verbs]
 HOOK_STYLE: [{structure_name}]
 SCRIPT: [50-65 words, follow the structure template above]
 VISUAL_INSTRUCTIONS:

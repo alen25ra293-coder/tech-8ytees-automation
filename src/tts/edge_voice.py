@@ -92,7 +92,7 @@ def _post_process_vtt(vtt_path: str):
         num_str = m.group(1).replace(' ', '')
         return f"₹{num_str}"
         
-    text = _re.sub(r'\b([\d,\s]+)\s+rupees\b', _revert_currency, text, flags=_re.IGNORECASE)
+    text = _re.sub(r'\b([\d,\s]+)\s+r(?:upees|upies)\b', _revert_currency, text, flags=_re.IGNORECASE)
 
     with open(vtt_path, "w", encoding="utf-8") as f:
         f.write(text)

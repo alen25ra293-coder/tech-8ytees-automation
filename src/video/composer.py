@@ -202,58 +202,91 @@ def create_video(title, video_clips, hook_line=""):
             vf_parts.append(f"ass='{esc}'")
             print("   📝 Subtitles: word-level, bottom-third")
 
+        # ── 5e. Meme Breaks ──────────────────────────────────────────────────
+        meme_filters = []
+        for m_time in [10, 20]:
+            if m_time < duration - 2:
+                meme_filters.append(f"between(t,{m_time},{m_time+0.5})")
+        if meme_filters:
+            enable_expr = "+".join(meme_filters)
+            vf_parts.append(f"drawtext=text='🤯':fontsize=400:x=(w-text_w)/2:y=(h-text_h)/2:enable='{enable_expr}'")
+            print("   🤯 Added Meme Break '🤯' at 10s intervals")
+
         vf_filter = ",".join(vf_parts) if vf_parts else None
 
-        # ── 6. Build audio mix ───────────────────────────────────────────────
+        # ── 6. Build Audio Mix & Sync SFX ────────────────────────────────────
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
-        audio_inputs = []
-
-        impact_file = None
-        for candidate in ["assets/impact_sound.mp3", "assets/whoosh.mp3", "assets/impact.mp3",
-                          "impact_sound.mp3", "whoosh.mp3"]:
-            if os.path.exists(candidate):
-                impact_file = candidate
-                break
-
-        bgm_file = None
-        for candidate in ["bgm.mp3", "bgm.wav", "bgm.m4a"]:
-            if os.path.exists(candidate):
-                bgm_file = candidate
-                break
-
         audio_input_idx = 2
 
-        if impact_file:
-            main_cmd.extend(["-i", impact_file])
-            print(f"   🔊 Impact sound: {impact_file}")
-            audio_inputs.append(("impact", audio_input_idx, 0.35))
+        pop_words = ['battery', 'charge', 'fast', 'money', 'rupees', 'price', 'new', 'buy', 'save', 'tech', 'pro', 'max', 'speed']
+        beep_words = ['stop', "don't", 'warning', 'dead', 'fake', 'alert', 'danger', 'wait', 'never', 'scam', 'bad']
+        sfx_events = [('whoosh', 0)] # Initial title pop hooks
+
+        vtt_path = "subtitles.vtt" # Always present even if without whisper
+        if os.path.exists(vtt_path):
+            with open(vtt_path, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+            current_ms = None
+            for line in lines:
+                if '-->' in line:
+                    try:
+                        h, m, s = line.split('-->')[0].strip().split(':')
+                        current_ms = int(float(s.replace(',','.')) * 1000) + int(m) * 60000 + int(h) * 3600000
+                    except:
+                        current_ms = None
+                elif current_ms is not None and line.strip() and not line.strip().isdigit() and "WEBVTT" not in line:
+                    text = line.strip().lower()
+                    if any(w in text for w in pop_words):
+                        sfx_events.append(('pop', current_ms))
+                    elif any(w in text for w in beep_words):
+                        sfx_events.append(('beep', current_ms))
+                    current_ms = None
+
+        print(f"   🔊 Found {len(sfx_events)} SFX sync points.")
+        sfx_map = {'pop': 'assets/pop.mp3', 'beep': 'assets/beep.mp3', 'whoosh': 'assets/whoosh.mp3'}
+        sfx_events = [(k, ms) for k, ms in sfx_events if os.path.exists(sfx_map.get(k, ''))]
+
+        filter_parts = ["[1:a]volume=1.0[vo]"]
+        mix_inputs = ["[vo]"]
+
+        # Setup unique SFX inputs & asplit
+        unique_sfx = list(set([k for k, ms in sfx_events]))
+        sfx_counters = {k: 0 for k in unique_sfx}
+        
+        for kind in unique_sfx:
+            main_cmd.extend(["-i", sfx_map[kind]])
+            count = len([e for e in sfx_events if e[0] == kind])
+            if count > 1:
+                pads = "".join([f"[{kind}_copy{i}]" for i in range(count)])
+                filter_parts.append(f"[{audio_input_idx}:a]asplit={count}{pads}")
+            else:
+                filter_parts.append(f"[{audio_input_idx}:a]volume=1.0[{kind}_copy0]")
             audio_input_idx += 1
 
+        # Apply adelay and volume routing
+        for i, (kind, ms) in enumerate(sfx_events):
+            copy_idx = sfx_counters[kind]
+            out_name = f"sfx_{i}"
+            # Windows FFmpeg handles large adelay. We do | pipe for left/right channels
+            filter_parts.append(f"[{kind}_copy{copy_idx}]adelay={ms}|{ms},volume=0.35[{out_name}]")
+            mix_inputs.append(f"[{out_name}]")
+            sfx_counters[kind] += 1
+
+        # Background music
+        bgm_file = "bgm.mp3" if os.path.exists("bgm.mp3") else "bgm.wav" if os.path.exists("bgm.wav") else None
         if bgm_file:
             main_cmd.extend(["-stream_loop", "-1", "-i", bgm_file])
-            print(f"   🎵 Background music: {bgm_file}")
-            audio_inputs.append(("bgm", audio_input_idx, 0.10))
+            filter_parts.append(f"[{audio_input_idx}:a]volume=0.10[bgm]")
+            mix_inputs.append("[bgm]")
             audio_input_idx += 1
 
-        if audio_inputs:
-            filter_parts = ["[1:a]volume=1.0[vo]"]
-            mix_inputs = ["[vo]"]
-            for name, idx, vol in audio_inputs:
-                filter_parts.append(f"[{idx}:a]volume={vol}[{name}]")
-                mix_inputs.append(f"[{name}]")
-            mix_count = len(mix_inputs)
-            filter_parts.append(
-                f"{''.join(mix_inputs)}amix=inputs={mix_count}:duration=first[aout]"
-            )
-            af_filter = ";".join(filter_parts)
-
-            if vf_filter:
-                main_cmd.extend(["-vf", vf_filter])
-            main_cmd.extend(["-filter_complex", af_filter, "-map", "0:v", "-map", "[aout]"])
-        else:
-            if vf_filter:
-                main_cmd.extend(["-vf", vf_filter])
-            main_cmd.extend(["-map", "0:v", "-map", "1:a"])
+        mix_count = len(mix_inputs)
+        filter_parts.append(f"{''.join(mix_inputs)}amix=inputs={mix_count}:duration=first:dropout_transition=2[aout]")
+        
+        af_filter = ";".join(filter_parts)
+        if vf_filter:
+            main_cmd.extend(["-vf", vf_filter])
+        main_cmd.extend(["-filter_complex", af_filter, "-map", "0:v", "-map", "[aout]"])
 
         main_cmd.extend([
             "-c:v", "libx264", "-preset", "fast",
