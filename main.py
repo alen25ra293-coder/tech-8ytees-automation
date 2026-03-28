@@ -97,9 +97,11 @@ def main():
             sys.exit(1)
 
         # ── 7. Thumbnail ──────────────────────────────────────────────────────
+        from src.video.thumbnail import generate_thumbnail
         thumbnail_path = generate_thumbnail(
             thumbnail_text=parsed.get("thumbnail_text", topic[:20]),
-            title=parsed["title"]
+            title=parsed["title"],
+            video_path="output.mp4"
         )
 
         # ── 8. YouTube upload ─────────────────────────────────────────────────
@@ -109,6 +111,7 @@ def main():
             tags=parsed["tags"],
             video_file="output.mp4",
             thumbnail_path=thumbnail_path,
+            question=parsed.get("question", ""),
         )
 
         # ── 9. Instagram upload ───────────────────────────────────────────────

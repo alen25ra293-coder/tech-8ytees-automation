@@ -83,26 +83,35 @@ def _get_product_category(topic: str, product_name: str) -> str:
 
 
 def _build_search_queries(topic: str, product_name: str) -> list:
-    """Build relevant search queries based on the product category.
+    """Build highly relevant search queries based on the product.
     
-    IMPORTANT: Only use visual search terms that exist on Pexels.
-    Brand names like 'QCY T13' or 'Anker' will NOT return results.
+    STRICT RULE: The product shown MUST be relevant to the topic.
+    We NEVER use generic fallbacks like "tech gadget" because it ruins the relevance.
+    We prioritize "holding [product]" so the first frame (hook) shows Proof of Human.
     """
     queries = []
     
-    # Get category-specific search terms - these are the PRIMARY queries
+    # Priority 1: Exact product name with "holding"
+    if product_name:
+        queries.append(f"holding {product_name.lower()}")
+        queries.append(f"using {product_name.lower()}")
+    
+    # Priority 2: Category with "holding"
     category = _get_product_category(topic, product_name)
     if category and category in PRODUCT_SEARCH_TERMS:
-        # Use ALL category terms first - these are most relevant
+        queries.append(f"holding {category}")
+        queries.append(f"using {category}")
+        # Priority 3: All category visual terms
         queries.extend(PRODUCT_SEARCH_TERMS[category])
         print(f"   📦 Detected category: {category}")
+        
+    # Priority 4: Exact product name
+    if product_name:
+        queries.append(product_name.lower())
     
-    # Only add generic fallbacks AFTER category terms
-    queries.extend([
-        "tech gadget",
-        "unboxing",
-        "technology product",
-    ])
+    # ONLY if we still have absolutely nothing do we use the topic
+    if not queries:
+        queries.append(topic)
     
     # Remove duplicates while preserving order
     seen = set()

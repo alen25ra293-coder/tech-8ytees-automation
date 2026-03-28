@@ -161,7 +161,7 @@ def create_video(title, video_clips, hook_line=""):
                 f"box=1:boxcolor=black@0.75:boxborderw=10:"
                 f"x=(w-text_w)/2:"
                 f"y=h-text_h-320:"        # Bottom-third (above subtitles area)
-                f"enable='between(t,0,5)'"  # Stays 5s instead of 3s
+                f"enable='between(t,0,3)'"  # Show for 3s — don't block product reveal
             )
             vf_parts.append(title_overlay)
             print(f"   🎨 Title: '{safe_title}' (0-5s, bottom-third)")
@@ -172,7 +172,7 @@ def create_video(title, video_clips, hook_line=""):
         # Removed to fix render failures
 
         # ── 5c. CTA overlay: last 2 seconds ──────────────────────────────────
-        cta_text = random.choice(["FOLLOW FOR MORE", "SAVE THIS"])
+        cta_text = random.choice(["SUBSCRIBE 🔔", "SUBSCRIBE FOR MORE"])
         cta_start = max(duration - 2.5, duration * 0.75)  # at least 75% through
         cta_overlay = (
             f"drawtext=text='{cta_text}':"
@@ -344,7 +344,7 @@ def _style_ass(src: str, dst: str):
     new_style = (
         "Style: Default,"
         "Impact,"
-        "65,"
+        "76,"
         "&H0000FFFF,"
         "&H000000FF,"
         "&H00000000,"

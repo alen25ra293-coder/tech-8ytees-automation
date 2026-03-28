@@ -14,14 +14,19 @@ _USED_TOPICS_FILE = "used_topics.json"
 # ── Category diversity enforcement ───────────────────────────────────────────
 # Prevents two consecutive videos in the same product category
 PRODUCT_CATEGORIES = [
-    "audio",           # earbuds, headphones, speakers, mics
-    "phone_acc",       # chargers, cases, mounts, lenses
-    "productivity",    # keyboards, webcams, hubs, monitors
-    "portable",        # power banks, fans, SSDs, trackers
-    "smart_home",      # plugs, bulbs, strips, sensors
-    "video_photo",     # cameras, ring lights, projectors, tripods
-    "gaming",          # controllers, cooling fans, headsets
-    "wearables",       # smartwatches, fitness bands, glasses
+    "audio_gear",      # headphones, speakers, mics (NOT basic earbuds)
+    "phone_gen_acc",   # chargers, cases, mounts, lenses
+    "productivity_hub",# keyboards, hubs, monitors, webcams
+    "portable_power",  # power banks, solar chargers
+    "survival_travel", # fans, trackers, water filters, multi-tools
+    "smart_home_auto", # plugs, bulbs, IR remotes, sensors
+    "creative_gear",   # ring lights, tripods, mics (NOT projectors)
+    "gaming_periph",   # controllers, cooling, mouse
+    "wearable_health", # smartwatches, fitness bands
+    "home_security",   # mini cameras, alarms, sensors
+    "kitchen_tech",    # mini blenders, coffee gadgets
+    "car_gadgets",     # dash cams, car vacuum, bluetooth adapters
+    "projectors_display", # ONLY projectors - keep this isolated to block easily
 ]
 
 # Hook styles — one idea generated per style for maximum variety
@@ -36,35 +41,50 @@ HOOK_STYLES = [
 # ── Used-topic persistence ────────────────────────────────────────────────────
 
 def _load_used_topics() -> dict:
-    """Load used topics AND last-used category."""
+    """Load used topics AND history of categories."""
     if not os.path.exists(_USED_TOPICS_FILE):
-        return {"topics": [], "last_category": None}
+        return {"topics": [], "category_history": []}
     try:
         with open(_USED_TOPICS_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-        # Handle old format (just a list of topics)
-        if isinstance(data, list):
-            return {"topics": data, "last_category": None}
+        
+        # Backward compatibility
+        topics = data.get("topics", []) if isinstance(data, dict) else data
+        history = data.get("category_history", []) if isinstance(data, dict) else []
+        
+        # Handle legacy 'last_category' field
+        if not history and isinstance(data, dict) and data.get("last_category"):
+            history = [data["last_category"]]
+            
         return {
-            "topics": data.get("topics", []),
-            "last_category": data.get("last_category", None)
+            "topics": topics,
+            "category_history": history
         }
     except Exception:
-        return {"topics": [], "last_category": None}
+        return {"topics": [], "category_history": []}
 
 
 def mark_topic_used(topic: str, category: str = None):
-    """Call after successful upload. Saves topic + category for deduplication."""
+    """Call after successful upload. Rotates category history."""
     state = _load_used_topics()
     topics_set = set(state["topics"])
     topics_set.add(topic.strip().lower())
+    
+    history = state.get("category_history", [])
+    if category:
+        # Keep last 7 unique categories
+        if category in history:
+            history.remove(category)
+        history.insert(0, category)
+        history = history[:7]
+        
     try:
         with open(_USED_TOPICS_FILE, "w", encoding="utf-8") as f:
             json.dump({
                 "topics": sorted(topics_set),
-                "last_category": category or state.get("last_category")
+                "category_history": history
             }, f, indent=2)
-        print(f"📌 Topic archived: {topic[:60]} | Category: {category}")
+        print(f"📌 Topic archived: {topic[:60]} | History: {', '.join(history)}")
     except Exception as e:
         print(f"⚠️  Could not save used_topics.json: {e}")
 
@@ -110,11 +130,11 @@ def get_best_idea() -> tuple[str, str]:
     print("💡 Idea Bank: generating fresh video ideas...")
     state = _load_used_topics()
     used_topics = state["topics"]
-    last_category = state.get("last_category")
+    category_history = state.get("category_history", [])
 
     model = _get_model()
     if model:
-        ideas = _generate_ideas_with_gemini(model, used_topics, last_category)
+        ideas = _generate_ideas_with_gemini(model, used_topics, category_history)
         if ideas:
             # Pick highest-scoring fresh idea
             best = max(ideas, key=lambda x: x.get("reach_score", 0))
@@ -127,7 +147,7 @@ def get_best_idea() -> tuple[str, str]:
     return topic, "general"
 
 
-def _generate_ideas_with_gemini(model, used_topics: list, last_category: str) -> list:
+def _generate_ideas_with_gemini(model, used_topics: list, category_history: list) -> list:
     """Ask Gemini for 5 ideas — one per hook style, each in a different product category."""
 
     hook_styles_str = "\n".join(
@@ -139,17 +159,22 @@ def _generate_ideas_with_gemini(model, used_topics: list, last_category: str) ->
     used_sample = used_topics[-20:]
     used_str = "\n".join(f"  - {t}" for t in used_sample) if used_sample else "  (none yet)"
 
-    # Tell it which category to avoid
-    avoid_category = f"\nDo NOT use category: '{last_category}' (used in last video)." if last_category else ""
+    # Hard block projectors and earphones if they were used recently
+    recent_history = ", ".join(category_history)
+    blocking_instruction = ""
+    if category_history:
+        blocking_instruction = f"\nDO NOT repeat these recently used (last 7) categories: {recent_history}"
+    
+    # Manual cooldown for over-reported items
+    blocking_instruction += "\nCRITICAL: DO NOT generate any topics about projectors or earbuds/earphones. They have been overused. Explore other categories like smart home, car tech, or kitchen tech."
 
     prompt = f"""You are the content strategist for "Tech 8ytees" — a YouTube Shorts channel.
 Niche: budget gadgets (under ₹2000 / $25) that replace expensive products.
 Target: 16-35 year old Indian viewers who want good tech without overspending.
-Today: {date.today()}
 
-ALREADY USED TOPICS — avoid these AND anything conceptually similar:
+ALREADY USED TOPICS (AVOID THESE):
 {used_str}
-{avoid_category}
+{blocking_instruction}
 
 Available product categories: {', '.join(PRODUCT_CATEGORIES)}
 
@@ -160,7 +185,10 @@ Hook styles:
 TOPIC FORMAT RULES:
 - Include a specific low price (₹) AND the name of the expensive product it replaces
 - Max 70 characters
-- No banned words: destroys, shames, embarrasses, you won't believe
+- No banned/clickbait words: destroys, shames, embarrasses, outsmarts, shocks,
+  kills, crushes, slays, wrecks, humiliates, obliterates, annihilates, demolishes,
+  exposes, mind-blowing, insane, unbelievable, jaw-dropping.
+  USE SPECIFIC COMPARISONS instead: "same 15W speed", "4 minutes faster", "identical in blind test"
 - Each idea must be in a completely different product category
 - Prioritize products that are currently popular on Amazon India
 

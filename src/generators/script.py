@@ -21,8 +21,18 @@ _gemini_keys_raw = (
 GEMINI_KEYS = [k.strip() for k in _gemini_keys_raw.split(",") if k.strip()]
 _key_index = 0
 
-BANNED_WORDS = ["destroys", "shames", "embarrasses", "won't believe", "will blow your mind",
-                "welcome back", "welcome to", "tech 8ytees"]  # Added: no branded intros
+# ── Clickbait words YouTube suppresses (kills impressions) ─────────────────────
+BANNED_WORDS = [
+    # Sensational verbs YouTube demotes
+    "destroys", "shames", "embarrasses", "outsmarts", "shocks",
+    "kills", "crushes", "slays", "wrecks", "humiliates",
+    "obliterates", "annihilates", "demolishes", "exposes",
+    # Clickbait phrases
+    "won't believe", "will blow your mind", "you need to see",
+    "mind-blowing", "insane", "unbelievable", "jaw-dropping",
+    # Branded intros (waste 15% of video)
+    "welcome back", "welcome to", "tech 8ytees", "hey guys",
+]
 
 
 def _next_key():
@@ -172,7 +182,7 @@ Niche: {NICHE}
 Audience: {TARGET_AUDIENCE}
 Today: {date.today()}
 
-YOU ARE WRITING A 23-26 SECOND VIDEO SCRIPT. 80% of viewers skip in the first 2 seconds.
+YOU ARE WRITING A 23-26 SECOND VIDEO SCRIPT. The algorithm judges retention from the FIRST FRAME (0-400ms).
 
 ═══════════════════════════════════════════════════
 TOPIC: "{topic}"
@@ -187,25 +197,42 @@ EXAMPLE OF THIS STRUCTURE:
 ═══════════════════════════════════════════════════
 
 ABSOLUTE RULES:
-1. NO branded intro. DO NOT start with "Welcome to" or "Welcome back" or channel name.
-   First word must be a hook — not a greeting.
+1. NO branded intro. First word must be a hook — not a greeting.
 2. MAX 65 WORDS total. Count every word. Cut ruthlessly.
 3. Sound like a real person talking to a friend — not marketing copy.
 4. Prices in ₹ (Indian Rupees).
-5. BANNED WORDS: destroys, shames, embarrasses, you won't believe, will blow your mind
+5. NEVER use sensational/clickbait verbs. BANNED: destroys, shames, embarrasses,
+   outsmarts, shocks, kills, crushes, slays, wrecks, humiliates, obliterates,
+   annihilates, demolishes, exposes, mind-blowing, insane, unbelievable, jaw-dropping.
+   Instead use SPECIFIC COMPARISONS: "same 15W speed", "4 minutes faster",
+   "identical sound quality in blind test".
 6. Every script line needs a matching visual instruction.
-7. DEMO visuals must show a clear before/after or result.
-8. First 2 seconds: product must be visible with motion (hands, zoom, unbox).
+7. DEMO visuals must show a clear before/after or split-screen result.
+8. FIRST FRAME RULE: The very first visual MUST show the product result/payoff
+   immediately — a glowing screen, a side-by-side price comparison, hands holding
+   the product. NOT a setup, NOT text, NOT a black screen.
+9. LOOP TRICK: The last sentence should naturally connect back to the opening.
+   Example: If you open with "₹499 vs ₹3,500" and end with "Save this" —
+   change the ending to loop: "...and it starts at just ₹499."
+   This makes viewers rewatch, boosting retention above 100%.
 
-VISUAL INSTRUCTIONS — be specific:
+VISUAL INSTRUCTIONS — be VERY specific:
 - Bad: "Show the product"
-- Good: "[Close-up of ₹499 charger plugged into iPhone, charging indicator glowing, 
-  side-by-side with MagSafe box showing ₹3,499 price tag]"
+- Good: "[Close-up of hand holding ₹499 charger plugged into iPhone, charging
+  indicator glowing green, MagSafe box visible in background with ₹3,499 tag]"
+- FIRST VISUAL must be the "payoff" — the product in action, not a setup.
+
+TITLE RULES:
+- MAX 28 characters, ALL CAPS
+- Lead with price or comparison ("₹499 VS ₹3,500" not "Amazing Charger")
+- NO hashtags in title (they go in description only)
+- NO sensational verbs (see banned list above)
+- Use specific numbers: "SAME 15W SPEED" not "BETTER THAN"
 
 OUTPUT FORMAT (exact keys, no extra text):
 PRODUCT_NAME: [specific brand and model name]
-TITLE: [MAX 28 CHARS, ALL CAPS, lead with price or the comparison]
-HOOK_LINE: [first sentence only, under 6 words]
+TITLE: [MAX 28 CHARS, ALL CAPS, NO HASHTAGS, lead with price or comparison]
+HOOK_LINE: [first sentence only, under 6 words, NO banned verbs]
 HOOK_STYLE: [{structure_name}]
 SCRIPT: [50-65 words, follow the structure template above]
 VISUAL_INSTRUCTIONS:
@@ -213,10 +240,10 @@ VISUAL_INSTRUCTIONS:
 [Script line 2] -> Visual: [Specific Object + Action + Context]
 [continue for every line]
 TAGS: [6 hashtags — 2 niche, 2 medium, 2 broad. No tags over 5M posts.]
-DESCRIPTION: [1 sentence with a curiosity gap]
-THUMBNAIL_TEXT: [2-3 words ALL CAPS]
+DESCRIPTION: [1 curiosity-gap sentence that makes people click, NO boilerplate]
+THUMBNAIL_TEXT: [2-3 words ALL CAPS — comparison or price gap]
 CAPTION_HOOK: [1 punchy sentence for Instagram]
-QUESTION: [1 direct question to drive comments]
+QUESTION: [1 controversial/opinionated question relevant to THIS specific product to drive comments]
 """
 
     try:
@@ -360,21 +387,48 @@ def parse_script(raw: str) -> dict | None:
 
     if not data["visual_instructions"]:
         data["visual_instructions"] = (
-            "HOOK: Fast zoom on product | PROBLEM: Show expensive alternative with price | "
-            "SOLUTION: Show budget product specs | DEMO: Side-by-side comparison | "
+            "FIRST FRAME: Hand holding product with price visible | "
+            "PROBLEM: Split-screen showing expensive alternative with price | "
+            "SOLUTION: Budget product specs close-up | DEMO: Side-by-side comparison | "
             "PAYOFF: Text overlay with both prices"
         )
 
-    # ── Auto-append CTA if missing ────────────────────────────────────────────
-    natural_ctas = ["follow for more", "follow for daily", "save this", "follow to see"]
-    if data["script"] and not any(c in data["script"].lower() for c in natural_ctas):
-        data["script"] = data["script"].rstrip() + " Save this."
-        print("ℹ️  CTA auto-appended.")
+    # ── Strip hashtags from title (they belong in description only) ───────────
+    import re as _re
+    if data["title"]:
+        data["title"] = _re.sub(r'#\w+', '', data["title"]).strip()
+        # Clean up any double spaces left behind
+        data["title"] = _re.sub(r'\s{2,}', ' ', data["title"]).strip()
 
-    # ── Banned word check ─────────────────────────────────────────────────────
-    found_banned = [bw for bw in BANNED_WORDS if bw in data["script"].lower()]
-    if found_banned:
-        print(f"⚠️  WARNING: Banned words in parsed script: {found_banned}")
+    # ── Auto-append subscribe CTA if missing ─────────────────────────────────
+    subscribe_ctas = ["subscribe", "sub for", "follow for more", "follow for daily",
+                      "save this", "follow to see"]
+    if data["script"] and not any(c in data["script"].lower() for c in subscribe_ctas):
+        data["script"] = data["script"].rstrip() + " Subscribe for daily finds like this."
+        print("ℹ️  Subscribe CTA auto-appended.")
+
+    # ── Banned word check on TITLE, HOOK, and SCRIPT ─────────────────────────
+    for field_name in ["title", "hook_line", "script"]:
+        field_text = data.get(field_name, "").lower()
+        found_banned = [bw for bw in BANNED_WORDS if bw in field_text]
+        if found_banned:
+            print(f"⚠️  Banned words in {field_name}: {found_banned}")
+            # Auto-replace banned words in title and hook_line
+            if field_name in ("title", "hook_line"):
+                for bw in found_banned:
+                    # Replace with neutral alternatives
+                    replacements = {
+                        "destroys": "vs", "shames": "vs", "embarrasses": "vs",
+                        "outsmarts": "vs", "shocks": "vs", "kills": "vs",
+                        "crushes": "vs", "slays": "vs", "wrecks": "vs",
+                        "humiliates": "vs", "obliterates": "vs",
+                        "annihilates": "vs", "demolishes": "vs", "exposes": "vs",
+                    }
+                    replacement = replacements.get(bw, "vs")
+                    data[field_name] = _re.sub(
+                        bw, replacement, data[field_name], flags=_re.IGNORECASE
+                    )
+                print(f"   🔧 Auto-fixed {field_name}: \"{data[field_name]}\"")
 
     wc = len(data["script"].split())
     print(f'✅ Script parsed — "{data["title"]}" ({wc} words) | Structure: {data.get("hook_style","?")}')

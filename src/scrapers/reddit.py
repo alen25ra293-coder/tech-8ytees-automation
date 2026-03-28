@@ -15,54 +15,47 @@ import xml.etree.ElementTree as ET
 # Niche-specific fallback topics — budget gadgets & hidden gems
 # ---------------------------------------------------------------------------
 GADGET_TOPICS = [
-    # Audio — Indian ₹ pricing
-    "₹1,799 earbuds with noise cancelling that rivals ₹20,000 AirPods Pro",
-    "₹999 Bluetooth speaker that sounds like a ₹8,000 JBL Charge",
-    "₹1,499 gaming headset that beats ₹5,000 HyperX Cloud",
-    "₹800 wireless earbuds with 40hr battery nobody talks about",
+    # Audio Gear (Diverse)
     "₹1,299 bone conduction headphones that beat ₹9,000 Shokz",
     "₹999 open-ear earbuds that let you hear your surroundings",
-    # Phone accessories
-    "₹999 phone camera lens kit that replaces a ₹50,000 DSLR",
-    "₹499 wireless charger faster than ₹3,500 Apple MagSafe",
+    "₹1,499 premium sounding soundbar for your laptop setup",
+    "₹799 mini bluetooth transmitter for old TV or car audio",
+    # Phone Accessories
     "₹699 magnetic phone mount that beats every car mount",
-    "₹399 selfie stick tripod every creator needs under ₹500",
-    "₹299 screen protector better than ₹1,200 branded ones",
     "₹599 phone cooling fan for gaming that actually works",
-    "₹799 foldable phone stand better than ₹2,500 premium stands",
-    # Desktop / Productivity
-    "₹999 USB-C hub that does what a ₹6,000 docking station does",
-    "₹1,799 keyboard that types better than ₹12,000 mechanicals",
-    "₹1,299 webcam that beats ₹7,000 Logitech C920",
-    "₹899 desk lamp with wireless charging nobody knows about",
-    "₹299 cable organizer that fixes your messy desk forever",
-    "₹799 ergonomic mouse that beats ₹5,000 Logitech MX Master",
-    # Video / Cameras
-    "₹1,499 action camera that shoots 4K like a ₹30,000 GoPro",
-    "₹1,999 ring light that makes you look like a studio setup",
-    "₹2,499 mini projector that replaces your bedroom TV",
-    "₹1,699 portable monitor that turns your tablet into a laptop",
-    "₹999 smartphone microphone that records studio-quality audio",
-    # Smart Home
-    "₹699 smart plug that cuts your electricity bill in half",
-    "₹499 LED strip lights that transform any room instantly",
-    "₹799 smart bulb cheaper and better than Philips Hue",
-    "₹999 smart IR remote that controls every device at home",
-    "₹1,499 robot vacuum cleaner under ₹1,500 that actually works",
-    # Portable / Travel
-    "₹1,299 power bank that charges 3 devices at 65W",
-    "₹999 handheld fan that's basically portable AC",
-    "₹1,999 portable SSD faster than most laptop internal drives",
-    "₹599 Bluetooth tracker that beats ₹3,500 AirTag",
-    "₹799 travel adapter with 4 USB ports for every country",
-    # Hidden gems
-    "₹699 mini thermal printer for instant sticker photos",
-    "₹499 mini vacuum cleaner for keyboard and desk",
-    "₹799 smart water bottle with hydration reminders",
-    "₹1,299 lap desk with built-in wireless charger",
-    "₹599 magnetic cable organizer that keeps your desk perfect",
-    "₹1,199 folding keyboard that fits in your pocket",
-    "₹899 UV sanitizer box that kills phone germs in 3 minutes",
+    "₹799 3-in-1 folding wireless charger for travel",
+    "₹1,299 magsafe battery pack that actually hits 15W",
+    # Desktop / Home Office
+    "₹1,799 75% mechanical keyboard for the ultimate typing feel",
+    "₹899 desk lamp with 3 color modes and wireless charging",
+    "₹1,299 vertical ergonomic mouse for zero wrist pain",
+    "₹999 dual-monitor stand that saves massive desk space",
+    "₹699 large gaming mousepad with RGB lighting edges",
+    # Smart Home / Automation
+    "₹1,499 smart video doorbell that doesn't need a subscription",
+    "₹799 motion sensor LED lights for your dark wardrobe",
+    "₹999 smart IR remote that controls AC and TV via phone",
+    "₹1,299 fingerprint door lock padlock for your gym locker",
+    # Portable / Travel Tech
+    "₹1,299 65W GaN charger that's smaller than a credit card",
+    "₹999 handheld jet fan that's basically a portable AC",
+    "₹1,999 portable SSD casing to build your own fast drive",
+    "₹599 rechargeable bag sealer to keep snacks fresh forever",
+    # Car Tech
+    "₹1,499 wireless CarPlay adapter for your old car",
+    "₹999 portable tire inflator that fits in your glovebox",
+    "₹799 car vacuum cleaner that's more powerful than it looks",
+    "₹499 universal HUD display for your car's dashboard",
+    # Kitchen / Life Hacks
+    "₹1,299 portable blender for fresh smoothies at work",
+    "₹899 automatic electric jar opener for effortless cooking",
+    "₹699 electric milk frother for cafe-style coffee at home",
+    "₹1,499 digital kitchen scale with nutrition app sync",
+    # Hidden Gems
+    "₹699 mini thermal printer for instant sticker labels",
+    "₹499 electric lint remover that makes old clothes new",
+    "₹999 smart water bottle that tracks your daily intake",
+    "₹1,199 pocket-sized folding keyboard for phone typing",
 ]
 
 

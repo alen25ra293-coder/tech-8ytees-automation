@@ -82,11 +82,23 @@ def upload_to_instagram(video_path, caption, hashtags="", question=""):
 
         # ── 2. Create Media Container ────────────────────────────────────────
         print("   📦 Creating Instagram media container...")
-        # Include hashtags directly in the caption
+        # Include hashtags directly in the caption (max 15 relevant ones)
+        # Split hashtags and limit to first 15
         if hashtags:
-            final_caption = f"{caption}\n\n{hashtags}\n\nSave this before it disappears 👆"
+            tag_list = [t.strip() for t in hashtags.split() if t.startswith('#')][:15]
+            clean_hashtags = ' '.join(tag_list)
+            final_caption = (
+                f"{caption}\n\n"
+                f"🔖 Save this for later\n"
+                f"📤 Share with a friend who overpays for tech\n\n"
+                f"{clean_hashtags}"
+            )
         else:
-            final_caption = f"{caption}\n\nSave this before it disappears 👆"
+            final_caption = (
+                f"{caption}\n\n"
+                f"🔖 Save this for later\n"
+                f"📤 Share with a friend who overpays for tech"
+            )
         
         media_url = f"https://graph.facebook.com/v22.0/{business_id}/media"
         params = {

@@ -1,22 +1,40 @@
-name: Tech 8ytees Daily Upload (Fixed)
+name: Tech 8ytees Daily Upload
 
 on:
   schedule:
-    # IST Peak hours: 8:00 AM, 12:00 PM, and 7:00 PM IST
-    # Scheduled 60-90 min EARLY to compensate for GitHub Actions delays (30-60+ min common)
-    - cron: '30 1 * * *'   # 1:30 UTC → 7:00 AM IST, target arrival ~8:00 AM IST
-    - cron: '30 5 * * *'    # 5:00 UTC → 10:30 AM IST, target arrival ~12:00 PM IST  
-    - cron: '30 12 * * *'  # 11:30 UTC → 5:00 PM IST, target arrival ~7:00 PM IST
+    # ── Day-specific optimal posting times for Indian tech audience ──────
+    # Strategy: 1 upload/day at peak engagement slot for that day (IST).
+    # Algorithm rewards high retention per video, not volume.
+    #
+    # Day of week    | Cron (UTC)          | IST equivalent | Reason
+    # ────────────────────────────────────────────────────────────────────
+    # Sunday (0)     | 30 7  * * 0         | 1:00 PM IST    | Leisure scrolling
+    # Monday (1)     | 30 14 * * 1         | 8:00 PM IST    | Post-work catch-up
+    # Tuesday (2)    | 30 13 * * 2         | 7:00 PM IST    | After-work + lunch spike
+    # Wednesday (3)  | 30 13 * * 3         | 7:00 PM IST    | Peak midweek engagement
+    # Thursday (4)   | 30 13 * * 4         | 7:00 PM IST    | Weekend anticipation
+    # Friday (5)     | 30 12 * * 5         | 6:00 PM IST    | "Viral window" — weekend mode
+    # Saturday (6)   | 30 5  * * 6         | 11:00 AM IST   | Late wake-up, leisure scroll
+    #
+    # NOTE: Times are scheduled ~60 min early to account for GitHub Actions delays.
+
+    - cron: '30 7  * * 0'   # Sunday    → 1:00 PM IST (leisure scrolling)
+    - cron: '30 14 * * 1'   # Monday    → 8:00 PM IST (post-work catch-up)
+    - cron: '30 13 * * 2'   # Tuesday   → 7:00 PM IST (after work)
+    - cron: '30 13 * * 3'   # Wednesday → 7:00 PM IST (peak midweek)
+    - cron: '30 13 * * 4'   # Thursday  → 7:00 PM IST (weekend anticipation)
+    - cron: '30 12 * * 5'   # Friday    → 6:00 PM IST (viral window)
+    - cron: '30 5  * * 6'   # Saturday  → 11:00 AM IST (late wake-up scroll)
+
   workflow_dispatch:        # Manual trigger from GitHub UI
   push:
     branches:
       - main
     paths:
-      - '.github/workflows/daily_upload.yml'  # Trigger on workflow updates to keep repo active
+      - '.github/workflows/daily_upload.yml'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  # Cache dirs for large AI models (avoids re-downloading every run)
   XDG_CACHE_HOME: /home/runner/.cache
   HF_HOME:        /home/runner/.cache/huggingface
   WHISPER_CACHE:  /home/runner/.cache/whisper
@@ -24,7 +42,7 @@ env:
 jobs:
   upload:
     runs-on: ubuntu-latest
-    timeout-minutes: 75   # Extended: Kokoro + Whisper model download on first run
+    timeout-minutes: 75
 
     steps:
       # ── 1. Checkout ──────────────────────────────────────
@@ -41,7 +59,6 @@ jobs:
       - name: 📦 Install system dependencies (FFmpeg + fonts + audio)
         run: |
           sudo apt-get update -qq
-          # Auto-accept EULA for mscorefonts-installer (to get Impact font)
           echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
           sudo apt-get install -y --no-install-recommends \
             ffmpeg \
@@ -73,21 +90,12 @@ jobs:
       # ── 7. Run automation ─────────────────────────────────
       - name: 🚀 Run Tech 8ytees automation
         env:
-          # Gemini AI (script generation)
           GEMINI_API_KEYS: ${{ secrets.GEMINI_API_KEYS }}
-          GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEYS }}   # legacy alias
-
-          # Video backgrounds
+          GEMINI_API_KEY:  ${{ secrets.GEMINI_API_KEYS }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-
-          # Instagram — Graph API (Most reliable)
           IG_BUSINESS_ACCOUNT_ID: ${{ secrets.IG_BUSINESS_ACCOUNT_ID }}
           IG_GRAPH_ACCESS_TOKEN:  ${{ secrets.IG_GRAPH_ACCESS_TOKEN }}
-
-          # Voiceover
           ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
-
-          # Misc
           AMAZON_AFFILIATE_TAG: ${{ secrets.AMAZON_AFFILIATE_TAG }}
         run: python main.py
 
