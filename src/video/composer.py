@@ -115,7 +115,8 @@ def create_video(title, video_clips, hook_line=""):
         ass_file = None
         if os.path.exists("subtitles.vtt"):
             try:
-                _split_vtt_to_words("subtitles.vtt", "subtitles_words.vtt", max_words=3)
+                # UPDATE: max_words=1 for exact word-by-word sync
+                _split_vtt_to_words("subtitles.vtt", "subtitles_words.vtt", max_words=1)
                 _vtt_to_srt("subtitles_words.vtt", "subtitles.srt")
                 ass_result = subprocess.run([
                     "ffmpeg", "-y", "-i", "subtitles.srt", "subtitles_raw.ass"
@@ -154,17 +155,25 @@ def create_video(title, video_clips, hook_line=""):
             safe_title = raw_title
 
         if safe_title:
+            # Pop-In Math (approx 0->105%->100% scale over 0.2s):
+            # Base font size = 64
+            # Between 0-0.15s: linear scale 0 to 68 (105%)
+            # Between 0.15-0.2s: scale 68 down to 64
+            pop_expr = "if(lt(t\,0.15)\,68*(t/0.15)\,if(lt(t\,0.2)\,68-4*((t-0.15)/0.05)\,64))"
+            
             title_overlay = (
                 f"drawtext=text='{safe_title}':"
-                f"fontsize=40:"           # Smaller than before (was 48)
-                f"fontcolor=yellow:"      # Yellow for readability
-                f"box=1:boxcolor=black@0.75:boxborderw=10:"
+                f"fontfile='C\\:/Windows/Fonts/impact.ttf':" # Heavy blocky font
+                f"fontsize='{pop_expr}':" 
+                f"fontcolor=yellow:"
+                f"borderw=8:bordercolor=black:" # 8px stroke
+                f"box=1:boxcolor=black@0.85:boxborderw=15:"
                 f"x=(w-text_w)/2:"
-                f"y=h-text_h-320:"        # Bottom-third (above subtitles area)
-                f"enable='between(t,0,3)'"  # Show for 3s — don't block product reveal
+                f"y=(h/3)-(text_h/2):"      # Top 1/3rd safe zone
+                f"enable='between(t,0,2.5)'" # Show exactly for 2.5s hook
             )
             vf_parts.append(title_overlay)
-            print(f"   🎨 Title: '{safe_title}' (0-5s, bottom-third)")
+            print(f"   🎨 Title: '{safe_title}' (0-2.5s, top-third, yellow-black, pop-in)")
 
         # ── 5b. Progress bar ──────────────────────────────────────────────────
         # Disabled: FFmpeg drawbox doesn't support dynamic width based on time
@@ -344,20 +353,20 @@ def _style_ass(src: str, dst: str):
     new_style = (
         "Style: Default,"
         "Impact,"
-        "76,"
-        "&H0000FFFF,"
+        "82,"           # Large, bold word-by-word size
+        "&H00FFFFFF,"   # White text
         "&H000000FF,"
         "&H00000000,"
-        "&H80000000,"
-        "-1,0,0,0,"
+        "&H80000000,"   # Black shadow
+        "-1,0,0,0,"     # Bold, Italic, Underline, Strikeout (-1 = True for ASS usually, but 0 is false. Let's rely on Impact)
         "100,100,"
-        "0,"
-        "0,"
-        "1,"
-        "8,"
-        "4,"
-        "2,"
-        "20,20,320,0"   # MarginV=320 — slightly higher to avoid progress bar
+        "0,"            # Spacing
+        "0,"            # Angle
+        "1,"            # BorderStyle
+        "6,"            # Outline width (thick)
+        "4,"            # Shadow depth
+        "5,"            # Alignment = 5 (Exact Center)
+        "20,20,0,0"     # MarginL, MarginR, MarginV (0 because Center)
     )
 
     if "Style: Default," in content:

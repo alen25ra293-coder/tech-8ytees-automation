@@ -112,6 +112,7 @@ def main():
             video_file="output.mp4",
             thumbnail_path=thumbnail_path,
             question=parsed.get("question", ""),
+            product_name=parsed.get("product_name", ""),
         )
 
         # ── 9. Instagram upload ───────────────────────────────────────────────

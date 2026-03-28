@@ -29,7 +29,7 @@ def _clean_title(title: str) -> str:
 
 def upload_to_youtube(title: str, description: str, tags: str,
                        video_file: str = "output.mp4", thumbnail_path: str | None = None,
-                       question: str = ""):
+                       question: str = "", product_name: str = ""):
     """
     Upload a video to YouTube Shorts.
     Reads credentials from token.json (written by GitHub Actions from the YOUTUBE_TOKEN_JSON secret).
@@ -127,7 +127,7 @@ def upload_to_youtube(title: str, description: str, tags: str,
                 print(f"⚠️  Thumbnail upload failed (non-critical): {thumb_err}")
 
         # ── Pin engagement comment ────────────────────────────────────────
-        _pin_engagement_comment(youtube, video_id, question)
+        _pin_engagement_comment(youtube, video_id, question, product_name)
 
         return video_id
 
@@ -136,12 +136,12 @@ def upload_to_youtube(title: str, description: str, tags: str,
         return None
 
 
-def _pin_engagement_comment(youtube, video_id: str, question: str):
+def _pin_engagement_comment(youtube, video_id: str, question: str, product_name: str):
     """Post a relevant question as comment and pin it to drive engagement."""
     if not question:
         question = "What overpriced gadget should I test next? 👇"
 
-    # Add a call-to-action and make it feel conversational
+    # Add a call-to-action to make it feel conversational
     comment_text = f"{question} 👇\n\n🔔 Subscribe — I find these every day!"
 
     try:
