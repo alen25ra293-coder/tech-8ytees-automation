@@ -335,7 +335,7 @@ def _style_ass(src: str, dst: str):
         "Style: Default,"
         "Impact,"
         "76,"
-        "&H00FFFFFF,"       # White text
+        "&H0000FFFF,"       # Yellow text (BGR: 00 FF FF 00)
         "&H000000FF,"
         "&H00000000,"       # Black outline
         "&H90000000,"
