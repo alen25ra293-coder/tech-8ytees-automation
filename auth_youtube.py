@@ -9,7 +9,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 
 # Required scopes: upload videos + manage comments
 SCOPES = [
-    "https://www.googleapis.com/auth/youtube",  # Full YouTube access (includes upload + comment)
+    "https://www.googleapis.com/auth/youtube.force-ssl",  # Full YouTube access with SSL (includes upload + comments)
 ]
 
 def authenticate():
