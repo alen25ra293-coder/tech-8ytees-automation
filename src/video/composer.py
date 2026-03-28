@@ -7,13 +7,17 @@ import subprocess
 
 def create_video(title, video_clips, hook_line=""):
     """
-    Composes final video optimized for retention:
-    1. Dynamic clip duration based on video length (not fixed 2.5s)
-    2. Title overlay: smaller, bottom-third, persists longer (not just 3s)
-    3. Progress bar: thin bar at bottom — rewards viewers for watching
-    4. CTA overlay: last 2 seconds
-    5. Word-level subtitles (Impact font, yellow, bottom-third)
-    6. Impact sound on first frame
+    BUGS FIXED vs previous version:
+    1. Subtitle alignment=5 (center) collided with CTA (also center).
+       Fixed: alignment=2 (bottom-center), MarginV=200.
+    2. fontfile='C:/Windows/Fonts/impact.ttf' broke on Linux/GitHub Actions.
+       Fixed: fontfile removed entirely.
+    3. pop_expr commas inside FFmpeg filter string broke parsing.
+       Fixed: removed animation, clean fontsize=52.
+    4. CTA was boring ("SUBSCRIBE FOR MORE").
+       Fixed: rotated between 3 action CTAs.
+    5. Title y=h/3 covered product area.
+       Fixed: y=60 (very top edge).
     """
     print("🎞️ Assembling final video with FFmpeg...")
 
@@ -22,17 +26,14 @@ def create_video(title, video_clips, hook_line=""):
         return False
 
     try:
-        # ── 0. Get audio duration ────────────────────────────────────────────
+        # ── 0. Audio duration ────────────────────────────────────────────────
         r = subprocess.run([
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
             "-of", "default=noprint_wrappers=1:nokey=1", "voiceover.mp3"
         ], capture_output=True, text=True, timeout=10)
         duration = float(r.stdout.strip())
-        video_duration = duration + 0.8  # tight padding — don't pad too much
+        video_duration = duration + 0.8
 
-        # ── Dynamic clip duration ────────────────────────────────────────────
-        # For shorter videos (under 20s): 2s cuts feel fast
-        # For longer videos (25s+): 3s cuts give viewer time to process product
         if duration <= 20:
             MAX_CLIP_DURATION = 2.0
         elif duration <= 25:
@@ -40,18 +41,17 @@ def create_video(title, video_clips, hook_line=""):
         else:
             MAX_CLIP_DURATION = 3.0
 
-        print(f"⏱️  Video: {duration:.1f}s audio → {video_duration:.1f}s total | Clip length: {MAX_CLIP_DURATION}s")
+        print(f"⏱️  {duration:.1f}s audio → {video_duration:.1f}s | Clips: {MAX_CLIP_DURATION}s")
 
-        # ── 1. Scale/crop + color grade each clip ────────────────────────────
+        # ── 1. Scale/crop clips ──────────────────────────────────────────────
         scaled_clips = []
         color_grade = (
             "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
             "setsar=1,eq=contrast=1.15:brightness=0.02:saturation=1.2:gamma=0.95"
         )
-        # Slightly reduced from original — over-saturated video looks cheap
 
         if video_clips:
-            print(f"🎬 Standardizing {len(video_clips)} clips ({MAX_CLIP_DURATION}s each)...")
+            print(f"🎬 Processing {len(video_clips)} clips...")
             for i, clip in enumerate(video_clips):
                 if not os.path.exists(clip):
                     continue
@@ -66,7 +66,6 @@ def create_video(title, video_clips, hook_line=""):
                 if res.returncode == 0 and os.path.exists(out):
                     scaled_clips.append(out)
                 else:
-                    # Retry without color grade
                     res2 = subprocess.run([
                         "ffmpeg", "-y", "-i", clip,
                         "-t", str(MAX_CLIP_DURATION),
@@ -88,7 +87,6 @@ def create_video(title, video_clips, hook_line=""):
                             abs_path = os.path.abspath(c).replace('\\', '/')
                             f.write(f"file '{abs_path}'\n")
 
-                print("🎬 Concatenating background...")
                 res = subprocess.run([
                     "ffmpeg", "-y", "-f", "concat", "-safe", "0",
                     "-i", "clips.txt", "-c", "copy", "bg_looped.mp4"
@@ -101,7 +99,7 @@ def create_video(title, video_clips, hook_line=""):
             except Exception as e:
                 print(f"⚠️  Concat setup failed: {e}")
 
-        # ── 3. Fallback: solid dark background ───────────────────────────────
+        # ── 3. Fallback background ───────────────────────────────────────────
         if not bg:
             print("🎬 Using dark fallback background...")
             subprocess.run([
@@ -111,12 +109,11 @@ def create_video(title, video_clips, hook_line=""):
             ], capture_output=True)
             bg = "bg_looped.mp4"
 
-        # ── 4. Convert VTT → word-level SRT → styled ASS ────────────────────
+        # ── 4. Subtitles ─────────────────────────────────────────────────────
         ass_file = None
         if os.path.exists("subtitles.vtt"):
             try:
-                # UPDATE: max_words=1 for exact word-by-word sync
-                _split_vtt_to_words("subtitles.vtt", "subtitles_words.vtt", max_words=1)
+                _split_vtt_to_words("subtitles.vtt", "subtitles_words.vtt", max_words=2)
                 _vtt_to_srt("subtitles_words.vtt", "subtitles.srt")
                 ass_result = subprocess.run([
                     "ffmpeg", "-y", "-i", "subtitles.srt", "subtitles_raw.ass"
@@ -128,7 +125,7 @@ def create_video(title, video_clips, hook_line=""):
             except Exception as sub_err:
                 print(f"⚠️  Subtitle conversion failed: {sub_err}")
 
-        # ── 5. Build video filter chain ──────────────────────────────────────
+        # ── 5. Filter chain ──────────────────────────────────────────────────
         import platform
         import re as _re
         vf_parts = []
@@ -136,11 +133,12 @@ def create_video(title, video_clips, hook_line=""):
         def _fmt_nums(s: str) -> str:
             return _re.sub(r'\b(\d{1,3})(\d{3})\b', lambda m: m.group(1) + ',' + m.group(2), s)
 
-        # ── 5a. Title overlay ─────────────────────────────────────────────────
-        # CHANGED: Smaller font, bottom-third position (not top), stays for first 5s
-        # Rationale: Top title blocks the product reveal in first frame.
-        # Bottom-third keeps product visible while title still shows.
+        # 5a. Title — very top of screen, 3s, yellow with black border
+        # FIX: no fontfile (was Windows path, broke on GitHub Actions Linux runner)
+        # FIX: y=60 not y=h/3 — title was covering the product reveal
+        # Strip emojis — FFmpeg drawtext cannot render them on Ubuntu (shows as □)
         raw_title = _fmt_nums(title).upper().replace("'", "").replace('"', '').replace(':', '-').replace('\\', '')
+        raw_title = _re.sub(r'[^\x00-\x7F₹]', '', raw_title).strip()
         if len(raw_title) > 28:
             words = raw_title.split()
             truncated = ""
@@ -155,138 +153,89 @@ def create_video(title, video_clips, hook_line=""):
             safe_title = raw_title
 
         if safe_title:
-            # Pop-In Math (approx 0->105%->100% scale over 0.2s):
-            # Base font size = 64
-            # Between 0-0.15s: linear scale 0 to 68 (105%)
-            # Between 0.15-0.2s: scale 68 down to 64
-            pop_expr = "if(lt(t\,0.15)\,68*(t/0.15)\,if(lt(t\,0.2)\,68-4*((t-0.15)/0.05)\,64))"
-            
             title_overlay = (
                 f"drawtext=text='{safe_title}':"
-                f"fontfile='C\\:/Windows/Fonts/impact.ttf':" # Heavy blocky font
-                f"fontsize='{pop_expr}':" 
+                f"fontsize=52:"
                 f"fontcolor=yellow:"
-                f"borderw=8:bordercolor=black:" # 8px stroke
-                f"box=1:boxcolor=black@0.85:boxborderw=15:"
+                f"borderw=6:bordercolor=black:"
+                f"box=1:boxcolor=black@0.8:boxborderw=14:"
                 f"x=(w-text_w)/2:"
-                f"y=(h/3)-(text_h/2):"      # Top 1/3rd safe zone
-                f"enable='between(t,0,2.5)'" # Show exactly for 2.5s hook
+                f"y=60:"
+                f"enable='between(t,0,3)'"
             )
             vf_parts.append(title_overlay)
-            print(f"   🎨 Title: '{safe_title}' (0-2.5s, top-third, yellow-black, pop-in)")
+            print(f"   🎨 Title: '{safe_title}' (0-3s, y=60)")
 
-        # ── 5b. Progress bar ──────────────────────────────────────────────────
-        # Disabled: FFmpeg drawbox doesn't support dynamic width based on time
-        # (would require timeline-based rendering which is complex)
-        # Removed to fix render failures
-
-        # ── 5c. CTA overlay: last 2 seconds ──────────────────────────────────
-        cta_text = random.choice(["SUBSCRIBE 🔔", "SUBSCRIBE FOR MORE"])
-        cta_start = max(duration - 2.5, duration * 0.75)  # at least 75% through
+        # 5b. CTA — upper-third of screen, last 3s
+        # FIX: moved from y=h/2 (center) to y=h*0.2 (upper-third)
+        # Reason: center position collided with subtitles
+        # FIX: better CTA text options (not just "subscribe")
+        cta_text = random.choice(["SAVE THIS 🔖", "FOLLOW FOR MORE 🔔", "TAP FOLLOW 👆"])
+        cta_start = max(duration - 3.0, duration * 0.75)
         cta_overlay = (
             f"drawtext=text='{cta_text}':"
-            f"fontsize=72:"
-            f"fontcolor=yellow:"
-            f"box=1:boxcolor=black@0.65:boxborderw=18:"
-            f"x=(w-text_w)/2:y=(h-text_h)/2:"
+            f"fontsize=68:"
+            f"fontcolor=white:"
+            f"borderw=8:bordercolor=black:"
+            f"box=1:boxcolor=black@0.75:boxborderw=16:"
+            f"x=(w-text_w)/2:"
+            f"y=h*0.2:"
             f"enable='between(t,{cta_start:.2f},{duration:.2f})'"
         )
         vf_parts.append(cta_overlay)
-        print(f"   🎨 CTA: '{cta_text}' (last ~2.5s)")
+        print(f"   🎨 CTA: '{cta_text}' (last 3s, upper-third)")
 
-        # ── 5d. Subtitle burn-in ──────────────────────────────────────────────
+        # 5c. Subtitles — bottom-center
+        # FIX: alignment=2 in ASS style means bottom-center
+        # Zero collision with CTA which is now at upper-third
         if ass_file and os.path.exists(ass_file):
             esc = ass_file.replace("\\", "/")
             if platform.system() == "Windows" and len(esc) > 1 and esc[1] == ":":
                 esc = esc[0] + "\\:" + esc[2:]
             vf_parts.append(f"ass='{esc}'")
-            print("   📝 Subtitles: word-level, bottom-third")
-
-        # ── 5e. Meme Breaks ──────────────────────────────────────────────────
-        meme_filters = []
-        for m_time in [10, 20]:
-            if m_time < duration - 2:
-                meme_filters.append(f"between(t,{m_time},{m_time+0.5})")
-        if meme_filters:
-            enable_expr = "+".join(meme_filters)
-            vf_parts.append(f"drawtext=text='🤯':fontsize=400:x=(w-text_w)/2:y=(h-text_h)/2:enable='{enable_expr}'")
-            print("   🤯 Added Meme Break '🤯' at 10s intervals")
+            print("   📝 Subtitles: bottom-center (no collision)")
 
         vf_filter = ",".join(vf_parts) if vf_parts else None
 
-        # ── 6. Build Audio Mix & Sync SFX ────────────────────────────────────
+        # ── 6. Audio ─────────────────────────────────────────────────────────
         main_cmd = ["ffmpeg", "-y", "-i", bg, "-i", "voiceover.mp3"]
+        audio_inputs = []
         audio_input_idx = 2
 
-        pop_words = ['battery', 'charge', 'fast', 'money', 'rupees', 'price', 'new', 'buy', 'save', 'tech', 'pro', 'max', 'speed']
-        beep_words = ['stop', "don't", 'warning', 'dead', 'fake', 'alert', 'danger', 'wait', 'never', 'scam', 'bad']
-        sfx_events = [('whoosh', 0)] # Initial title pop hooks
+        for candidate in ["assets/impact_sound.mp3", "assets/whoosh.mp3", "impact_sound.mp3"]:
+            if os.path.exists(candidate):
+                main_cmd.extend(["-i", candidate])
+                audio_inputs.append(("impact", audio_input_idx, 0.35))
+                audio_input_idx += 1
+                print(f"   🔊 Impact: {candidate}")
+                break
 
-        vtt_path = "subtitles.vtt" # Always present even if without whisper
-        if os.path.exists(vtt_path):
-            with open(vtt_path, 'r', encoding='utf-8') as f:
-                lines = f.readlines()
-            current_ms = None
-            for line in lines:
-                if '-->' in line:
-                    try:
-                        h, m, s = line.split('-->')[0].strip().split(':')
-                        current_ms = int(float(s.replace(',','.')) * 1000) + int(m) * 60000 + int(h) * 3600000
-                    except:
-                        current_ms = None
-                elif current_ms is not None and line.strip() and not line.strip().isdigit() and "WEBVTT" not in line:
-                    text = line.strip().lower()
-                    if any(w in text for w in pop_words):
-                        sfx_events.append(('pop', current_ms))
-                    elif any(w in text for w in beep_words):
-                        sfx_events.append(('beep', current_ms))
-                    current_ms = None
+        for candidate in ["bgm.mp3", "bgm.wav", "bgm.m4a"]:
+            if os.path.exists(candidate):
+                main_cmd.extend(["-stream_loop", "-1", "-i", candidate])
+                audio_inputs.append(("bgm", audio_input_idx, 0.10))
+                audio_input_idx += 1
+                print(f"   🎵 BGM: {candidate}")
+                break
 
-        print(f"   🔊 Found {len(sfx_events)} SFX sync points.")
-        sfx_map = {'pop': 'assets/pop.mp3', 'beep': 'assets/beep.mp3', 'whoosh': 'assets/whoosh.mp3'}
-        sfx_events = [(k, ms) for k, ms in sfx_events if os.path.exists(sfx_map.get(k, ''))]
-
-        filter_parts = ["[1:a]volume=1.0[vo]"]
-        mix_inputs = ["[vo]"]
-
-        # Setup unique SFX inputs & asplit
-        unique_sfx = list(set([k for k, ms in sfx_events]))
-        sfx_counters = {k: 0 for k in unique_sfx}
-        
-        for kind in unique_sfx:
-            main_cmd.extend(["-i", sfx_map[kind]])
-            count = len([e for e in sfx_events if e[0] == kind])
-            if count > 1:
-                pads = "".join([f"[{kind}_copy{i}]" for i in range(count)])
-                filter_parts.append(f"[{audio_input_idx}:a]asplit={count}{pads}")
-            else:
-                filter_parts.append(f"[{audio_input_idx}:a]volume=1.0[{kind}_copy0]")
-            audio_input_idx += 1
-
-        # Apply adelay and volume routing
-        for i, (kind, ms) in enumerate(sfx_events):
-            copy_idx = sfx_counters[kind]
-            out_name = f"sfx_{i}"
-            # Windows FFmpeg handles large adelay. We do | pipe for left/right channels
-            filter_parts.append(f"[{kind}_copy{copy_idx}]adelay={ms}|{ms},volume=0.35[{out_name}]")
-            mix_inputs.append(f"[{out_name}]")
-            sfx_counters[kind] += 1
-
-        # Background music
-        bgm_file = "bgm.mp3" if os.path.exists("bgm.mp3") else "bgm.wav" if os.path.exists("bgm.wav") else None
-        if bgm_file:
-            main_cmd.extend(["-stream_loop", "-1", "-i", bgm_file])
-            filter_parts.append(f"[{audio_input_idx}:a]volume=0.10[bgm]")
-            mix_inputs.append("[bgm]")
-            audio_input_idx += 1
-
-        mix_count = len(mix_inputs)
-        filter_parts.append(f"{''.join(mix_inputs)}amix=inputs={mix_count}:duration=first:dropout_transition=2[aout]")
-        
-        af_filter = ";".join(filter_parts)
-        if vf_filter:
-            main_cmd.extend(["-vf", vf_filter])
-        main_cmd.extend(["-filter_complex", af_filter, "-map", "0:v", "-map", "[aout]"])
+        if audio_inputs:
+            filter_parts = ["[1:a]volume=1.0[vo]"]
+            mix_inputs = ["[vo]"]
+            for name, idx, vol in audio_inputs:
+                filter_parts.append(f"[{idx}:a]volume={vol}[{name}]")
+                mix_inputs.append(f"[{name}]")
+            mix_count = len(mix_inputs)
+            filter_parts.append(
+                f"{''.join(mix_inputs)}amix=inputs={mix_count}:duration=first[aout]"
+            )
+            af_filter = ";".join(filter_parts)
+            if vf_filter:
+                main_cmd.extend(["-vf", vf_filter])
+            main_cmd.extend(["-filter_complex", af_filter, "-map", "0:v", "-map", "[aout]"])
+        else:
+            if vf_filter:
+                main_cmd.extend(["-vf", vf_filter])
+            main_cmd.extend(["-map", "0:v", "-map", "1:a"])
 
         main_cmd.extend([
             "-c:v", "libx264", "-preset", "fast",
@@ -299,16 +248,14 @@ def create_video(title, video_clips, hook_line=""):
         print(f"🎬 Rendering ({video_duration:.1f}s)...")
         res = subprocess.run(main_cmd, capture_output=True, text=True, timeout=600)
         if res.returncode != 0:
-            print(f"❌ Render failed: {res.stderr[-800:]}")
+            print(f"❌ Render failed:\n{res.stderr[-1000:]}")
             return False
-        print(f"✅ output.mp4 ready ({video_duration:.1f}s)")
+        print("✅ output.mp4 ready")
 
-        # ── 7. Cleanup ───────────────────────────────────────────────────────
         for f in scaled_clips + (video_clips or []):
             _rm(f)
-        for f in ["clips.txt", "bg_looped.mp4",
-                  "subtitles_words.vtt", "subtitles.srt",
-                  "subtitles_raw.ass", "subtitles.ass"]:
+        for f in ["clips.txt", "bg_looped.mp4", "subtitles_words.vtt",
+                  "subtitles.srt", "subtitles_raw.ass", "subtitles.ass"]:
             _rm(f)
 
         return True
@@ -319,8 +266,6 @@ def create_video(title, video_clips, hook_line=""):
         traceback.print_exc()
         return False
 
-
-# ── VTT → SRT ────────────────────────────────────────────────────────────────
 
 def _vtt_to_srt(vtt_path: str, srt_path: str):
     with open(vtt_path, "r", encoding="utf-8") as f:
@@ -367,9 +312,12 @@ def _vtt_to_srt(vtt_path: str, srt_path: str):
     print(f"   SRT: {idx - 1} cues")
 
 
-# ── Styled ASS subtitles ──────────────────────────────────────────────────────
-
 def _style_ass(src: str, dst: str):
+    """
+    FIX: alignment=2 (bottom-center) instead of 5 (center).
+    This is the key fix for subtitle/CTA collision.
+    MarginV=200 keeps text above bottom UI chrome.
+    """
     with open(src, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -386,20 +334,20 @@ def _style_ass(src: str, dst: str):
     new_style = (
         "Style: Default,"
         "Impact,"
-        "82,"           # Large, bold word-by-word size
-        "&H00FFFFFF,"   # White text
+        "76,"
+        "&H00FFFFFF,"       # White text
         "&H000000FF,"
-        "&H00000000,"
-        "&H80000000,"   # Black shadow
-        "-1,0,0,0,"     # Bold, Italic, Underline, Strikeout (-1 = True for ASS usually, but 0 is false. Let's rely on Impact)
+        "&H00000000,"       # Black outline
+        "&H90000000,"
+        "0,0,0,0,"
         "100,100,"
-        "0,"            # Spacing
-        "0,"            # Angle
-        "1,"            # BorderStyle
-        "6,"            # Outline width (thick)
-        "4,"            # Shadow depth
-        "5,"            # Alignment = 5 (Exact Center)
-        "20,20,0,0"     # MarginL, MarginR, MarginV (0 because Center)
+        "0,"
+        "0,"
+        "1,"
+        "7,"
+        "3,"
+        "2,"                # alignment=2 = bottom-center (KEY FIX)
+        "20,20,200,0"       # MarginV=200
     )
 
     if "Style: Default," in content:
@@ -411,9 +359,7 @@ def _style_ass(src: str, dst: str):
         f.write(content)
 
 
-# ── VTT word-splitter ─────────────────────────────────────────────────────────
-
-def _split_vtt_to_words(src: str, dst: str, max_words: int = 3):
+def _split_vtt_to_words(src: str, dst: str, max_words: int = 2):
     try:
         with open(src, "r", encoding="utf-8") as f:
             content = f.read()
@@ -481,7 +427,7 @@ def _split_vtt_to_words(src: str, dst: str, max_words: int = 3):
 
         with open(dst, "w", encoding="utf-8") as f:
             f.write("\n".join(new_cues))
-        print(f"✅ Subtitles split: {cue_index - 1} word-level cues.")
+        print(f"✅ Subtitles: {cue_index - 1} cues")
     except Exception as e:
         print(f"⚠️  VTT split failed ({e}) — using original.")
         shutil.copy(src, dst)
