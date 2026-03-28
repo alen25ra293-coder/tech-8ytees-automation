@@ -229,17 +229,20 @@ TITLE RULES:
 - NO hashtags in title (they go in description only)
 - NO sensational positive verbs (see banned list above)
 
-PRODUCT_NAME RULE:
+PRODUCT_NAME RULE (CRITICAL):
 - Identify the specific brand and model from the topic (e.g., "Portronics PAT", "OnePlus 13", "Samsung Galaxy Buds").
-- The product name MUST be mentioned explicitly in the SCRIPT — viewers need to know WHAT they're hearing about.
-- Example: "This ₹499 Portronics charger..." or "OnePlus 13's camera..."
+- The SCRIPT body MUST mention the product name IN THE FIRST OR SECOND SENTENCE.
+- DO NOT say "this gadget" or "this device" — SAY THE ACTUAL PRODUCT NAME.
+- Wrong: "This ₹499 gadget works great..."
+- Correct: "This ₹499 Portronics charger works great..."
+- The product name should appear at least once in the narrated script text.
 
 OUTPUT FORMAT (exact keys, no extra text):
 PRODUCT_NAME: [specific brand and model name]
 TITLE: [MAX 5 WORDS, NEGATIVE HOOK, 1 EMOJI AT END]
 HOOK_LINE: [first sentence only, under 6 words, negative tone, NO banned verbs]
 HOOK_STYLE: [{structure_name}]
-SCRIPT: [50-65 words, INCLUDE PRODUCT NAME, follow the structure template above]
+SCRIPT: [50-65 words, MENTION PRODUCT NAME in first 2 sentences, follow the structure template above]
 VISUAL_INSTRUCTIONS:
 [Script line 1] -> Visual: [Specific Object + Action + Context]
 [Script line 2] -> Visual: [Specific Object + Action + Context]
@@ -278,6 +281,33 @@ QUESTION: [1 controversial/opinionated question relevant to THIS specific produc
                 print(f"⚠️  Banned words: {found_banned}. Regenerating...")
                 return generate_script(topic, attempt + 1)
             print(f"⚠️  Banned words remain after 3 attempts: {found_banned}")
+
+        # Product name validation
+        if "PRODUCT_NAME:" in script_text and "SCRIPT:" in script_text:
+            product_line = script_text.split("PRODUCT_NAME:")[1].split("\n")[0].strip()
+            script_body = script_text.split("SCRIPT:")[1]
+            for end_key in ["VISUAL_INSTRUCTIONS:", "TAGS:", "DESCRIPTION:"]:
+                if end_key in script_body:
+                    script_body = script_body.split(end_key)[0]
+                    break
+            
+            # Check if product name contains actual brand (not generic)
+            generic_terms = ["budget tech gadget", "budget gadget", "tech gadget", "gadget", "device", "product"]
+            is_generic = any(term in product_line.lower() for term in generic_terms)
+            
+            # Extract brand name (first word of product name, usually the brand)
+            brand_words = [w for w in product_line.split() if len(w) > 2 and w.lower() not in ["the", "this", "and"]]
+            
+            if is_generic or not brand_words:
+                if attempt < 3:
+                    print(f"⚠️  Generic product name '{product_line}'. Regenerating...")
+                    return generate_script(topic, attempt + 1)
+                print(f"⚠️  Product name is generic: '{product_line}'")
+            elif brand_words and not any(word.lower() in script_body.lower() for word in brand_words[:2]):
+                if attempt < 3:
+                    print(f"⚠️  Product name '{product_line}' not in script. Regenerating...")
+                    return generate_script(topic, attempt + 1)
+                print(f"⚠️  Product '{product_line}' not mentioned in script body")
 
         return script_text
 
