@@ -164,7 +164,8 @@ def main():
         thumbnail_path = generate_thumbnail(
             thumbnail_text=parsed.get("thumbnail_text", topic[:20]),
             title=parsed["title"],
-            video_path="output.mp4"
+            video_path="output.mp4",
+            ai_image_path=ai_hook_img
         )
 
         # ── 8. YouTube upload ─────────────────────────────────────────────────

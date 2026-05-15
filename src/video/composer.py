@@ -35,11 +35,11 @@ def create_video(title, video_clips, hook_line=""):
         video_duration = duration + 0.8
 
         if duration <= 20:
-            MAX_CLIP_DURATION = 2.0
+            MAX_CLIP_DURATION = 1.3
         elif duration <= 25:
-            MAX_CLIP_DURATION = 2.5
+            MAX_CLIP_DURATION = 1.5
         else:
-            MAX_CLIP_DURATION = 3.0
+            MAX_CLIP_DURATION = 1.8
 
         print(f"⏱️  {duration:.1f}s audio → {video_duration:.1f}s | Clips: {MAX_CLIP_DURATION}s")
 
@@ -61,13 +61,21 @@ def create_video(title, video_clips, hook_line=""):
                 is_image = clip.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
                 input_args = ["-loop", "1", "-i", clip] if is_image else ["-i", clip]
 
-                # Ken Burns: 5% slow zoom-in over clip duration (adds motion to static shots)
-                # Scale to 1134x2016 (5% larger), then animate crop window from center
-                kb_zoom = (
-                    "scale=1134:2016:force_original_aspect_ratio=increase,"
-                    "crop='1080+54*t/{dur}:1920+96*t/{dur}:(iw-1080-54*t/{dur})/2:(ih-1920-96*t/{dur})/2',"
-                    "setsar=1,eq=contrast=1.15:brightness=0.02:saturation=1.2:gamma=0.95"
-                ).format(dur=MAX_CLIP_DURATION)
+                # Dynamic Ken Burns: Alternate between zoom-in and slow pan
+                if i % 2 == 0:
+                    # Zoom In (5%)
+                    kb_zoom = (
+                        "scale=1134:2016:force_original_aspect_ratio=increase,"
+                        "crop='1080+54*t/{dur}:1920+96*t/{dur}:(iw-1080-54*t/{dur})/2:(ih-1920-96*t/{dur})/2',"
+                        "setsar=1,eq=contrast=1.15:brightness=0.02:saturation=1.2:gamma=0.95"
+                    ).format(dur=MAX_CLIP_DURATION)
+                else:
+                    # Pan Right
+                    kb_zoom = (
+                        "scale=1188:2112:force_original_aspect_ratio=increase,"
+                        "crop='1080:1920:(iw-1080)/2+54*t/{dur}:(ih-1920)/2',"
+                        "setsar=1,eq=contrast=1.15:brightness=0.02:saturation=1.2:gamma=0.95"
+                    ).format(dur=MAX_CLIP_DURATION)
 
                 # First clip: speed ramp 1.3x for energetic hook (only if not an image)
                 speed_filter = ",setpts=PTS/1.3" if i == 0 and not is_image else ""

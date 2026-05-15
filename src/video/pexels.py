@@ -125,35 +125,6 @@ def _build_search_queries(topic: str, product_name: str) -> list:
             
     return unique_queries[:8]
 
-    category = _get_product_category(topic, product_name)
-    if category and category in PRODUCT_SEARCH_TERMS:
-        queries.append(f"hand holding {category}")
-        queries.append(f"{category} unboxing")
-        queries.append(f"broken {category}")
-        # Priority 3: All category visual terms (with 'holding' appended where possible, but we'll leave as is to be safe)
-        queries.extend(PRODUCT_SEARCH_TERMS[category])
-        print(f"   📦 Detected category: {category}")
-        
-    # Priority 4: Exact product name
-    if product_name:
-        queries.append(product_name.lower())
-    
-    # Priority 5: Raw generic tech terms to avoid clean studio shots
-    if not queries:
-        queries.extend(["hand holding phone", "broken phone screen", "phone unboxing desk"])
-    
-    # Remove duplicates while preserving order
-    seen = set()
-    unique_queries = []
-    for q in queries:
-        q_lower = q.lower().strip()
-        if q_lower and q_lower not in seen:
-            seen.add(q_lower)
-            unique_queries.append(q)
-    
-    return unique_queries
-
-
 def fetch_background_clips(topic, product_name=None, num_clips=10):
     """
     Fetches background video clips from Pexels that match the content topic.

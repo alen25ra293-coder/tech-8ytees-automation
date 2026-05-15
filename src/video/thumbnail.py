@@ -27,7 +27,7 @@ _COLOR_PALETTES = [
 ]
 
 
-def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "output_thumbnail.jpg", video_path: str = "output.mp4") -> str | None:
+def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "output_thumbnail.jpg", video_path: str = "output.mp4", ai_image_path: str = None) -> str | None:
     """
     Generate a split-screen comparison YouTube thumbnail.
     Returns the path to the saved thumbnail, or None on failure.
@@ -44,9 +44,33 @@ def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "outp
         W, H = 1280, 720
         palette = random.choice(_COLOR_PALETTES)
 
-        # ── Background: Extract Frame from Video (Proof of Human) ──────────
+        # ── Background: Use AI Image or Extract Frame from Video ──────────
         extracted = False
-        if os.path.exists(video_path):
+        
+        # Priority 1: High-quality AI image
+        if ai_image_path and os.path.exists(ai_image_path):
+            try:
+                img = Image.open(ai_image_path).convert("RGB")
+                vid_w, vid_h = img.size
+                target_ratio = W / H
+                vid_ratio = vid_w / vid_h
+                if vid_ratio < target_ratio:
+                    new_w = W
+                    new_h = int(W / vid_ratio)
+                else:
+                    new_h = H
+                    new_w = int(H * vid_ratio)
+                img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                left = (img.width - W) // 2
+                top = (img.height - H) // 2
+                img = img.crop((left, top, left + W, top + H))
+                extracted = True
+                print("   ✅ Using AI generated hook image for thumbnail background.")
+            except Exception as e:
+                print(f"⚠️  Failed to process AI image for thumbnail: {e}")
+
+        # Priority 2: Video frame extraction
+        if not extracted and os.path.exists(video_path):
             frame_path = "temp_frame.jpg"
             # Extract frame at 0.5s mark to ensure product/hands are visible
             cmd = ["ffmpeg", "-y", "-ss", "00:00:00.500", "-i", video_path, "-vframes", "1", "-q:v", "2", frame_path]
@@ -71,6 +95,7 @@ def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "outp
                     img = img.crop((left, top, left + W, top + H))
                     extracted = True
                     os.remove(frame_path)
+                    print("   ✅ Using extracted video frame for thumbnail background.")
             except Exception as e:
                 print(f"⚠️  Failed to extract video frame: {e}")
 
