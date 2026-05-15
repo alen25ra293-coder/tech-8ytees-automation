@@ -223,9 +223,11 @@ VISUAL INSTRUCTIONS — be VERY specific:
 - FIRST VISUAL must be the "payoff" — the product in action, not a setup.
 
 TITLE RULES:
-- FIRST WORD MUST BE: "STOP", "WAIT", or "WARNING".
-- MAX 5 WORDS total. The core subject (e.g., "iPhone") must be the 2nd or 3rd word.
-- PRICE IN TITLE: You MUST mention ₹ (Rupees) in the title (e.g., "WAIT! ₹499 Earbuds...").
+- DO NOT use the words "STOP", "WAIT", or "WARNING".
+- MAX 60 CHARACTERS total for the YouTube Short title.
+- FORMATS: Use formats like 'Gadget Swap', or 'This [Price] [Gadget] [Action Word] [Expensive Brand]'.
+- FOCUS: Always focus on the money saved or the specific problem solved.
+- PRICE IN TITLE: You MUST mention ₹ (Rupees) in the title.
 - exactly ONE emoji at the very end: it MUST be the 🛑 emoji to build the brand signature.
 - NO hashtags in title (they go in description only)
 - NO sensational positive verbs (see banned list above)
@@ -240,21 +242,21 @@ PRODUCT_NAME RULE (CRITICAL):
 
 OUTPUT FORMAT (exact keys, no extra text):
 PRODUCT_NAME: [specific brand and model name]
-TITLE: [MAX 5 WORDS, NEGATIVE HOOK, 1 EMOJI AT END]
-HOOK_LINE: [first sentence only, under 6 words, negative tone, NO banned verbs]
+TITLE: [UNDER 60 CHARS, FOCUS ON MONEY SAVED OR PROBLEM SOLVED, 1 EMOJI AT END]
+HOOK_LINE: [first sentence only, under 6 words, NO banned verbs]
 HOOK_STYLE: [{structure_name}]
 SCRIPT: [50-65 words, MENTION PRODUCT NAME in first 2 sentences, follow the structure template above]
 VISUAL_INSTRUCTIONS:
 [Script line 1] -> Visual: [Specific Object + Action + Context]
 [Script line 2] -> Visual: [Specific Object + Action + Context]
 [continue for every line]
-TAGS: [6 hashtags — 2 niche, 2 medium, 2 broad. No tags over 5M posts.]
+TAGS: [Exactly 3 hashtags chosen ONLY from this list: #tech, #techessentials, #budgettech, #smartgadgets, #techreview. NO OTHER TAGS ALLOWED.]
 DESCRIPTION: [Generate a FULL YouTube description for this specific video. Follow this EXACT structure:
 Line 1: The video title (without hashtags or emoji) — for Metadata Reinforcement.
 Line 2: A HUMAN sentence about THIS specific product and its price. Sound like a real person, NOT marketing copy. Example: "In this video, we test this ₹1,299 car vacuum to see if it actually works or if it is just a waste of money."
 Line 3: A fun, topic-relevant engagement question using the ACTUAL price from the video. Example for car vacuum: "₹1,299 for this, or just use a cloth? 😂 Tell me your car cleaning hack! 👇" — The question MUST be about THIS product's category, NOT random.
 Line 4: "Subscribe — I find these hidden tech gems every day! 🔔 @Tech8ytees"
-Line 5: #TechIndia #BudgetGadgets #SmartHomeIndia #TechTricks #AmazonFinds #GadgetReview plus 4 TOPIC-SPECIFIC hashtags relevant to THIS video.
+Line 5: Exactly 3 hashtags chosen ONLY from this list: #tech, #techessentials, #budgettech, #smartgadgets, #techreview. NO OTHER TAGS ALLOWED.
 NO #Shorts anywhere in the description. NO robotic text. NO boilerplate.]
 THUMBNAIL_TEXT: [2-3 words ALL CAPS — comparison or price gap]
 CAPTION_HOOK: [1 punchy sentence for Instagram]
@@ -336,13 +338,11 @@ def generate_dynamic_hashtags(topic: str) -> str:
     if not model:
         return _fallback_hashtags(topic)
 
-    prompt = f"""Generate exactly 6 hashtags for a YouTube Shorts / Instagram Reels video about: "{topic}"
+    prompt = f"""Generate exactly 3 hashtags for a YouTube Shorts / Instagram Reels video about: "{topic}"
 
 RULES:
-- 2 NICHE (10k-100k posts): hyper-specific to the exact product or comparison
-- 2 MEDIUM (100k-500k posts): category level  
-- 2 BROAD (500k-2M posts): general tech/deals
-- NEVER use tags with 5M+ posts (#Tech, #AI, #Viral, #Shorts — these bury content)
+- Select exactly 3 tags from this approved list ONLY: #tech, #techessentials, #budgettech, #smartgadgets, #techreview.
+- Under no circumstances should you generate tags outside of this list.
 - Output ONLY hashtags separated by spaces. No other text."""
 
     try:
@@ -357,9 +357,7 @@ RULES:
 
 
 def _fallback_hashtags(topic: str) -> str:
-    words = [w.strip(".,!?$₹") for w in topic.split()[:3] if len(w) > 2]
-    niche = " ".join(f"#{w.capitalize()}" for w in words if w)
-    return f"{niche} #BudgetGadgets #CheapTechFinds #AmazonIndia #TechDeals #AffordableTech"
+    return "#tech #budgettech #smartgadgets"
 
 
 # ── Fallback script ───────────────────────────────────────────────────────────
@@ -368,8 +366,8 @@ def _build_fallback_script(topic: str) -> str:
     print("⚠️  Using fallback script.")
     safe = topic[:50]
     return f"""PRODUCT_NAME: Budget Tech Gadget
-TITLE: {safe[:14].upper()} UNDER ₹2K
-HOOK_LINE: Stop. Look at this.
+TITLE: This ₹1,500 Gadget Beats The ₹15,000 Version 🛑
+HOOK_LINE: Don't buy the expensive version yet.
 HOOK_STYLE: DONT_BUY_YET
 SCRIPT: Don't buy the expensive version yet. This gadget costs under ₹1,500 and I've used it for two months — it outperformed the ₹15,000 version every single time. 40,000 five-star reviews on Amazon. Save this.
 VISUAL_INSTRUCTIONS:
@@ -378,7 +376,7 @@ VISUAL_INSTRUCTIONS:
 [outperformed the ₹15,000 version] -> Visual: [Side-by-side comparison, budget product highlighted as winner]
 [40,000 five-star reviews] -> Visual: [Amazon page showing star rating and review count]
 [Save this] -> Visual: [Text overlay SAVE THIS in yellow, product in background]
-TAGS: #BudgetGadgets #CheapTech #AmazonIndia #HiddenGem #TechDeals #AffordableTech
+TAGS: #tech #budgettech #smartgadgets
 DESCRIPTION: This gadget costs 10x less and somehow does the job better
 THUMBNAIL_TEXT: BUDGET WINS
 CAPTION_HOOK: This ₹1,500 gadget made my ₹15,000 one obsolete 👀

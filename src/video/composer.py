@@ -43,29 +43,44 @@ def create_video(title, video_clips, hook_line=""):
 
         print(f"⏱️  {duration:.1f}s audio → {video_duration:.1f}s | Clips: {MAX_CLIP_DURATION}s")
 
-        # ── 1. Scale/crop clips ──────────────────────────────────────────────
+        # ── 1. Scale/crop clips with Ken Burns zoom + speed ramp ────────────
         scaled_clips = []
-        color_grade = (
+        # Base filter: scale, crop, color grade
+        base_grade = (
             "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,"
             "setsar=1,eq=contrast=1.15:brightness=0.02:saturation=1.2:gamma=0.95"
         )
 
         if video_clips:
-            print(f"🎬 Processing {len(video_clips)} clips...")
+            print(f"🎬 Processing {len(video_clips)} clips (zoom + transitions)...")
             for i, clip in enumerate(video_clips):
                 if not os.path.exists(clip):
                     continue
                 out = f"scaled_{i}.mp4"
+
+                # Ken Burns: 5% slow zoom-in over clip duration (adds motion to static shots)
+                # Scale to 1134x2016 (5% larger), then animate crop window from center
+                kb_zoom = (
+                    "scale=1134:2016:force_original_aspect_ratio=increase,"
+                    "crop='1080+54*t/{dur}:1920+96*t/{dur}:(iw-1080-54*t/{dur})/2:(ih-1920-96*t/{dur})/2',"
+                    "setsar=1,eq=contrast=1.15:brightness=0.02:saturation=1.2:gamma=0.95"
+                ).format(dur=MAX_CLIP_DURATION)
+
+                # First clip: speed ramp 1.3x for energetic hook
+                speed_filter = ",setpts=PTS/1.3" if i == 0 else ""
+                vf = kb_zoom + speed_filter
+
                 res = subprocess.run([
                     "ffmpeg", "-y", "-i", clip,
                     "-t", str(MAX_CLIP_DURATION),
-                    "-vf", color_grade,
+                    "-vf", vf,
                     "-pix_fmt", "yuv420p", "-r", "30",
                     "-c:v", "libx264", "-an", "-preset", "ultrafast", out
                 ], capture_output=True, text=True)
                 if res.returncode == 0 and os.path.exists(out):
                     scaled_clips.append(out)
                 else:
+                    # Fallback: simple scale without zoom
                     res2 = subprocess.run([
                         "ffmpeg", "-y", "-i", clip,
                         "-t", str(MAX_CLIP_DURATION),
@@ -76,16 +91,40 @@ def create_video(title, video_clips, hook_line=""):
                     if res2.returncode == 0 and os.path.exists(out):
                         scaled_clips.append(out)
 
-        # ── 2. Concatenate background ────────────────────────────────────────
+        # ── 2. Add flash transitions between clips ─────────────────────────
+        #    A 2-frame (0.067s) white flash between cuts mimics professional editing.
+        if len(scaled_clips) > 1:
+            flash_file = "_flash.mp4"
+            subprocess.run([
+                "ffmpeg", "-y", "-f", "lavfi",
+                "-i", "color=c=white:s=1080x1920:d=0.067",
+                "-pix_fmt", "yuv420p", "-r", "30",
+                "-c:v", "libx264", "-an", "-preset", "ultrafast", flash_file
+            ], capture_output=True, text=True)
+        else:
+            flash_file = None
+
+        # ── 3. Concatenate background ────────────────────────────────────────
         bg = ""
         if scaled_clips:
             try:
+                # Shuffle clips (skip first — it's the hook) so videos feel less templated
+                if len(scaled_clips) > 2:
+                    hook_clip = scaled_clips[0]
+                    rest = scaled_clips[1:]
+                    random.shuffle(rest)
+                    scaled_clips = [hook_clip] + rest
+
                 with open("clips.txt", "w") as f:
                     repeats = int(video_duration / (len(scaled_clips) * MAX_CLIP_DURATION)) + 3
                     for _ in range(repeats):
-                        for c in scaled_clips:
+                        for j, c in enumerate(scaled_clips):
                             abs_path = os.path.abspath(c).replace('\\', '/')
                             f.write(f"file '{abs_path}'\n")
+                            # Insert flash transition between clips (not after last)
+                            if flash_file and j < len(scaled_clips) - 1:
+                                flash_abs = os.path.abspath(flash_file).replace('\\', '/')
+                                f.write(f"file '{flash_abs}'\n")
 
                 res = subprocess.run([
                     "ffmpeg", "-y", "-f", "concat", "-safe", "0",
@@ -263,7 +302,8 @@ def create_video(title, video_clips, hook_line=""):
         for f in scaled_clips + (video_clips or []):
             _rm(f)
         for f in ["clips.txt", "bg_looped.mp4", "subtitles_words.vtt",
-                  "subtitles.srt", "subtitles_raw.ass", "subtitles.ass"]:
+                  "subtitles.srt", "subtitles_raw.ass", "subtitles.ass",
+                  "_flash.mp4"]:
             _rm(f)
 
         return True

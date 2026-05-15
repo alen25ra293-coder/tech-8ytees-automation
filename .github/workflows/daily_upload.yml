@@ -2,11 +2,13 @@ name: Tech 8ytees Daily Upload
 
 on:
   schedule:
-    # ── Day-specific optimal posting times for Indian tech audience ──────
-    # Strategy: 1 upload/day exactly at 7:00 PM IST.
-    # Time: 7:00 PM IST = 1:30 PM UTC.
+    # ── 3x/day at peak IST times for Indian tech audience ────────────────
+    # Strategy: 3 uploads/day to maximize Shorts algorithm exposure.
+    # YouTube Shorts rewards volume — channels hitting 500K+ post 2-3/day.
     
-    - cron: '30 13 * * *'   # Every day → 7:00 PM IST (1:30 PM UTC)
+    - cron: '30 2 * * *'    # 8:00 AM IST (2:30 AM UTC) — morning commute
+    - cron: '30 7 * * *'    # 1:00 PM IST (7:30 AM UTC) — lunch break
+    - cron: '30 13 * * *'   # 7:00 PM IST (1:30 PM UTC) — evening scroll
 
   workflow_dispatch:        # Manual trigger from GitHub UI
   push:
@@ -116,4 +118,4 @@ jobs:
           rm -f output.mp4 output_thumbnail.jpg voiceover.mp3 voiceover_raw.wav \
                 bg_video.mp4 bg_looped.mp4 main_video.mp4 end_card.mp4 \
                 token.json subtitles.vtt subtitles_words.vtt temp_script.txt
-          rm -f bg_clip_*.mp4 scaled_*.mp4 clips.txt final_concat.txt
+          rm -f bg_clip_*.mp4 scaled_*.mp4 clips.txt final_concat.txt _flash.mp4
