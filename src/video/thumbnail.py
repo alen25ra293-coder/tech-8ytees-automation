@@ -147,14 +147,25 @@ def generate_thumbnail(thumbnail_text: str, title: str, output_path: str = "outp
         # ── Left side: "Expensive" with ❌ ────────────────────────────────
         left_center_x = (40 + split_x) // 2
         draw.text((left_center_x, 120), "❌", font=load_font(80), fill=palette["left"], anchor="mm")
-        draw.text((left_center_x, 200), expensive_price, font=font_mid, fill=(200, 200, 200), anchor="mm")
-        draw.text((left_center_x, 260), "OVERPRICED", font=font_label, fill=palette["left"], anchor="mm")
+        
+        # Red Price Badge
+        bbox_l = draw.textbbox((left_center_x, 200), expensive_price, font=font_mid, anchor="mm")
+        pad = 20
+        draw.rounded_rectangle([bbox_l[0]-pad, bbox_l[1]-pad, bbox_l[2]+pad, bbox_l[3]+pad], radius=15, fill=(220, 40, 50))
+        draw.text((left_center_x, 200), expensive_price, font=font_mid, fill=(255, 255, 255), anchor="mm")
+        
+        draw.text((left_center_x, 270), "OVERPRICED", font=font_label, fill=palette["left"], anchor="mm")
 
         # ── Right side: "Budget" with ✅ ──────────────────────────────────
         right_center_x = (split_x + W - 40) // 2
         draw.text((right_center_x, 120), "✅", font=load_font(80), fill=palette["right"], anchor="mm")
-        draw.text((right_center_x, 200), budget_price, font=font_mid, fill=(200, 255, 200), anchor="mm")
-        draw.text((right_center_x, 260), "SAME RESULTS", font=font_label, fill=palette["right"], anchor="mm")
+        
+        # High-Contrast Yellow Price Badge
+        bbox_r = draw.textbbox((right_center_x, 200), budget_price, font=font_mid, anchor="mm")
+        draw.rounded_rectangle([bbox_r[0]-pad, bbox_r[1]-pad, bbox_r[2]+pad, bbox_r[3]+pad], radius=15, fill=(255, 230, 0))
+        draw.text((right_center_x, 200), budget_price, font=font_mid, fill=(10, 10, 10), anchor="mm")
+        
+        draw.text((right_center_x, 270), "SAME RESULTS", font=font_label, fill=palette["right"], anchor="mm")
 
         # ── Main text (center, large, with outline) ───────────────────────
         # SAFE ZONE: Place text center or center-left (right side has YT buttons)
