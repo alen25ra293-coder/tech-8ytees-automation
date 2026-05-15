@@ -58,6 +58,9 @@ def create_video(title, video_clips, hook_line=""):
                     continue
                 out = f"scaled_{i}.mp4"
 
+                is_image = clip.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
+                input_args = ["-loop", "1", "-i", clip] if is_image else ["-i", clip]
+
                 # Ken Burns: 5% slow zoom-in over clip duration (adds motion to static shots)
                 # Scale to 1134x2016 (5% larger), then animate crop window from center
                 kb_zoom = (
@@ -66,12 +69,12 @@ def create_video(title, video_clips, hook_line=""):
                     "setsar=1,eq=contrast=1.15:brightness=0.02:saturation=1.2:gamma=0.95"
                 ).format(dur=MAX_CLIP_DURATION)
 
-                # First clip: speed ramp 1.3x for energetic hook
-                speed_filter = ",setpts=PTS/1.3" if i == 0 else ""
+                # First clip: speed ramp 1.3x for energetic hook (only if not an image)
+                speed_filter = ",setpts=PTS/1.3" if i == 0 and not is_image else ""
                 vf = kb_zoom + speed_filter
 
                 res = subprocess.run([
-                    "ffmpeg", "-y", "-i", clip,
+                    "ffmpeg", "-y", *input_args,
                     "-t", str(MAX_CLIP_DURATION),
                     "-vf", vf,
                     "-pix_fmt", "yuv420p", "-r", "30",
@@ -82,7 +85,7 @@ def create_video(title, video_clips, hook_line=""):
                 else:
                     # Fallback: simple scale without zoom
                     res2 = subprocess.run([
-                        "ffmpeg", "-y", "-i", clip,
+                        "ffmpeg", "-y", *input_args,
                         "-t", str(MAX_CLIP_DURATION),
                         "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1",
                         "-pix_fmt", "yuv420p", "-r", "30",

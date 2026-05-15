@@ -110,6 +110,15 @@ def main():
         print(f"🎬 Fetching clips for: {parsed['title']}")
         bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=10)
 
+        if not bg_clips or len(bg_clips) < 2:
+            print("⚠️ Not enough background clips found. Falling back to AI image generation...")
+            from src.generators.image_gen import generate_product_image
+            gen_img = generate_product_image(product_name, topic)
+            if gen_img:
+                # Provide multiple copies of the image so composer creates a full length video
+                # Composer will add Ken-Burns zoom effect to each "clip" and flash transitions between them
+                bg_clips = [gen_img] * 6
+
         # ── 6. Video composition ──────────────────────────────────────────────
         video_ok = create_video(
             title=parsed["title"],
