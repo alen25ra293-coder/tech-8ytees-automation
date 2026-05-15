@@ -91,13 +91,40 @@ def _build_search_queries(topic: str, product_name: str) -> list:
     """
     queries = []
     
-    # Priority 1: Exact product name with raw desk/hand terms
+    # Priority 1: Exact product name with high-energy terms
     if product_name:
+        queries.append(f"using {product_name.lower()}")
         queries.append(f"hand holding {product_name.lower()}")
+        queries.append(f"{product_name.lower()} review")
         queries.append(f"{product_name.lower()} unboxing")
-        queries.append(f"broken {product_name.lower()}")
     
-    # Priority 2: Category with raw terms
+    # Priority 2: Category with 'Proof of Human' terms
+    category = _get_product_category(topic, product_name)
+    if category and category in PRODUCT_SEARCH_TERMS:
+        terms = PRODUCT_SEARCH_TERMS[category]
+        # Mix generic with 'hand' or 'person' to ensure it doesn't look like a 3D render
+        for t in terms:
+            queries.append(f"hand holding {t}")
+            queries.append(f"person using {t}")
+            queries.append(f"{t} close up")
+            queries.append(f"{t} unboxing")
+    
+    # Priority 3: Visual descriptors from topic
+    topic_clean = re.sub(r'₹[\d,]+|vs|\$', '', topic.lower())
+    words = [w for w in topic_clean.split() if len(w) > 3]
+    if words:
+        queries.append(" ".join(words[:2]))
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique_queries = []
+    for q in queries:
+        if q not in seen:
+            unique_queries.append(q)
+            seen.add(q)
+            
+    return unique_queries[:8]
+
     category = _get_product_category(topic, product_name)
     if category and category in PRODUCT_SEARCH_TERMS:
         queries.append(f"hand holding {category}")

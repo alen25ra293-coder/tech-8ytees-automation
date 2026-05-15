@@ -244,10 +244,21 @@ def create_video(title, video_clips, hook_line=""):
         audio_inputs = []
         audio_input_idx = 2
 
+        # WHOOSH sound for transitions
+        whoosh_file = None
+        for candidate in ["assets/whoosh.mp3", "whoosh.mp3"]:
+            if os.path.exists(candidate):
+                whoosh_file = candidate
+                main_cmd.extend(["-i", candidate])
+                # We'll map whoosh to every transition in filter_complex
+                whoosh_idx = audio_input_idx
+                audio_input_idx += 1
+                break
+
         for candidate in ["assets/impact_sound.mp3", "assets/whoosh.mp3", "impact_sound.mp3"]:
             if os.path.exists(candidate):
                 main_cmd.extend(["-i", candidate])
-                audio_inputs.append(("impact", audio_input_idx, 0.35))
+                audio_inputs.append(("impact", audio_input_idx, 0.45))
                 audio_input_idx += 1
                 print(f"   🔊 Impact: {candidate}")
                 break
@@ -256,24 +267,41 @@ def create_video(title, video_clips, hook_line=""):
             if os.path.exists(candidate):
                 main_cmd.extend(["-stream_loop", "-1", "-i", candidate])
                 # BGM starts 0.5s after voiceover (adds energy kick)
-                audio_inputs.append(("bgm", audio_input_idx, 0.15, 0.5))
+                audio_inputs.append(("bgm", audio_input_idx, 0.12, 0.5))
                 audio_input_idx += 1
                 print(f"   🎵 BGM: {candidate} (starts at 0.5s)")
                 break
 
-        if audio_inputs:
+        if audio_inputs or whoosh_file:
             filter_parts = ["[1:a]volume=1.0[vo]"]
             mix_inputs = ["[vo]"]
+            
+            # Add WHOOSH at every cut (every MAX_CLIP_DURATION + FLASH_DURATION)
+            if whoosh_file:
+                # Calculate cut timestamps
+                # Each clip is MAX_CLIP_DURATION, followed by 0.067s flash (if multiple clips)
+                whoosh_mixes = []
+                num_cuts = len(scaled_clips) - 1
+                for c_idx in range(num_cuts):
+                    cut_time = (c_idx + 1) * MAX_CLIP_DURATION + (c_idx * 0.067)
+                    delay_ms = int(cut_time * 1000)
+                    filter_parts.append(f"[{whoosh_idx}:a]volume=0.3,adelay={delay_ms}|{delay_ms}[w{c_idx}]")
+                    whoosh_mixes.append(f"[w{c_idx}]")
+                
+                if whoosh_mixes:
+                    filter_parts.append(f"{''.join(whoosh_mixes)}amix=inputs={len(whoosh_mixes)}:normalize=0[all_whooshes]")
+                    mix_inputs.append("[all_whooshes]")
+
             for item in audio_inputs:
                 if len(item) == 4:
                     name, idx, vol, delay = item
-                    # Add delay to BGM using adelay filter
                     delay_ms = int(delay * 1000)
                     filter_parts.append(f"[{idx}:a]volume={vol},adelay={delay_ms}|{delay_ms}[{name}]")
                 else:
                     name, idx, vol = item
                     filter_parts.append(f"[{idx}:a]volume={vol}[{name}]")
                 mix_inputs.append(f"[{name}]")
+            
             mix_count = len(mix_inputs)
             filter_parts.append(
                 f"{''.join(mix_inputs)}amix=inputs={mix_count}:duration=first[aout]"
@@ -365,9 +393,10 @@ def _vtt_to_srt(vtt_path: str, srt_path: str):
 
 def _style_ass(src: str, dst: str):
     """
-    FIX: alignment=2 (bottom-center) instead of 5 (center).
-    This is the key fix for subtitle/CTA collision.
-    MarginV=200 keeps text above bottom UI chrome.
+    Hormozi-style Captions:
+    - Yellow primary color (Active word)
+    - White secondary color (Inactive/Past words - if using karaoke)
+    - Thicker border and deeper shadow
     """
     with open(src, "r", encoding="utf-8") as f:
         content = f.read()
@@ -382,23 +411,24 @@ def _style_ass(src: str, dst: str):
     else:
         content = content.replace("PlayResX: 1080", "PlayResX: 1080\nPlayResY: 1920", 1)
 
+    # Style: Primary (Yellow), Secondary (White), Outline (Black), Shadow (Black)
     new_style = (
         "Style: Default,"
         "Impact,"
-        "82,"               # Increased from 76 for better readability
-        "&H0000FFFF,"       # Yellow text (BGR: 00 FF FF 00)
-        "&H000000FF,"
-        "&H00000000,"       # Black outline
-        "&H90000000,"
-        "-1,0,0,0,"         # Bold=-1 (enabled), Italic=0, Underline=0, StrikeOut=0
+        "96,"               # Ultra big
+        "&H0000FFFF,"       # Primary: Yellow (BGR: 00 FF FF 00)
+        "&H00FFFFFF,"       # Secondary: White (used for karaoke effects)
+        "&H00000000,"       # Outline: Black
+        "&H90000000,"       # Shadow: Deep semi-transparent black
+        "-1,0,0,0,"         # Bold
         "100,100,"
         "0,"
         "0,"
         "1,"
-        "8,"                # Increased outline from 7 to 8 (thicker black border)
-        "3,"
-        "2,"                # alignment=2 = bottom-center (KEY FIX)
-        "20,20,200,0"       # MarginV=200
+        "14,"               # Massive outline for legibility
+        "6,"                # Deep shadow
+        "2,"                # Bottom-center
+        "20,20,250,0"
     )
 
     if "Style: Default," in content:
@@ -410,7 +440,8 @@ def _style_ass(src: str, dst: str):
         f.write(content)
 
 
-def _split_vtt_to_words(src: str, dst: str, max_words: int = 2):
+def _split_vtt_to_words(src: str, dst: str, max_words: int = 1):
+    """Split VTT into individual words for high-energy highlighting."""
     try:
         with open(src, "r", encoding="utf-8") as f:
             content = f.read()
@@ -456,29 +487,30 @@ def _split_vtt_to_words(src: str, dst: str, max_words: int = 2):
                 continue
 
             text = " ".join(text_lines).strip()
+            # Remove punctuation for cleaner word-by-word
             words = text.split()
             if not words:
                 continue
 
             total_dur = end - start
             per_word_dur = total_dur / max(1, len(words))
-            groups = [words[i:i + max_words] for i in range(0, len(words), max_words)]
             cur_t = start
 
-            for group in groups:
-                group_dur = len(group) * per_word_dur
-                g_end = min(cur_t + group_dur, end)
+            for word in words:
+                g_end = min(cur_t + per_word_dur, end)
+                # Word-by-word: Yellow highlight on current word
+                # Since we use 1 word per cue, it naturally highlights word-by-word
                 new_cues.append(
                     f"{cue_index}\n"
                     f"{_fmt_time(cur_t)} --> {_fmt_time(g_end)}\n"
-                    f"{' '.join(group)}\n"
+                    f"{word.upper()}\n"
                 )
                 cue_index += 1
                 cur_t = g_end
 
         with open(dst, "w", encoding="utf-8") as f:
             f.write("\n".join(new_cues))
-        print(f"✅ Subtitles: {cue_index - 1} cues")
+        print(f"✅ Word-by-word Subtitles: {cue_index - 1} cues")
     except Exception as e:
         print(f"⚠️  VTT split failed ({e}) — using original.")
         shutil.copy(src, dst)

@@ -59,92 +59,71 @@ def _get_model():
 NICHE = "budget gadgets under ₹2000 / $25 that replace expensive products"
 TARGET_AUDIENCE = "16-35 year old Indians who want good tech without overspending"
 
-# ── 5 GENUINELY DIFFERENT script structures ───────────────────────────────────
+# ── 6 GENUINELY DIFFERENT script structures ───────────────────────────────────
 # Each has a different opening move, different viewer psychology, different pacing.
 SCRIPT_STRUCTURES = {
 
-    "PRICE_SHOCK": {
-        "description": "Open with the price gap. That IS the hook.",
+    "STORY_REGRET": {
+        "description": "Start with a painful personal mistake (spending too much). High empathy.",
         "template": (
-            "HOOK (1 sentence, lead with price gap): [₹LOW vs ₹HIGH. One sentence, drop jaws immediately.]\n"
-            "PROOF (2 sentences): [Specific feature or test result. Make it concrete — battery hours, speed, "
-            "a measurement. Not vague praise.]\n"
-            "TRUST (1 sentence): [Amazon reviews / sold count / how long you've used it.]\n"
-            "SAVE CTA (1 sentence): [Save this. or Follow for daily finds like this.]"
+            "HOOK (1 sentence): [I wasted ₹[High Amount] on [Expensive Brand] so you don't have to.]\n"
+            "THE SWITCH (1 sentence): [Instead, I daily-drove this [Price] [Product Name] for 30 days.]\n"
+            "THE REVEAL (2 sentences): [Specific feature comparison. E.g., 'The battery lasted 4 days longer' or 'The build quality is identical metal'.]\n"
+            "LOOP_OUT (1 sentence): [A setup sentence that leads back to the HOOK. e.g., 'I honestly can't believe...']"
         ),
         "example": (
-            "₹499 versus ₹3,500. Same wireless charging speed — I timed it. "
-            "This Portronics pad hits 15W, same as MagSafe, and I've used it daily for 4 months without issues. "
-            "62,000 reviews on Amazon. Save this before you buy Apple's version."
+            "I wasted ₹25,000 on AirPods Pro so you don't have to. "
+            "Instead, I daily-drove these ₹1,799 QCY earbuds for a whole month. "
+            "The active noise cancellation is identical in traffic, and the battery actually lasts two days longer. "
+            "It's painful because I honestly can't believe..."
         )
     },
 
-    "FOUND_IT": {
-        "description": "Discovery frame — you found something most people haven't.",
+    "SECRET_DISCOVERY": {
+        "description": "The 'Tech reviewers are gatekeeping this' angle. Very high curiosity.",
         "template": (
-            "HOOK (1 sentence): [I found / Nobody told me / This exists — present tense discovery.]\n"
-            "WHAT IT IS (1 sentence): [Product name, price, what it does.]\n"
-            "WHY IT MATTERS (2 sentences): [Specific result or comparison. What does it replace? "
-            "How much does that cost?]\n"
-            "CTA (1 sentence): [Follow for more like this. or Save this before they raise the price.]"
+            "HOOK (1 sentence): [Tech reviewers are completely ignoring this ₹[Price] [Gadget Category].]\n"
+            "WHAT IT IS (1 sentence): [It's the [Product Name] and it literally replaces [Expensive Tool].]\n"
+            "PROOF (2 sentences): [Specific result. How does it make life easier? Name a concrete spec.]\n"
+            "LOOP_OUT (1 sentence): [Leads back to the hook. e.g., 'And that's exactly why...']"
         ),
         "example": (
-            "Nobody told me this ₹799 plug existed. "
-            "It's a Tapo P115 smart plug — tracks real-time power usage from your phone. "
-            "I found my TV was wasting ₹300 a month on standby. Turned it off remotely, saved the money instantly. "
-            "Follow for finds like this."
+            "Tech reviewers are completely ignoring this ₹799 smart plug. "
+            "It's the Tapo P115 and it literally replaces a ₹4,000 energy monitor. "
+            "I plugged my old AC into it and found out it was draining ₹500 a month in standby power alone. "
+            "And that's exactly why..."
         )
     },
 
-    "BEFORE_AFTER": {
-        "description": "Problem first, product as the solution. Viewer sees themselves in the problem.",
+    "LONG_TERM_TEST": {
+        "description": "Builds ultimate trust by claiming long-term usage.",
         "template": (
-            "PROBLEM HOOK (1 sentence): [Relatable frustration — spending too much, bad quality, "
-            "common mistake people make.]\n"
-            "THE SWITCH (1 sentence): [I switched to / I found / I tried — product name + price.]\n"
-            "RESULT (2 sentences): [Specific measurable outcome. Numbers preferred. "
-            "How long have you used it?]\n"
-            "CTA (1 sentence): [Save this. or Follow to see what I test next.]"
+            "HOOK (1 sentence): [I've used the [Product Name] every single day for 6 months.]\n"
+            "THE VERDICT (1 sentence): [And it completely ruined my [Expensive Brand Product] for me.]\n"
+            "DETAILS (2 sentences): [Why? Specific spec comparison — weight, speed, durability. Mention the price gap here.]\n"
+            "LOOP_OUT (1 sentence): [Leads back to hook.]"
         ),
         "example": (
-            "I kept paying ₹5,000 for earbuds that died in a year. "
-            "Switched to QCY T13s — ₹1,799. "
-            "Six months later, zero issues, 30-hour battery, and noise cancelling my old ones didn't even have. "
-            "I haven't touched the expensive ones since. Save this."
+            "I've used this Portronics MagSafe charger every single day for 6 months. "
+            "And it completely ruined my Apple charger for me. "
+            "It hits the exact same 15W charging speed, but it costs ₹499 instead of ₹3,500. "
+            "Honestly, I've used..."
         )
     },
 
-    "TEST_RESULT": {
-        "description": "You ran a test. Results are the content. Data builds trust.",
+    "PAIN_POINT": {
+        "description": "Start with a highly relatable daily annoyance.",
         "template": (
-            "SETUP (1 sentence): [I tested / I compared — product at ₹LOW vs ₹HIGH equivalent.]\n"
-            "METHOD (1 sentence): [What specifically did you measure or do?]\n"
-            "RESULT (2 sentences): [The actual number or outcome. Then the conclusion — "
-            "which won and by how much?]\n"
-            "CTA (1 sentence): [Save this. or Follow for more tests.]"
+            "HOOK (1 sentence): [If you hate [Specific Daily Tech Annoyance], you need to see this.]\n"
+            "THE FIX (1 sentence): [This is the ₹[Price] [Product Name].]\n"
+            "RESULT (2 sentences): [How it perfectly solves the annoyance. Concrete details.]\n"
+            "LOOP_OUT (1 sentence): [Leads back to hook.]"
         ),
         "example": (
-            "I timed a ₹499 wireless charger against a ₹3,500 MagSafe charging the same iPhone 13 from zero. "
-            "Both started at the same time. "
-            "₹499 charger finished 4 minutes faster. "
-            "Same 15W chip, different logo, ₹3,000 difference. Save this."
-        )
-    },
-
-    "DONT_BUY_YET": {
-        "description": "Warning frame — stops scroll because viewer might be about to make a mistake.",
-        "template": (
-            "WARNING HOOK (1 sentence, under 6 words): [Don't buy [product] yet. Stop. Wait.]\n"
-            "WHY (1 sentence): [The expensive version has a cheaper alternative that works just as well.]\n"
-            "THE ALTERNATIVE (2 sentences): [Product name, exact price, key specs. "
-            "One specific proof point — review count, test result, personal use.]\n"
-            "CTA (1 sentence): [Save this before you order. or Follow for daily tech finds.]"
-        ),
-        "example": (
-            "Don't buy AirPods yet. "
-            "There's a ₹1,799 version that I genuinely cannot tell apart in a blind listen test. "
-            "QCY T13 — noise cancelling, 30hr battery, 6 million sold worldwide. "
-            "Save this before you spend ₹20,000."
+            "If you hate your phone dying at 2 PM, you need to see this. "
+            "This is the ₹999 Ambrane 10000mAh mini power bank. "
+            "It's the size of a credit card, snaps right to the back of your phone, and charges it to 100% in 45 minutes. "
+            "Seriously, if you hate..."
         )
     }
 }
@@ -222,46 +201,34 @@ VISUAL INSTRUCTIONS — be VERY specific:
   indicator glowing green, MagSafe box visible in background with ₹3,499 tag]"
 - FIRST VISUAL must be the "payoff" — the product in action, not a setup.
 
-TITLE RULES:
-- DO NOT use the words "STOP", "WAIT", or "WARNING".
-- MAX 60 CHARACTERS total for the YouTube Short title.
-- FORMATS: Use formats like 'Gadget Swap', or 'This [Price] [Gadget] [Action Word] [Expensive Brand]'.
-- FOCUS: Always focus on the money saved or the specific problem solved.
-- PRICE IN TITLE: You MUST mention ₹ (Rupees) in the title.
-- exactly ONE emoji at the very end: it MUST be the 🛑 emoji to build the brand signature.
-- NO hashtags in title (they go in description only)
-- NO sensational positive verbs (see banned list above)
-
 PRODUCT_NAME RULE (CRITICAL):
 - Identify the specific brand and model from the topic (e.g., "Portronics PAT", "OnePlus 13", "Samsung Galaxy Buds").
 - The SCRIPT body MUST mention the product name IN THE FIRST OR SECOND SENTENCE.
 - DO NOT say "this gadget" or "this device" — SAY THE ACTUAL PRODUCT NAME.
-- Wrong: "This ₹499 gadget works great..."
-- Correct: "This ₹499 Portronics charger works great..."
-- The product name should appear at least once in the narrated script text.
+
+SEAMLESS LOOP RULE (CRITICAL):
+- The last sentence of the script (LOOP_OUT) MUST end in a way that leads perfectly back to the first word of the hook.
+- Example: 
+  Hook: "₹499 versus ₹3,500..." 
+  Loop_out: "...so stop overpaying for brands just for"
+  Result: When the video ends, it loops back to "₹499 vs ₹3,500..." seamlessly.
 
 OUTPUT FORMAT (exact keys, no extra text):
 PRODUCT_NAME: [specific brand and model name]
 TITLE: [UNDER 60 CHARS, FOCUS ON MONEY SAVED OR PROBLEM SOLVED, 1 EMOJI AT END]
-HOOK_LINE: [first sentence only, under 6 words, NO banned verbs]
+HOOK_LINE: [first sentence only, under 6 words]
 HOOK_STYLE: [{structure_name}]
-SCRIPT: [50-65 words, MENTION PRODUCT NAME in first 2 sentences, follow the structure template above]
+SCRIPT: [50-65 words, SEAMLESS LOOP REQUIRED, mention product name in first 2 sentences]
 VISUAL_INSTRUCTIONS:
 [Script line 1] -> Visual: [Specific Object + Action + Context]
 [Script line 2] -> Visual: [Specific Object + Action + Context]
 [continue for every line]
 TAGS: [Exactly 3 hashtags chosen ONLY from this list: #tech, #techessentials, #budgettech, #smartgadgets, #techreview. NO OTHER TAGS ALLOWED.]
-DESCRIPTION: [Generate a FULL YouTube description for this specific video. Follow this EXACT structure:
-Line 1: The video title (without hashtags or emoji) — for Metadata Reinforcement.
-Line 2: A HUMAN sentence about THIS specific product and its price. Sound like a real person, NOT marketing copy. Example: "In this video, we test this ₹1,299 car vacuum to see if it actually works or if it is just a waste of money."
-Line 3: A fun, topic-relevant engagement question using the ACTUAL price from the video. Example for car vacuum: "₹1,299 for this, or just use a cloth? 😂 Tell me your car cleaning hack! 👇" — The question MUST be about THIS product's category, NOT random.
-Line 4: "Subscribe — I find these hidden tech gems every day! 🔔 @Tech8ytees"
-Line 5: Exactly 3 hashtags chosen ONLY from this list: #tech, #techessentials, #budgettech, #smartgadgets, #techreview. NO OTHER TAGS ALLOWED.
-NO #Shorts anywhere in the description. NO robotic text. NO boilerplate.]
-THUMBNAIL_TEXT: [2-3 words ALL CAPS — comparison or price gap]
+DESCRIPTION: [Generate a FULL YouTube description for this specific video.]
+THUMBNAIL_TEXT: [2-3 words ALL CAPS]
 CAPTION_HOOK: [1 punchy sentence for Instagram]
-PINNED_COMMENT: [A "Price vs. Value War" comment relevant to THIS product. Format: "Is ₹[PRICE] too much for this [PRODUCT CATEGORY]? Or is it a total Paisa-Vasool deal? 👇\nSubscribe — I find these hidden tech gems every day! 🔔" — The price and product category MUST match the video topic exactly.]
-QUESTION: [1 controversial/opinionated question relevant to THIS specific product to drive comments. Must be about the product's category — e.g. for a car vacuum: "Vacuum or cloth for your car interior?" NOT random like "Petrol or Diesel?"]
+PINNED_COMMENT: [Engagement question for comments]
+QUESTION: [Controversial/opinionated question relevant to THIS specific product]
 """
 
     try:

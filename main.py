@@ -55,6 +55,26 @@ def download_bgm():
     return False
 
 
+def download_whoosh_sound():
+    target = "assets/whoosh.mp3"
+    if os.path.exists(target):
+        return True
+    print("💨 Downloading whoosh sound...")
+    os.makedirs("assets", exist_ok=True)
+    # Using a short, clean transition whoosh
+    url = "https://assets.mixkit.co/active_storage/sfx/2568/2568.mp3"
+    try:
+        resp = requests.get(url, timeout=15)
+        if resp.status_code == 200:
+            with open(target, "wb") as f:
+                f.write(resp.content)
+            print(f"   ✅ Saved to {target}")
+            return True
+    except Exception:
+        pass
+    return False
+
+
 def main():
     if sys.platform == "win32":
         import io
@@ -69,6 +89,7 @@ def main():
         # ── 0. Assets ────────────────────────────────────────────────────────
         download_impact_sound()
         download_bgm()
+        download_whoosh_sound()
 
         # ── 1. Topic (returns topic + category for diversity enforcement) ────
         # idea_bank now returns (topic, category) to prevent same-category
@@ -105,19 +126,28 @@ def main():
             print("❌ Voiceover failed. Exiting.")
             sys.exit(1)
 
-        # ── 5. Background clips ───────────────────────────────────────────────
+        # ── 5. Background clips & AI Hook Visual ──────────────────────────────
         product_name = parsed.get("product_name")
-        print(f"🎬 Fetching clips for: {parsed['title']}")
-        bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=10)
-
-        if not bg_clips or len(bg_clips) < 2:
-            print("⚠️ Not enough background clips found. Falling back to AI image generation...")
-            from src.generators.image_gen import generate_product_image
-            gen_img = generate_product_image(product_name, topic)
-            if gen_img:
-                # Provide multiple copies of the image so composer creates a full length video
-                # Composer will add Ken-Burns zoom effect to each "clip" and flash transitions between them
-                bg_clips = [gen_img] * 6
+        print(f"🎬 Fetching clips & generating AI hook for: {parsed['title']}")
+        
+        # Always generate a high-end AI product image for the critical first 3 seconds (Hook)
+        from src.generators.image_gen import generate_product_image
+        ai_hook_img = generate_product_image(product_name, topic)
+        
+        # Fetch supporting B-roll from Pexels
+        bg_clips = fetch_background_clips(topic, product_name=product_name, num_clips=8)
+        
+        if ai_hook_img:
+            # Inject the high-quality AI image as the very first clip (and duplicate it once for pacing)
+            bg_clips = [ai_hook_img, ai_hook_img] + (bg_clips or [])
+            
+        if not bg_clips or len(bg_clips) < 3:
+            print("⚠️ Not enough clips found. Falling back to pure AI image generation...")
+            if ai_hook_img:
+                bg_clips = [ai_hook_img] * 6
+            else:
+                print("❌ Both AI image generation and Pexels failed. Exiting.")
+                sys.exit(1)
 
         # ── 6. Video composition ──────────────────────────────────────────────
         video_ok = create_video(
